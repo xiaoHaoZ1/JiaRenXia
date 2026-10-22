@@ -1,0 +1,158 @@
+/* 称谓推导演示样式（KinshipDemo.tsx，用于帮助页）。原为首页 home-kin 区域，
+   移出后容器改为 .kin-demo，规则不变。 */
+
+.kin-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  grid-template-areas:
+    "head  stage"
+    "chips stage"
+    "foot  stage";
+  align-content: center;
+  column-gap: clamp(28px, 5vw, 64px);
+}
+.kin-head { grid-area: head; }
+.kin-chips { grid-area: chips; }
+.kin-stage { grid-area: stage; align-self: center; }
+.kin-foot { grid-area: foot; }
+.kin-demo .lead { margin: 0 0 1.3em; color: var(--text-2); font-size: 18px; }
+.kin-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.kin-chip {
+  min-height: 44px;
+  padding: 0 1.1em;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.kin-chip:hover { border-color: var(--primary); }
+/* 选中态与 App 的筛选胶囊一致：淡主色底、无描边 */
+.kin-chip[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--primary-bg);
+  color: var(--on-primary-bg);
+  font-weight: 600;
+}
+.kin-foot { margin: 1.4em 0 0; color: var(--text-2); font-size: 14px; }
+
+.kin-stage {
+  padding: clamp(24px, 3.5vw, 44px) clamp(20px, 3vw, 36px);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  text-align: center;
+}
+.kin-chain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.kin-node {
+  width: 68px;
+  height: 68px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--border);
+}
+.kin-node.is-me {
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4.5px var(--primary);
+}
+.kin-node.is-target {
+  background: var(--primary-bg);
+  color: var(--on-primary-bg);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4.5px var(--primary);
+}
+/* 节点之间：上面一个"的"字，下面一条短线 */
+.kin-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  color: var(--outline);
+  font-size: 14px;
+  line-height: 1;
+}
+.kin-link::after {
+  content: "";
+  width: 30px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--border);
+}
+.kin-result {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--border);
+  animation: jrx-rise 0.35s ease-out;
+}
+.kin-ask { margin: 0; color: var(--text-2); }
+.kin-title {
+  margin: 0.05em 0 0.1em;
+  color: var(--primary);
+  font-size: clamp(46px, 3.6vw + 22px, 68px);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.1em;
+}
+.kin-title.is-unknown {
+  color: var(--outline);
+  font-size: clamp(32px, 2.2vw + 18px, 46px);
+  letter-spacing: 0.04em;
+}
+.kin-hint {
+  display: inline-block;
+  padding: 0.2em 0.9em;
+  border-radius: 999px;
+  background: var(--secondary-bg);
+  color: var(--on-secondary-bg);
+  font-size: 14px;
+}
+.kin-note {
+  max-width: 24em;
+  margin: 0.9em auto 0;
+  color: var(--text-2);
+  font-size: 15px;
+}
+@keyframes jrx-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 称谓：灰色小字，与 App 的称谓样式一致（演示外的页面元素也用） */
+.kin-pill {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.8;
+}
+
+/* 帮助页卡片内宽度的排版：窄栏下演示整体上下排 */
+@media (max-width: 720px) {
+  .kin-demo {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "head" "chips" "stage" "foot";
+  }
+  .kin-stage { margin-top: 24px; }
+  .kin-node { width: 56px; height: 56px; font-size: 15px; }
+  .kin-link::after { width: 18px; }
+}
+@media (max-width: 420px) {
+  .kin-node { width: 48px; height: 48px; font-size: 14px; }
+  .kin-link::after { width: 12px; }
+  .kin-chain { gap: 2px; }
+}

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#fdf8f2" />
+    <!-- 百度移动适配提示：同一套页面同时适配电脑与手机 -->
+    <meta name="applicable-device" content="pc,mobile" />
+    <!-- 位图图标是给不认 SVG 的一方准备的（百度/360 的搜索结果、微信、旧浏览器） -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- 标题、摘要、canonical、og 与结构化数据由 scripts/prerender.mjs 在构建时写入；
+         开发模式下为空，由 src/head.ts 在挂载后补齐 -->
+    <!--app-head-->
+  </head>
+  <body>
+    <div id="root"><!--app-html--></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

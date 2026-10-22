@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 插件 loading 占位背景：暖白圆角，与应用底色一致 -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FBF8F5" />
+    <corners android:radius="16dp" />
+</shape>

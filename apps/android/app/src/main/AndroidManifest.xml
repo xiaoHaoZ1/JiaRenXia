@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 生日提醒通知（Android 13+ 需要运行时申请；无精确闹钟） -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- 「联网检查更新」（默认关）：仅用于查 jiarenxia-version.json 与下载 APK。
+         不开启则 App 完全不走网络。REQUEST_INSTALL_PACKAGES 供 App 内装包用，
+         用户仍要在系统「安装未知应用」里单独授权。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <application
+        android:name=".JiaRenXiaApp"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.JiaRenXia">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- 家人共享接收（FAMILY_AFFAIRS 9）：content 的 .jrxb。
+                 不注册 */*，避免出现在所有文件的“打开方式”里；
+                 微信实际传来的 MIME 需真机核对（见 AGENTS.md）。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content"
+                      android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="application/octet-stream" />
+            </intent-filter>
+            <!-- 文本分享接收（微信等“分享 → 家人侠”）：EXTRA_TEXT 预填家事编辑页，
+                 本机解析、用户确认后落库，不上传。MIME 放宽 text/*（微信各版本
+                 可能给 text/plain 之外的文本类型），SEND_MULTIPLE 覆盖多选转发；
+                 application/zip 覆盖微信「转发→其他应用」的聊天记录 zip 导出，
+                 本机解压取文本（见 ChatRecordZip）。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/*" />
+                <data android:mimeType="application/zip" />
+                <data android:mimeType="application/x-zip-compressed" />
+            </intent-filter>
+        </activity>
+
+        <!-- 家人共享导出：FileProvider 把 cacheDir/share 的文件给微信等 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share-provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- 桌面插件「家事时间线」：未解锁时由 directBootAware 渲染占位 -->
+        <receiver
+            android:name=".widget.JrxWidgetReceiver"
+            android:exported="false"
+            android:label="@string/widget_affairs_name"
+            android:directBootAware="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/jrx_widget_info" />
+        </receiver>
+
+        <!-- GlanceRemoteViewsService 由 glance 库清单自带（BIND_REMOTEVIEWS 保护），
+             未解锁时插件只画占位、不触碰该服务，无需重复声明 -->
+
+        <!-- 移除 WorkManager 默认初始化器，改由 JiaRenXiaApp 注入 HiltWorkerFactory -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+    </application>
+</manifest>

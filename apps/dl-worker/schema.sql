@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS daily (
+  day TEXT NOT NULL,
+  file TEXT NOT NULL,
+  src TEXT NOT NULL,
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, file, src)
+);

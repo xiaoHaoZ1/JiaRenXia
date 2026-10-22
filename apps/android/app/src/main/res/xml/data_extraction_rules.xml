@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+ 数据提取规则：
+     云备份排除全部数据域（含设备加密存储区）；
+     设备间迁移保留家庭数据，但排除设备加密存储区中的守护配置（守护只属于这台手机，换机后需重新设置） -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
+        <!-- 协作改版：私有接收暂存（collab_incoming）与含本机密钥的
+             快速存档/接收前副本（quick_snapshots）不随换机迁移；
+             密钥换机即失效，带过去也解不开 -->
+        <exclude domain="file" path="collab_incoming" />
+        <exclude domain="file" path="quick_snapshots" />
+    </device-transfer>
+</data-extraction-rules>

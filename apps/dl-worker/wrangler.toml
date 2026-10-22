@@ -1,0 +1,13 @@
+name = "jrx-dl"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+routes = [ { pattern = "dl.jiarenxia.com", custom_domain = true } ]
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "jrx-download"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jrx-stats"
+database_id = "975fcdf7-cbcb-484e-a712-91c8b5712a46"

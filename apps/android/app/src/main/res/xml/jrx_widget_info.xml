@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 家事时间线插件：默认 4x2，纵向可缩；系统 30 分钟周期兜底刷新，
+     写库后另有 WidgetRefresh 即时刷新 -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2"
+    android:minResizeHeight="80dp"
+    android:resizeMode="vertical"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/jrx_widget_loading"
+    android:description="@string/widget_affairs_desc"
+    android:widgetCategory="home_screen" />

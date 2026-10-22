@@ -1,0 +1,22 @@
+# 家人侠官网：欢迎所有搜索引擎收录全站。
+#
+# 注意：Cloudflare 的「托管 robots.txt」（Security → Configure AI bot policies /
+# AI Crawl Control）会把它生成的规则拼在本文件前面，其中包含
+#   User-agent: Baiduspider
+#   Disallow: /
+# 并且会在边缘直接用 403 挡掉百度蜘蛛。必须在 Cloudflare 后台关掉该功能，
+# 否则下面的放行规则救不了——百度永远抓不到本站。
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+User-agent: bingbot
+Allow: /
+
+User-agent: *
+Allow: /
+
+Sitemap: https://jiarenxia.com/sitemap.xml

@@ -1,0 +1,15 @@
+/* 帮助页图文教程：一节一张截图 + 一段说明 + 跟着点的步骤。
+   给不太会用智能手机的长辈看：图要大、话要短、一屏只讲一件事。 */
+
+.help-sec { display: flex; gap: 1.4em; align-items: flex-start; }
+.help-sec .phone { flex: none; --phone-w: 216px; --bezel: 8px; }
+.help-sec h3 { margin-top: 0; }
+.help-sec p { margin-bottom: 0.5em; }
+.help-steps { margin: 0.4em 0 0; padding-left: 1.2em; }
+.help-steps li { margin: 0.3em 0; }
+
+@media (max-width: 720px) {
+  /* 手机上一列排开：先图后字，图居中 */
+  .help-sec { flex-direction: column; align-items: center; }
+  .help-sec > div { width: 100%; }
+}

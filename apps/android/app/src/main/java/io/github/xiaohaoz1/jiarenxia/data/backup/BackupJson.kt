@@ -1,0 +1,999 @@
+package io.github.xiaohaoz1.jiarenxia.data.backup
+
+import io.github.xiaohaoz1.jiarenxia.core.model.CalendarType
+import io.github.xiaohaoz1.jiarenxia.core.model.Gender
+import io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType
+import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
+import io.github.xiaohaoz1.jiarenxia.core.model.PhoneLabel
+import io.github.xiaohaoz1.jiarenxia.core.model.PhoneStatus
+import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
+import io.github.xiaohaoz1.jiarenxia.core.model.RelativeAgeOrder
+import io.github.xiaohaoz1.jiarenxia.data.db.CustomTitleEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ImportantDateEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.PersonEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.PhoneNumberEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.RelationshipEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ReminderOffsetEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ReminderPreferenceEntity
+import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.InputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** 备份/恢复摘要（数量与元信息）。 */
+data class BackupSummary(
+    val createdAt: Long?,
+    val appVersion: String?,
+    val persons: Int,
+    val relationships: Int,
+    val birthdays: Int,
+    val avatars: Int,
+    /** 家庭事项条数（schemaVersion 4 新增）。 */
+    val tasks: Int = 0,
+    /** 纪念日和忌日合计（schemaVersion 7）。 */
+    val anniversaries: Int = 0,
+    /** 备份中的“我”的姓名（未设时为 null）。 */
+    val selfName: String?
+)
+
+/** 备份内的设置（不含每日检查运行状态与通知权限标记）。 */
+data class BackupSettings(
+    val themeMode: ThemeMode,
+    val remindersEnabled: Boolean,
+    /** 应用内字体大小级别名（可选；缺失/未知 → 标准，不算校验错误）。 */
+    val fontScale: String? = null,
+    /** 旧版称谓叫法（该设置已移除）：仅为兼容旧备份保留字段，恢复时忽略。 */
+    val titleStyle: String? = null,
+    /** 生日与纪念日提醒时刻（一天内分钟数，可选；缺失/越界 → 保留当前设置）。 */
+    val reminderMinuteOfDay: Int? = null,
+    /** 家庭事项提醒时刻（schemaVersion 11；缺失/越界 → 保留当前设置）。 */
+    val taskReminderMinuteOfDay: Int? = null,
+    /** 联系提醒时刻（schemaVersion 11；缺失/越界 → 保留当前设置）。 */
+    val contactReminderMinuteOfDay: Int? = null,
+    /** 家庭事项提醒开关（schemaVersion 4；缺失 → 保留当前设置）。 */
+    val taskRemindersEnabled: Boolean? = null,
+    /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
+     *  仅为兼容旧备份保留字段，恢复时忽略。 */
+    val licenseCode: String? = null
+)
+
+/** 版本链一环：某次确认版的版本号/快照哈希/父版哈希。 */
+data class ChainLink(
+    val revision: Int,
+    val hash: String,
+    val parentHash: String?
+)
+
+/**
+ * 协作元数据（purpose="share" 且带 collaboration 对象 → schemaVersion=12）。
+ *
+ * mode="confirmed"：汇总者发布的确认版（完整名册）。
+ * mode="contribution"：成员发回的补充（自带基准快照与 id 映射）。
+ */
+data class CollabMeta(
+    val mode: String,
+    val seriesId: String,
+    /** 汇总者人物的名册规范 id。 */
+    val coordinatorPersonId: String,
+    /** 逻辑包标识：同 packageId 不允许内容不同。 */
+    val packageId: String,
+    /** confirmed：目标版本号；contribution：固定 0。 */
+    val revision: Int,
+    val parentRevision: Int?,
+    val parentHash: String?,
+    /** confirmed：该版快照哈希。 */
+    val snapshotHash: String?,
+    /** 已发布版本链（含本版），供连续性/跳版本校验。 */
+    val revisionChain: List<ChainLink>,
+    /** contribution：发送方基准（确认版）版本号/哈希/完整快照。 */
+    val baseRevision: Int?,
+    val baseHash: String?,
+    val baseSnapshot: String?,
+    /** contribution：名册规范 id → 发送方本机 id（区分“已绑定”与“新人物”）。 */
+    val idMap: Map<String, String>,
+    /** 范围声明：协作包固定 "full"（完整名册），部分分享不写协作元数据。 */
+    val scope: String,
+    /** contribution：发送方姓名（“来自 X 的补充”标题用；confirmed 为 null）。 */
+    val sender: String? = null
+)
+
+/** 个人备份内的协作状态段（schemaVersion 12；v11 备份没有该段）。 */
+data class CollabStateDto(
+    val state: io.github.xiaohaoz1.jiarenxia.data.db.FamilyCollabStateEntity,
+    val publications: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyPublicationEntity>,
+    val localOnly: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity>,
+    /** 已处理包记录（APPLIED；待处理草稿与加密副本不进备份）。 */
+    val appliedPackages: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyReceiveDraftEntity>
+)
+
+/** 解密并校验后的恢复计划：可直接 apply。 */
+data class RestorePlan(
+    val summary: BackupSummary,
+    val persons: List<PersonEntity>,
+    val phones: List<PhoneNumberEntity>,
+    val relationships: List<RelationshipEntity>,
+    val importantDates: List<ImportantDateEntity>,
+    /** prefs 与其偏移（写入时 prefs 在前、offsets 各自展开）。 */
+    val prefs: List<Pair<ReminderPreferenceEntity, List<ReminderOffsetEntity>>>,
+    /** 自定义称呼（schemaVersion 3 新增；2 导入时为空表）。 */
+    val customTitles: List<CustomTitleEntity> = emptyList(),
+    /** 家庭事项与其提前天数（schemaVersion 4 新增；低版本导入时为空表）。 */
+    val tasks: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity,
+            List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity>>> = emptyList(),
+    // A6（2026-10-20）：人情/保单退出，新备份不再写 giftEvents/giftRecords/
+    // policies；读旧备份时这些字段被忽略，不再解析恢复。
+    /** 联系记录与联系周期（schemaVersion 8；低版本导入时为空表）。 */
+    val contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity> = emptyList(),
+    val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
+    val settings: BackupSettings?,
+    /** 头像文件名 → 字节。 */
+    val avatars: Map<String, ByteArray>,
+    /** 文件用途："backup"（默认，旧文件没有该字段）或 "share"（家人共享）。 */
+    val purpose: String = "backup",
+    /** 家人共享：分享者“我”的 personId。 */
+    val sharedBy: String? = null,
+    /**
+     * 人物来源标注：personId → 当初收到此人物时的来源 id（原为碰一碰资料包
+     * 字段，碰一碰已于 2026-10-21 删除，现恒为空）。对方据此识别
+     * 回环资料不会产生重复人物，也不需再次确认候选。
+     */
+    val personOrigins: Map<String, String> = emptyMap(),
+    /** 协作元数据（purpose="share" 的协作包才有；普通共享/备份为 null）。 */
+    val collaboration: CollabMeta? = null,
+    /** 协作包人物 id → 头像内容哈希（person.avatarHash 字段）。 */
+    val avatarHashes: Map<String, String> = emptyMap(),
+    /** 个人备份的协作状态（schemaVersion 12；低版本为 null）。 */
+    val collabState: CollabStateDto? = null
+)
+
+/**
+ * 备份负载：ZIP[backup.json + avatars 目录下头像]（java.util.zip + org.json，纯 JVM）。
+ * 解析侧先做全部校验，不触碰任何持久数据；失败一律抛 [BackupCrypto.BackupFailure]。
+ */
+object BackupJson {
+
+    const val FORMAT = "jiarenxia-backup"
+    const val FORMAT_VERSION = 1
+    // v9：生日类型拆分为 BIRTHDAY_SOLAR / BIRTHDAY_LUNAR（双生日）
+    // v10：重要日期新增 LICENSE_ANNIVERSARY / DATING_ANNIVERSARY（领证/恋爱纪念日）
+    // v11：提醒时间拆分为生日 / 事项 / 联系各自独立（新增两个时刻字段）
+    // v12：协作包元数据（collaboration 对象）与个人备份内的协作状态段。
+    //   旧 App（只认 ≤11）打开协作包/含协作状态的备份会按“版本过新”拒绝。
+    const val SCHEMA_VERSION = 11
+    const val COLLAB_SCHEMA_VERSION = 12
+    /** 解析上限：比本地写出版本高的文件拒绝（更高版本的旧 App 兼容策略）。 */
+    const val MAX_SUPPORTED_VERSION = COLLAB_SCHEMA_VERSION
+    private const val MAX_UNCOMPRESSED = 200L * 1024 * 1024
+    /** 协作元数据（含嵌入基准快照）大小上限。 */
+    private const val MAX_COLLAB_META = 8L * 1024 * 1024
+    private val AVATAR_NAME = Regex("[A-Za-z0-9_.-]+")
+
+    // ---------- 写出 ----------
+
+    fun writeZip(
+        persons: List<PersonEntity>,
+        phones: List<PhoneNumberEntity>,
+        relationships: List<RelationshipEntity>,
+        dates: List<ImportantDateEntity>,
+        prefs: List<Pair<ReminderPreferenceEntity, List<ReminderOffsetEntity>>>,
+        customTitles: List<CustomTitleEntity>,
+        tasks: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity,
+                List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity>>> = emptyList(),
+        contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity> = emptyList(),
+        contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
+        settings: BackupSettings?,
+        avatars: Map<String, ByteArray>,
+        createdAt: Long,
+        appVersion: String,
+        /** "backup"（默认）或 "share"（家人共享文件）。 */
+        purpose: String = "backup",
+        /** 家人共享：分享者“我”的 personId。 */
+        sharedBy: String? = null,
+        /** 人物来源标注（原为碰一碰资料包字段；共享/备份不再写出，恒为空）。 */
+        personOrigins: Map<String, String> = emptyMap(),
+        /** 协作包元数据（purpose="share" 且非空 → schemaVersion=12）。 */
+        collaboration: CollabMeta? = null,
+        /** 协作包：人物 id → 头像内容 sha256（写进 person.avatarHash）。 */
+        avatarHashes: Map<String, String> = emptyMap(),
+        /** 个人备份的协作状态（非空 → schemaVersion=12）。 */
+        collabState: CollabStateDto? = null
+    ): ByteArray {
+        val schemaVersion = if (collaboration != null || collabState != null)
+            COLLAB_SCHEMA_VERSION else SCHEMA_VERSION
+        val json = JSONObject()
+        json.put("format", FORMAT)
+        json.put("formatVersion", FORMAT_VERSION)
+        json.put("schemaVersion", schemaVersion)
+        json.put("createdAt", createdAt)
+        json.put("appVersion", appVersion)
+        json.put("purpose", purpose)
+        sharedBy?.let { json.put("sharedBy", it) }
+        collaboration?.let { m ->
+            json.put("collaboration", JSONObject().apply {
+                put("mode", m.mode)
+                put("seriesId", m.seriesId)
+                put("coordinatorPersonId", m.coordinatorPersonId)
+                put("packageId", m.packageId)
+                put("revision", m.revision)
+                put("parentRevision", m.parentRevision ?: JSONObject.NULL)
+                put("parentHash", m.parentHash ?: JSONObject.NULL)
+                put("snapshotHash", m.snapshotHash ?: JSONObject.NULL)
+                put("revisionChain", JSONArray().apply {
+                    m.revisionChain.forEach { c ->
+                        put(JSONObject().apply {
+                            put("revision", c.revision)
+                            put("hash", c.hash)
+                            put("parentHash", c.parentHash ?: JSONObject.NULL)
+                        })
+                    }
+                })
+                put("baseRevision", m.baseRevision ?: JSONObject.NULL)
+                put("baseHash", m.baseHash ?: JSONObject.NULL)
+                put("baseSnapshot", m.baseSnapshot ?: JSONObject.NULL)
+                put("idMap", JSONObject().apply {
+                    m.idMap.forEach { (k, v) -> put(k, v) }
+                })
+                put("scope", m.scope)
+                m.sender?.let { put("sender", it) }
+            })
+        }
+        collabState?.let { s ->
+            json.put("collabState", collabStateJson(s))
+        }
+
+        json.put("persons", JSONArray().apply {
+            persons.forEach { p ->
+                put(JSONObject().apply {
+                    put("id", p.id); put("name", p.name); put("gender", p.gender.name)
+                    personOrigins[p.id]?.let { put("oid", it) }
+                    avatarHashes[p.id]?.let { put("avatarHash", it) }
+                    p.avatarPath?.let { put("avatarFile", it.removePrefix("avatars/")) }
+                    p.note?.let { put("note", it) }
+                    put("livingStatus", p.livingStatus.name)
+                    put("isSelf", p.isSelf)
+                    put("createdAt", p.createdAt); put("updatedAt", p.updatedAt)
+                })
+            }
+        })
+        json.put("phones", JSONArray().apply {
+            phones.forEach { ph ->
+                put(JSONObject().apply {
+                    put("id", ph.id); put("personId", ph.personId); put("number", ph.number)
+                    put("label", ph.label.name); put("status", ph.status.name)
+                    put("isPrimary", ph.isPrimary)
+                    ph.note?.let { put("note", it) }
+                    put("createdAt", ph.createdAt); put("updatedAt", ph.updatedAt)
+                })
+            }
+        })
+        json.put("relationships", JSONArray().apply {
+            relationships.forEach { r ->
+                put(JSONObject().apply {
+                    put("id", r.id); put("sourcePersonId", r.sourcePersonId)
+                    put("targetPersonId", r.targetPersonId); put("type", r.type.name)
+                    r.relativeAgeOrder?.let { put("relativeAgeOrder", it.name) }
+                    put("createdAt", r.createdAt); put("updatedAt", r.updatedAt)
+                })
+            }
+        })
+        json.put("importantDates", JSONArray().apply {
+            dates.forEach { d ->
+                put(JSONObject().apply {
+                    put("id", d.id); put("personId", d.personId); put("type", d.type.name)
+                    d.year?.let { put("year", it) }
+                    put("month", d.month); put("day", d.day)
+                    put("calendarType", d.calendarType.name)
+                    put("isLeapMonth", d.isLeapMonth)
+                    d.note?.let { put("note", it) }
+                    put("createdAt", d.createdAt); put("updatedAt", d.updatedAt)
+                })
+            }
+        })
+        json.put("reminderPreferences", JSONArray().apply {
+            prefs.forEach { (pref, offsets) ->
+                put(JSONObject().apply {
+                    put("id", pref.id); put("importantDateId", pref.importantDateId)
+                    put("enabled", pref.enabled)
+                    put("offsets", JSONArray().apply { offsets.forEach { put(it.daysBefore) } })
+                    put("createdAt", pref.createdAt); put("updatedAt", pref.updatedAt)
+                })
+            }
+        })
+        json.put("customTitles", JSONArray().apply {
+            customTitles.forEach { c ->
+                put(JSONObject().apply {
+                    put("id", c.id); put("observerPersonId", c.observerPersonId)
+                    put("targetPersonId", c.targetPersonId); put("title", c.title)
+                    put("createdAt", c.createdAt); put("updatedAt", c.updatedAt)
+                })
+            }
+        })
+        json.put("familyTasks", JSONArray().apply {
+            tasks.forEach { (task, offsets) ->
+                put(JSONObject().apply {
+                    put("id", task.id); put("personId", task.personId ?: JSONObject.NULL)
+                    put("kind", task.kind); put("title", task.title)
+                    put("anchorEpochDay", task.anchorEpochDay)
+                    put("repeat", task.repeat); put("periodIndex", task.periodIndex)
+                    task.lastDoneEpochDay?.let { put("lastDoneEpochDay", it) }
+                    put("done", task.done)
+                    task.amountFen?.let { put("amountFen", it) }
+                    task.note?.let { put("note", it) }
+                    put("enabled", task.enabled)
+                    task.remindMinutes?.let { put("remindMinutes", it) }
+                    put("offsets", JSONArray().apply {
+                        offsets.sortedBy { it.daysBefore }.forEach { put(it.daysBefore) }
+                    })
+                    put("createdAt", task.createdAt); put("updatedAt", task.updatedAt)
+                })
+            }
+        })
+        json.put("contactLogs", JSONArray().apply {
+            contactLogs.forEach { e ->
+                put(JSONObject().apply {
+                    put("id", e.id); put("personId", e.personId)
+                    put("atMillis", e.atMillis); put("method", e.method)
+                    e.note?.let { put("note", it) }
+                    put("createdAt", e.createdAt)
+                })
+            }
+        })
+        json.put("contactPlans", JSONArray().apply {
+            contactPlans.forEach { e ->
+                put(JSONObject().apply {
+                    put("personId", e.personId)
+                    put("intervalDays", e.intervalDays)
+                    put("createdAt", e.createdAt); put("updatedAt", e.updatedAt)
+                })
+            }
+        })
+        settings?.let {
+            json.put("settings", JSONObject()
+                .put("themeMode", it.themeMode.name)
+                .put("remindersEnabled", it.remindersEnabled)
+                .put("fontScale", it.fontScale ?: JSONObject.NULL)
+                .put("titleStyle", it.titleStyle ?: JSONObject.NULL)
+                .put("reminderMinuteOfDay", it.reminderMinuteOfDay ?: JSONObject.NULL)
+                .put("taskReminderMinuteOfDay", it.taskReminderMinuteOfDay ?: JSONObject.NULL)
+                .put("contactReminderMinuteOfDay", it.contactReminderMinuteOfDay ?: JSONObject.NULL)
+                .put("taskRemindersEnabled", it.taskRemindersEnabled ?: JSONObject.NULL)
+                .put("licenseCode", it.licenseCode ?: JSONObject.NULL))
+        }
+
+        val out = ByteArrayOutputStream()
+        ZipOutputStream(out).use { z ->
+            z.putNextEntry(ZipEntry("backup.json"))
+            z.write(json.toString().toByteArray(Charsets.UTF_8))
+            z.closeEntry()
+            avatars.forEach { (name, bytes) ->
+                z.putNextEntry(ZipEntry("avatars/$name"))
+                z.write(bytes)
+                z.closeEntry()
+            }
+        }
+        return out.toByteArray()
+    }
+
+    /** 协作状态段 → JSON（个人备份 schemaVersion 12）。 */
+    private fun collabStateJson(s: CollabStateDto): JSONObject = JSONObject().apply {
+        val st = s.state
+        put("state", JSONObject().apply {
+            put("seriesId", st.seriesId)
+            put("role", st.role)
+            put("coordinatorPersonId", st.coordinatorPersonId)
+            put("acceptedRevision", st.acceptedRevision)
+            put("acceptedHash", st.acceptedHash)
+            put("baseSnapshotJson", JSONObject(st.baseSnapshotJson))
+            put("idMap", JSONObject(st.idMapJson))
+            put("removedIds", JSONArray(st.removedIdsJson))
+            put("updatedAt", st.updatedAt)
+        })
+        put("publications", JSONArray().apply {
+            s.publications.forEach { p ->
+                put(JSONObject().apply {
+                    put("revision", p.revision)
+                    put("packageId", p.packageId)
+                    put("snapshotHash", p.snapshotHash)
+                    put("parentRevision", p.parentRevision)
+                    put("parentHash", p.parentHash ?: JSONObject.NULL)
+                    put("createdAt", p.createdAt)
+                })
+            }
+        })
+        put("localOnly", JSONArray().apply {
+            s.localOnly.forEach { l ->
+                put(JSONObject().apply {
+                    put("personId", l.personId)
+                    put("canonicalId", l.canonicalId ?: JSONObject.NULL)
+                    put("note", l.note ?: JSONObject.NULL)
+                    put("createdAt", l.createdAt)
+                })
+            }
+        })
+        put("appliedPackages", JSONArray().apply {
+            s.appliedPackages.forEach { d ->
+                put(JSONObject().apply {
+                    put("packageId", d.packageId)
+                    put("contentHash", d.contentHash)
+                    put("mode", d.mode)
+                    put("seriesId", d.seriesId)
+                    put("revision", d.revision)
+                    put("baseRevision", d.baseRevision ?: JSONObject.NULL)
+                    put("baseHash", d.baseHash ?: JSONObject.NULL)
+                    put("updatedAt", d.updatedAt)
+                })
+            }
+        })
+    }
+
+    // ---------- 解析 ----------
+
+    /** 解压 ZIP：防护路径穿越与 zip-bomb，忽略多余条目。 */
+    private fun unzip(bytes: ByteArray): Map<String, ByteArray> {
+        val files = LinkedHashMap<String, ByteArray>()
+        var total = 0L
+        ZipInputStream(ByteArrayInputStream(bytes)).use { z ->
+            var e = z.nextEntry
+            while (e != null) {
+                val name = e.name
+                if (name.contains("..") || name.startsWith("/") || name.startsWith("\\"))
+                    throw BackupCrypto.BackupFailure(
+                        BackupError.InvalidContent("bad entry name: $name"))
+                if (!e.isDirectory) {
+                    val buf = ByteArrayOutputStream()
+                    val chunk = ByteArray(8192)
+                    var n = z.read(chunk)
+                    while (n >= 0) {
+                        total += n
+                        if (total > MAX_UNCOMPRESSED)
+                            throw BackupCrypto.BackupFailure(
+                                BackupError.InvalidContent("zip too large"))
+                        buf.write(chunk, 0, n)
+                        n = z.read(chunk)
+                    }
+                    files[name] = buf.toByteArray()
+                }
+                e = z.nextEntry
+            }
+        }
+        return files
+    }
+
+    /** 解密后的字节 → 校验后的 RestorePlan。 */
+    fun parsePlan(zipBytes: ByteArray): RestorePlan {
+        val files = try {
+            unzip(zipBytes)
+        } catch (e: BackupCrypto.BackupFailure) {
+            throw e
+        } catch (e: Exception) {
+            throw BackupCrypto.BackupFailure(BackupError.NotABackup)
+        }
+        val jsonBytes = files["backup.json"]
+            ?: throw BackupCrypto.BackupFailure(BackupError.NotABackup)
+
+        val root = try {
+            JSONObject(String(jsonBytes, Charsets.UTF_8))
+        } catch (e: Exception) {
+            throw BackupCrypto.BackupFailure(BackupError.InvalidContent("bad json"))
+        }
+        fun fail(reason: String): Nothing =
+            throw BackupCrypto.BackupFailure(BackupError.InvalidContent(reason))
+
+        if (root.optString("format") != FORMAT) fail("format")
+        if (root.optInt("schemaVersion", SCHEMA_VERSION) > MAX_SUPPORTED_VERSION)
+            throw BackupCrypto.BackupFailure(BackupError.UnsupportedVersion)
+
+        // ---------- 枚举解析辅助 ----------
+        fun <T : Enum<T>> enumOf(
+            cls: Class<T>, v: String?, what: String
+        ): T = try {
+            java.lang.Enum.valueOf(cls, v ?: "")
+        } catch (e: Exception) {
+            fail("enum $what")
+        }
+
+        // oid 是已删除的碰一碰资料包来源标记；备份/共享文件中的 oid 一律忽略，
+        // 防止伪造 oid 绕过“同一人候选”确认而直接并入已有人物
+        val personOrigins = LinkedHashMap<String, String>()
+        val avatarHashes = LinkedHashMap<String, String>()
+        val persons = root.optJSONArray("persons")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                o.optString("avatarHash", "").takeIf { it.isNotEmpty() }
+                    ?.let { avatarHashes[o.getString("id")] = it }
+                PersonEntity(
+                    id = o.getString("id"),
+                    name = o.getString("name"),
+                    gender = enumOf(Gender::class.java, o.optString("gender", null), "gender"),
+                    avatarPath = o.optString("avatarFile", "").takeIf { it.isNotEmpty() }
+                        ?.let { "avatars/$it" },
+                    note = if (o.has("note")) o.getString("note") else null,
+                    livingStatus = enumOf(
+                        LivingStatus::class.java,
+                        o.optString("livingStatus", null), "livingStatus"
+                    ),
+                    isSelf = o.optBoolean("isSelf", false),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+
+        val phones = root.optJSONArray("phones")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                PhoneNumberEntity(
+                    id = o.getString("id"),
+                    personId = o.getString("personId"),
+                    number = o.getString("number"),
+                    label = enumOf(PhoneLabel::class.java, o.optString("label", null), "label"),
+                    status = enumOf(
+                        PhoneStatus::class.java, o.optString("status", null), "status"
+                    ),
+                    isPrimary = o.optBoolean("isPrimary", false),
+                    note = if (o.has("note")) o.getString("note") else null,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+
+        val relationships = root.optJSONArray("relationships")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                RelationshipEntity(
+                    id = o.getString("id"),
+                    sourcePersonId = o.getString("sourcePersonId"),
+                    targetPersonId = o.getString("targetPersonId"),
+                    type = enumOf(
+                        RelationshipType::class.java, o.optString("type", null), "type"
+                    ),
+                    relativeAgeOrder = if (o.has("relativeAgeOrder"))
+                        enumOf(RelativeAgeOrder::class.java,
+                            o.getString("relativeAgeOrder"), "relativeAgeOrder")
+                    else null,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+
+        val dates = root.optJSONArray("importantDates")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val cal = enumOf(
+                    CalendarType::class.java, o.optString("calendarType", null), "calendarType"
+                )
+                val rawType = o.optString("type", null)
+                // 旧版（schemaVersion ≤8）生日统一写作 "BIRTHDAY"：按历法归入新槽位
+                val type = if (rawType == "BIRTHDAY") {
+                    ImportantDateType.birthdayOf(cal)
+                } else {
+                    enumOf(ImportantDateType::class.java, rawType, "type")
+                }
+                // 生日槽位与历法必须一致（防止 BIRTHDAY_SOLAR + LUNAR 这类错配）
+                type.birthdayCalendar?.let { if (it != cal) fail("birthday type/calendar mismatch") }
+                ImportantDateEntity(
+                    id = o.getString("id"),
+                    personId = o.getString("personId"),
+                    type = type,
+                    year = if (o.has("year")) o.getInt("year") else null,
+                    month = o.getInt("month"),
+                    day = o.getInt("day"),
+                    calendarType = cal,
+                    isLeapMonth = o.optBoolean("isLeapMonth", false),
+                    note = if (o.has("note")) o.getString("note") else null,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+
+        val prefs = root.optJSONArray("reminderPreferences")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val offsets = o.optJSONArray("offsets")?.let { off ->
+                    (0 until off.length()).map { j ->
+                        val d = off.getInt(j)
+                        if (d !in 0..30) fail("offset out of range")
+                        ReminderOffsetEntity(
+                            id = o.getString("id") + "-off-" + j,
+                            reminderPreferenceId = o.getString("id"),
+                            daysBefore = d
+                        )
+                    }
+                } ?: emptyList()
+                ReminderPreferenceEntity(
+                    id = o.getString("id"),
+                    importantDateId = o.getString("importantDateId"),
+                    enabled = o.optBoolean("enabled", true),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to offsets
+            }
+        } ?: emptyList()
+
+        // 自定义称呼（schemaVersion 3；低版本或缺失时为空）
+        val customTitles = root.optJSONArray("customTitles")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                CustomTitleEntity(
+                    id = o.getString("id"),
+                    observerPersonId = o.getString("observerPersonId"),
+                    targetPersonId = o.getString("targetPersonId"),
+                    title = o.getString("title"),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+
+        // 家庭事项（schemaVersion 4；低版本或缺失时为空）
+        val tasks = root.optJSONArray("familyTasks")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val offsets = o.optJSONArray("offsets")?.let { off ->
+                    (0 until off.length()).map { j ->
+                        val d = off.getInt(j)
+                        if (d !in io.github.xiaohaoz1.jiarenxia.core.model.TASK_OFFSETS)
+                            fail("task offset out of range")
+                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
+                            id = o.getString("id") + "-off-" + j,
+                            taskId = o.getString("id"),
+                            daysBefore = d
+                        )
+                    }
+                } ?: fail("task offsets required")
+                if (offsets.isEmpty()) fail("task offsets empty")
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
+                    id = o.getString("id"),
+                    // optString 对 JSONObject.NULL 返回 "null" 字符串，必须用 isNull 判空
+                    personId = if (o.isNull("personId")) null else o.getString("personId"),
+                    kind = enumOf(
+                        io.github.xiaohaoz1.jiarenxia.core.model.TaskKind::class.java,
+                        o.optString("kind", null), "task kind"
+                    ).name,
+                    title = o.getString("title"),
+                    anchorEpochDay = o.getLong("anchorEpochDay"),
+                    repeat = enumOf(
+                        io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat::class.java,
+                        o.optString("repeat", null), "task repeat"
+                    ).name,
+                    periodIndex = o.optInt("periodIndex", 0).also {
+                        if (it < 0 || it > 10000) fail("periodIndex range")
+                    },
+                    lastDoneEpochDay = if (o.has("lastDoneEpochDay"))
+                        o.getLong("lastDoneEpochDay") else null,
+                    done = o.optBoolean("done", false),
+                    amountFen = if (o.has("amountFen"))
+                        o.getLong("amountFen").also {
+                            if (it < 0 || it > 99_999_999_999L) fail("amountFen range")
+                        }
+                    else null,
+                    note = if (o.has("note")) o.getString("note") else null,
+                    enabled = o.optBoolean("enabled", true),
+                    remindMinutes = if (o.has("remindMinutes"))
+                        o.getInt("remindMinutes").also {
+                            if (it !in 0..1439) fail("task remindMinutes range")
+                        }
+                    else null,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to offsets
+            }
+        } ?: emptyList()
+
+        // ---------- 校验 ----------
+        fun uniqueIds(ids: List<String>, what: String) {
+            if (ids.toSet().size != ids.size) fail("duplicate id in $what")
+        }
+        uniqueIds(persons.map { it.id }, "persons")
+        uniqueIds(phones.map { it.id }, "phones")
+        uniqueIds(relationships.map { it.id }, "relationships")
+        uniqueIds(dates.map { it.id }, "importantDates")
+        uniqueIds(prefs.map { it.first.id }, "reminderPreferences")
+
+        val personIds = persons.map { it.id }.toSet()
+        val dateIds = dates.map { it.id }.toSet()
+        phones.forEach { if (it.personId !in personIds) fail("phone->person") }
+        relationships.forEach {
+            if (it.sourcePersonId !in personIds || it.targetPersonId !in personIds)
+                fail("relationship->person")
+        }
+        dates.forEach { if (it.personId !in personIds) fail("date->person") }
+        // (personId, type) 与数据库唯一索引一致：每人每类日期最多一条
+        if (dates.map { it.personId to it.type }.toSet().size != dates.size)
+            fail("duplicate date slot")
+        prefs.forEach { if (it.first.importantDateId !in dateIds) fail("pref->date") }
+        if (persons.count { it.isSelf } > 1) fail("multiple self")
+        // 自定义称呼：引用可解析、(observer,target) 唯一、称谓 trim 后 1–12 字符
+        uniqueIds(customTitles.map { it.id }, "customTitles")
+        if (customTitles.map { it.observerPersonId to it.targetPersonId }.toSet().size
+            != customTitles.size) fail("duplicate custom title pair")
+        customTitles.forEach {
+            if (it.observerPersonId !in personIds || it.targetPersonId !in personIds)
+                fail("customTitle->person")
+            if (it.title.trim().length !in 1..12) fail("customTitle length")
+        }
+        // 家庭事项：id 唯一、关联人物存在、标题非空
+        uniqueIds(tasks.map { it.first.id }, "familyTasks")
+        tasks.forEach { (task, offsets) ->
+            task.personId?.let { if (it !in personIds) fail("task->person") }
+            if (task.title.trim().isEmpty() || task.title.length > 30) fail("task title")
+            if (offsets.map { it.taskId }.toSet() != setOf(task.id)) fail("task offset link")
+        }
+        // 联系记录与计划（v8）：personId 可解析、方法枚举、备注 ≤100 字
+        val contactLogs = root.optJSONArray("contactLogs")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity(
+                    id = o.getString("id"),
+                    personId = o.getString("personId"),
+                    atMillis = o.getLong("atMillis"),
+                    method = enumOf(
+                        io.github.xiaohaoz1.jiarenxia.core.model
+                            .ContactMethod::class.java,
+                        o.optString("method", null), "contact method"
+                    ).name,
+                    note = if (o.has("note")) o.getString("note") else null,
+                    createdAt = o.getLong("createdAt")
+                )
+            }
+        } ?: emptyList()
+        val contactPlans = root.optJSONArray("contactPlans")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity(
+                    personId = o.getString("personId"),
+                    intervalDays = o.getInt("intervalDays"),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+        uniqueIds(contactLogs.map { it.id }, "contactLogs")
+        uniqueIds(contactPlans.map { it.personId }, "contactPlans")
+        contactLogs.forEach {
+            if (it.personId !in personIds) fail("contactLog->person")
+            if (it.note != null && it.note.length > 100) fail("contact note")
+            if (it.atMillis < 0) fail("contact atMillis")
+        }
+        contactPlans.forEach {
+            if (it.personId !in personIds) fail("contactPlan->person")
+            if (it.intervalDays !in 1..366) fail("contact interval")
+        }
+
+        // 头像文件名校验 + 收集
+        val avatarFiles = persons.mapNotNull { p ->
+            p.avatarPath?.removePrefix("avatars/")
+        }
+        avatarFiles.forEach {
+            if (!AVATAR_NAME.matches(it) || it == "." || it == "..") fail("avatar name")
+        }
+        val avatars = avatarFiles.mapNotNull { name ->
+            files["avatars/$name"]?.let { name to it }
+        }.toMap()
+
+        val settings = root.optJSONObject("settings")?.let { o ->
+            BackupSettings(
+                themeMode = enumOf(
+                    ThemeMode::class.java, o.optString("themeMode", null), "themeMode"
+                ),
+                remindersEnabled = o.optBoolean("remindersEnabled", true),
+                fontScale = o.optString("fontScale").takeIf { it.isNotBlank() },
+                titleStyle = o.optString("titleStyle").takeIf { it.isNotBlank() },
+                reminderMinuteOfDay = if (o.isNull("reminderMinuteOfDay")) null
+                else o.optInt("reminderMinuteOfDay", -1).takeIf { it in 0..1439 },
+                taskReminderMinuteOfDay = if (o.isNull("taskReminderMinuteOfDay")) null
+                else o.optInt("taskReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
+                contactReminderMinuteOfDay = if (o.isNull("contactReminderMinuteOfDay")) null
+                else o.optInt("contactReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
+                taskRemindersEnabled = if (o.isNull("taskRemindersEnabled")) null
+                else o.optBoolean("taskRemindersEnabled", true),
+                // A6 后忽略：旧备份里的 giftModuleEnabled / insuranceModuleEnabled
+                licenseCode = if (o.isNull("licenseCode")) null
+                else o.optString("licenseCode", "").ifEmpty { null }
+            )
+        }
+
+        // ---------- 协作元数据（v12） ----------
+        val collaboration = root.optJSONObject("collaboration")?.let { o ->
+            val raw = o.toString()
+            if (raw.length > MAX_COLLAB_META) fail("collab meta too large")
+            val mode = o.optString("mode", "")
+            if (mode != "confirmed" && mode != "contribution") fail("collab mode")
+            CollabMeta(
+                mode = mode,
+                seriesId = o.getString("seriesId"),
+                coordinatorPersonId = o.getString("coordinatorPersonId"),
+                packageId = o.getString("packageId"),
+                revision = o.optInt("revision", 0),
+                parentRevision = if (o.isNull("parentRevision")) null
+                    else o.getInt("parentRevision"),
+                parentHash = if (o.isNull("parentHash")) null
+                    else o.getString("parentHash"),
+                snapshotHash = if (o.isNull("snapshotHash")) null
+                    else o.getString("snapshotHash"),
+                revisionChain = o.optJSONArray("revisionChain")?.let { arr ->
+                    (0 until arr.length()).map { i ->
+                        val c = arr.getJSONObject(i)
+                        ChainLink(
+                            revision = c.getInt("revision"),
+                            hash = c.getString("hash"),
+                            parentHash = if (c.isNull("parentHash")) null
+                                else c.getString("parentHash")
+                        )
+                    }
+                } ?: emptyList(),
+                baseRevision = if (o.isNull("baseRevision")) null
+                    else o.getInt("baseRevision"),
+                baseHash = if (o.isNull("baseHash")) null else o.getString("baseHash"),
+                baseSnapshot = if (o.isNull("baseSnapshot")) null
+                    else o.getString("baseSnapshot"),
+                idMap = o.optJSONObject("idMap")?.let { m ->
+                    m.keys().asSequence().associateWith { m.getString(it) }
+                } ?: emptyMap(),
+                scope = o.optString("scope", ""),
+                sender = if (o.isNull("sender")) null else o.getString("sender")
+            )
+        }
+        // 协作包必须是完整名册范围
+        if (collaboration != null && collaboration.scope != "full") {
+            fail("collab scope")
+        }
+        // confirmed 包的版本链校验（审查 R6）：末环等于自身
+        // revision/snapshotHash；全链自 v1 开始序号连续、父摘要逐环
+        // 衔接；顶层 parentRevision/parentHash 与末环一致。缺环、错
+        // 父摘要、乱序/重复序号、顶层矛盾都拒绝。
+        if (collaboration?.mode == "confirmed") {
+            val m = collaboration
+            val chain = m.revisionChain
+            val last = chain.lastOrNull()
+            if (m.revision < 1 || m.snapshotHash == null ||
+                last == null || last.revision != m.revision ||
+                last.hash != m.snapshotHash ||
+                m.parentRevision != m.revision - 1 ||
+                m.parentHash != last.parentHash) {
+                fail("collab chain")
+            }
+            if (chain.first().revision != 1 || chain.first().parentHash != null) {
+                fail("collab chain")
+            }
+            for (i in 1 until chain.size) {
+                if (chain[i].revision != chain[i - 1].revision + 1 ||
+                    chain[i].parentHash != chain[i - 1].hash) {
+                    fail("collab chain")
+                }
+            }
+        }
+        // 协作包的头像内容哈希与文件内容一致性（防伪造引用）
+        if (collaboration != null) {
+            avatarHashes.forEach { (pid, h) ->
+                val file = persons.firstOrNull { it.id == pid }
+                    ?.avatarPath?.removePrefix("avatars/")
+                val bytes = file?.let { files["avatars/$it"] }
+                val actual = bytes?.let {
+                    io.github.xiaohaoz1.jiarenxia.domain.merge.FamilySnapshot
+                        .sha256Hex(it)
+                }
+                if (actual != h) fail("avatar hash")
+            }
+        }
+
+        // ---------- 个人备份的协作状态（v12） ----------
+        val collabState = root.optJSONObject("collabState")?.let { o ->
+            val so = o.getJSONObject("state")
+            io.github.xiaohaoz1.jiarenxia.data.db.FamilyCollabStateEntity(
+                id = 1,
+                seriesId = so.getString("seriesId"),
+                role = so.getString("role"),
+                coordinatorPersonId = so.getString("coordinatorPersonId"),
+                acceptedRevision = so.getInt("acceptedRevision"),
+                acceptedHash = so.getString("acceptedHash"),
+                baseSnapshotJson = so.getJSONObject("baseSnapshotJson").toString(),
+                idMapJson = so.getJSONObject("idMap").toString(),
+                removedIdsJson = so.getJSONArray("removedIds").toString(),
+                updatedAt = so.getLong("updatedAt")
+            ).let { state ->
+                val pubs = o.optJSONArray("publications")?.let { arr ->
+                    (0 until arr.length()).map { i ->
+                        val p = arr.getJSONObject(i)
+                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyPublicationEntity(
+                            revision = p.getInt("revision"),
+                            packageId = p.getString("packageId"),
+                            snapshotHash = p.getString("snapshotHash"),
+                            parentRevision = p.getInt("parentRevision"),
+                            parentHash = if (p.isNull("parentHash")) null
+                                else p.getString("parentHash"),
+                            createdAt = p.getLong("createdAt")
+                        )
+                    }
+                } ?: emptyList()
+                val lo = o.optJSONArray("localOnly")?.let { arr ->
+                    (0 until arr.length()).map { i ->
+                        val l = arr.getJSONObject(i)
+                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity(
+                            personId = l.getString("personId"),
+                            canonicalId = if (l.isNull("canonicalId")) null
+                                else l.getString("canonicalId"),
+                            note = if (l.isNull("note")) null else l.getString("note"),
+                            createdAt = l.getLong("createdAt")
+                        )
+                    }
+                } ?: emptyList()
+                val applied = o.optJSONArray("appliedPackages")?.let { arr ->
+                    (0 until arr.length()).map { i ->
+                        val d = arr.getJSONObject(i)
+                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyReceiveDraftEntity(
+                            packageId = d.getString("packageId"),
+                            contentHash = d.getString("contentHash"),
+                            mode = d.getString("mode"),
+                            seriesId = d.getString("seriesId"),
+                            revision = d.getInt("revision"),
+                            rosterHash = "",
+                            baseRevision = if (d.isNull("baseRevision")) null
+                                else d.getInt("baseRevision"),
+                            baseHash = if (d.isNull("baseHash")) null
+                                else d.getString("baseHash"),
+                            decisionsJson = "{}",
+                            filePath = "",
+                            status = "APPLIED",
+                            planCacheJson = null,
+                            createdAt = d.getLong("updatedAt"),
+                            updatedAt = d.getLong("updatedAt")
+                        )
+                    }
+                } ?: emptyList()
+                CollabStateDto(state, pubs, lo, applied)
+            }
+        }
+
+        val summary = BackupSummary(
+            createdAt = if (root.has("createdAt")) root.getLong("createdAt") else null,
+            appVersion = root.optString("appVersion", null)?.takeIf { it.isNotEmpty() },
+            persons = persons.size,
+            relationships = relationships.size,
+            birthdays = dates.count { it.type.isBirthday },
+            anniversaries = dates.count { !it.type.isBirthday },
+            avatars = avatars.size,
+            tasks = tasks.size,
+            selfName = persons.firstOrNull { it.isSelf }?.name
+        )
+
+        return RestorePlan(
+            summary = summary,
+            persons = persons,
+            phones = phones,
+            relationships = relationships,
+            importantDates = dates,
+            prefs = prefs,
+            customTitles = customTitles,
+            tasks = tasks,
+            contactLogs = contactLogs,
+            contactPlans = contactPlans,
+            settings = settings,
+            avatars = avatars,
+            purpose = root.optString("purpose", "backup"),
+            sharedBy = if (root.isNull("sharedBy")) null
+                else root.optString("sharedBy", null),
+            personOrigins = personOrigins,
+            collaboration = collaboration,
+            avatarHashes = avatarHashes,
+            collabState = collabState
+        )
+    }
+
+    /** ISO 日期字符串 → epochDay；非法一律按内容损坏处理。 */
+    private fun parseIsoDay(iso: String, what: String): Long =
+        try {
+            java.time.LocalDate.parse(iso).toEpochDay()
+        } catch (e: Exception) {
+            throw BackupCrypto.BackupFailure(
+                BackupError.InvalidContent(what))
+        }
+}

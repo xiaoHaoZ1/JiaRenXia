@@ -1,0 +1,100 @@
+<!doctype html>
+<!--
+  分享封面（1200×630）的设计稿。由 scripts/brand-images.mjs 用 Playwright 截图成
+  public/og-cover.png，不参与网站构建，也不会被用户访问到。
+  配色取自 App 浅色方案（见 docs/web/README.md 第 2 节）。改封面改这个文件，
+  然后重新运行 npm run brand-images。
+
+  为什么是居中排版：知乎、Twitter 这类按 1.91:1 显示整张图，但微信、QQ 的链接卡片
+  会取中间裁成正方形。因此关键内容（标志、名称、宣传语）都收在中间 630×630 的
+  范围内，裁成方形也完整。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1200px; height: 630px; }
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(170deg, #ffe3da 0%, #fff8f2 58%);
+        font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+        color: #231a16;
+        position: relative;
+        overflow: hidden;
+      }
+      /* 背后极淡的大号标志，只当纹理用，不抢文字 */
+      .watermark {
+        position: absolute;
+        left: 50%; top: 52%;
+        transform: translate(-50%, -50%);
+        width: 620px;
+        opacity: 0.05;
+      }
+      .brand { display: flex; align-items: center; gap: 22px; }
+      .mark {
+        width: 100px; height: 100px;
+        display: flex; align-items: center; justify-content: center;
+        background: #ffffff;
+        border-radius: 26px;
+        box-shadow: 0 10px 28px rgba(180, 71, 60, 0.16);
+      }
+      .mark svg { width: 66px; height: 62px; }
+      .name { font-size: 60px; font-weight: 700; letter-spacing: 5px; }
+      .kicker {
+        font-size: 25px; color: #7d5a44; letter-spacing: 3px;
+        margin-top: 18px;
+      }
+      h1 {
+        font-size: 54px; font-weight: 700; line-height: 1.45;
+        letter-spacing: 1px; text-align: center; margin-top: 40px;
+      }
+      h1 .accent { color: #b4473c; }
+      .chips { display: flex; gap: 16px; margin-top: 42px; }
+      .chip {
+        font-size: 24px;
+        padding: 13px 26px;
+        border-radius: 999px;
+        background: #ffdad3;
+        color: #8f3128;
+      }
+      .chip.green { background: #d9eed6; color: #3c5a40; }
+      .chip.brown { background: #ffdcc4; color: #6b4a35; }
+      .site {
+        position: absolute;
+        left: 0; right: 0; bottom: 46px;
+        text-align: center;
+        font-size: 26px; color: #7d5a44; letter-spacing: 1px;
+      }
+    </style>
+  </head>
+  <body>
+    <svg class="watermark" viewBox="22 22 64 60" xmlns="http://www.w3.org/2000/svg">
+      <path fill="#b4473c" d="M54,80 C36,63 24,51 24,40 C24,31 31,24 41,24 C47,24 51,26 54,31 C57,26 61,24 67,24 C77,24 84,31 84,40 C84,51 72,63 54,80 Z"/>
+    </svg>
+
+    <div class="brand">
+      <div class="mark">
+        <svg viewBox="22 22 64 60" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#b4473c" d="M54,80 C36,63 24,51 24,40 C24,31 31,24 41,24 C47,24 51,26 54,31 C57,26 61,24 67,24 C77,24 84,31 84,40 C84,51 72,63 54,80 Z"/>
+          <path fill="#f7ede4" d="M43,54 L54,44 L65,54 L61,54 L61,68 L47,68 L47,54 Z"/>
+        </svg>
+      </div>
+      <div class="name">家人侠</div>
+    </div>
+    <div class="kicker">家人关系与家庭记忆</div>
+
+    <h1>家里的人和事，<br /><span class="accent">帮你记着。</span></h1>
+
+    <div class="chips">
+      <span class="chip">完全免费</span>
+      <span class="chip brown">默认不联网</span>
+      <span class="chip green">资料只存在自己手机里</span>
+    </div>
+
+    <div class="site">jiarenxia.com</div>
+  </body>
+</html>

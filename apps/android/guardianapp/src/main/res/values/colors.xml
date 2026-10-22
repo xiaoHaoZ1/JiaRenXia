@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 窗口底色（浅色奶油底，与主题背景一致） -->
+    <color name="window_background">#FBF8F5</color>
+    <!-- 启动图标底色：守护绿（与家人侠黄色 #F9C147 区分） -->
+    <color name="ic_launcher_background">#2F6B4F</color>
+</resources>

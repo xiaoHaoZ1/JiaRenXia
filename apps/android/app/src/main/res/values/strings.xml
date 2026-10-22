@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">家人侠</string>
+
+    <!-- 桌面插件 -->
+    <string name="widget_affairs_name">家事时间线</string>
+    <string name="widget_affairs_desc">今天到未来 30 天的生日、纪念日与要办的事</string>
+    <string name="widget_loading">加载中…</string>
+    <string name="widget_locked">解锁手机后显示家事</string>
+    <string name="widget_empty">近期没有家事安排</string>
+    <string name="widget_empty_sub">点按查看家事页</string>
+    <string name="widget_error">读取失败</string>
+    <string name="widget_open_app">点按打开应用</string>
+</resources>

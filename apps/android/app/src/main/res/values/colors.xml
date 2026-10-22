@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 启动页与桌面图标的暖色底 -->
+    <color name="splash_background">#FBF5F0</color>
+    <color name="ic_launcher_background">#F9C147</color>
+</resources>

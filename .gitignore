@@ -1,0 +1,51 @@
+.gradle/
+build/
+**/build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.externalNativeBuild/
+.cxx/
+*.jks
+*.keystore
+keystore.properties
+/*.apk
+/apps/android/*.apk
+.kotlin/
+/apps/android/app/release/
+# 密钥与码表绝不入库（历史上用于会员激活码，保留规则以防误提交）
+*.pk8
+license-*.der
+codes-*.csv
+# 本机运行时与产物
+/runtime/
+/private/
+/worktrees/
+node_modules/
+/apps/web/dist/
+# 预渲染用的临时 SSR 产物（npm run build 跑完会自行删除）
+/apps/web/dist-ssr/
+# 下载页安装包：发布前手动拷入，不入库（体积大、随版本更新）
+/apps/web/public/jiarenxia.apk
+/apps/web/public/chishenme.apk
+/apps/web/public/pengyouxia.apk
+/apps/web/test-results/
+/apps/web/playwright-report/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+
+# Cloudflare Wrangler 本地状态（任意层级，可能含会话缓存）
+.wrangler/
+
+# 环境/密钥配置：任何层级、任何文件名形态；*.env.example 为经审查模板可入库
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+!*.env.example

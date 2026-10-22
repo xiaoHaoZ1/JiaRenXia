@@ -1,0 +1,9 @@
+# 公开快照排除清单（jrx.cmd public-snapshot）
+# 每行一个 git 路径（相对仓库根目录）；目录表示整个目录排除
+docs/ROADMAP.md
+docs/handoffs/
+docs/migration/
+docs/marketing/
+docs/deployment/LOCAL_WINDOWS.md
+.agents/ACCEPTANCE_CHECKPOINT.md
+scripts/public-scan.txt
