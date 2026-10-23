@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ContactPhone
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,6 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -89,7 +93,7 @@ class GuardianHomeOptions(
     val title: String = "守护侠",
     /** 页头之后、状态/设置内容之前的提示卡插槽（如守护侠的测试模式提示）。 */
     val promptCard: (@Composable () -> Unit)? = null,
-    /** 内容区末尾的页尾插槽（如隐私说明入口与版本号）。 */
+    /** 设置页末尾的页尾插槽（如隐私说明入口与版本号）。 */
     val footer: (@Composable () -> Unit)? = null,
 )
 
@@ -111,6 +115,7 @@ class GuardianHomeCallbacks {
     var onQuietStart: (Int) -> Unit = {}
     var onQuietEnd: (Int) -> Unit = {}
     var onTestMode: (Boolean) -> Unit = {}
+    var onOpenSettings: () -> Unit = {}
     var onOpenPermissions: () -> Unit = {}
     var onOpenLog: () -> Unit = {}
     var onForceDeadline: () -> Unit = {}
@@ -126,14 +131,7 @@ fun GuardianHome(
     cb: GuardianHomeCallbacks,
     options: GuardianHomeOptions = GuardianHomeOptions()
 ) {
-    var pickerSheet by remember { mutableStateOf(false) }
-    var manualDialog by remember { mutableStateOf(false) }
-    var smsTimeDialog by remember { mutableStateOf(false) }
-    var quietStartDialog by remember { mutableStateOf(false) }
-    var quietEndDialog by remember { mutableStateOf(false) }
     var stopConfirm by remember { mutableStateOf(false) }
-    var testToolConfirm by remember { mutableStateOf<(() -> Unit)?>(null) }
-    var testToolLabel by remember { mutableStateOf("") }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -142,16 +140,21 @@ fun GuardianHome(
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             PageHeader {
-                Column {
-                    Text(options.title, style = MaterialTheme.typography.headlineSmall)
-                    val subtitle = statusSubtitle(ui)
-                    if (subtitle.isNotEmpty()) {
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            subtitle,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(options.title, style = MaterialTheme.typography.headlineSmall)
+                        val subtitle = statusSubtitle(ui)
+                        if (subtitle.isNotEmpty()) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                subtitle,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    IconButton(onClick = cb.onOpenSettings) {
+                        Icon(Icons.Rounded.Settings, contentDescription = "设置")
                     }
                 }
             }
@@ -159,99 +162,16 @@ fun GuardianHome(
             Column(Modifier.padding(horizontal = 16.dp)) {
                 options.promptCard?.invoke()
                 if (!ui.config.enabled) {
-                    SetupSection(
-                        ui, cb,
-                        onChangeContact = { pickerSheet = true },
-                        onManual = { manualDialog = true },
-                        onSmsTime = { smsTimeDialog = true },
-                        onQuietTime = { isStart ->
-                            if (isStart) quietStartDialog = true else quietEndDialog = true
-                        }
-                    )
+                    SetupSection(ui, cb)
                 } else {
                     EnabledSection(
                         ui, cb,
-                        onChangeContact = { pickerSheet = true },
-                        onManual = { manualDialog = true },
-                        onAskStop = { stopConfirm = true },
-                        onTestTool = { label, action ->
-                            testToolLabel = label; testToolConfirm = action
-                        },
-                        onSmsTime = { smsTimeDialog = true },
-                        onQuietTime = { isStart ->
-                            if (isStart) quietStartDialog = true else quietEndDialog = true
-                        }
+                        onAskStop = { stopConfirm = true }
                     )
                 }
-                options.footer?.invoke()
                 Spacer(Modifier.height(96.dp))
             }
         }
-    }
-
-    // ---------- 对话框 / 底部弹层 ----------
-
-    if (pickerSheet) {
-        ModalBottomSheet(onDismissRequest = { pickerSheet = false }) {
-            Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-                Text("选择紧急联系人", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                // 守护侠没有家庭数据，只有通讯录与手动输入两条路
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { pickerSheet = false; cb.onPickFromContacts() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Rounded.ContactPhone, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("从通讯录选择")
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { pickerSheet = false; manualDialog = true },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("手动输入")
-                }
-                Spacer(Modifier.height(32.dp))
-            }
-        }
-    }
-
-    if (manualDialog) {
-        ManualContactDialog(
-            onSubmit = { n, num -> cb.onManualContact(n, num); manualDialog = false },
-            onDismiss = { manualDialog = false }
-        )
-    }
-
-    if (smsTimeDialog) {
-        TimePickDialog(
-            title = "平安短信发送时间",
-            minuteOfDay = ui.config.dailySmsMinuteOfDay,
-            onPick = { cb.onDailySmsTime(it); smsTimeDialog = false },
-            onDismiss = { smsTimeDialog = false }
-        )
-    }
-
-    if (quietStartDialog) {
-        TimePickDialog(
-            title = "免打扰开始时间",
-            minuteOfDay = ui.config.quietStartMinuteOfDay,
-            onPick = { cb.onQuietStart(it); quietStartDialog = false },
-            onDismiss = { quietStartDialog = false }
-        )
-    }
-
-    if (quietEndDialog) {
-        TimePickDialog(
-            title = "免打扰结束时间",
-            minuteOfDay = ui.config.quietEndMinuteOfDay,
-            onPick = { cb.onQuietEnd(it); quietEndDialog = false },
-            onDismiss = { quietEndDialog = false }
-        )
     }
 
     if (ui.confirmingEnable) {
@@ -294,6 +214,136 @@ fun GuardianHome(
         )
     }
 
+}
+
+/**
+ * 守护侠设置页：联系人、守护规则、系统权限与测试工具集中在这里。
+ * 首页只展示状态和入口，避免把长表单伪装成“没有设置”的单页内容。
+ */
+@OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun GuardianSettings(
+    ui: GuardianHomeUi,
+    cb: GuardianHomeCallbacks,
+    options: GuardianHomeOptions = GuardianHomeOptions(),
+    onBack: () -> Unit
+) {
+    var pickerSheet by remember { mutableStateOf(false) }
+    var manualDialog by remember { mutableStateOf(false) }
+    var smsTimeDialog by remember { mutableStateOf(false) }
+    var quietStartDialog by remember { mutableStateOf(false) }
+    var quietEndDialog by remember { mutableStateOf(false) }
+    var testToolConfirm by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var testToolLabel by remember { mutableStateOf("") }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+        contentColor = MaterialTheme.colorScheme.onBackground
+    ) {
+        Column(Modifier.fillMaxSize()) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().statusBarsPadding()
+                    .padding(start = 4.dp, end = 16.dp, top = 4.dp, bottom = 4.dp)
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "返回")
+                }
+                Spacer(Modifier.width(2.dp))
+                Text("设置", style = MaterialTheme.typography.titleLarge)
+            }
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+            ) {
+                ContactCard(
+                    ui = ui,
+                    cb = cb,
+                    onChangeContact = { pickerSheet = true },
+                    onManual = { manualDialog = true }
+                )
+                SettingsCard(
+                    ui = ui,
+                    cb = cb,
+                    onSmsTime = { smsTimeDialog = true },
+                    onQuietTime = { isStart ->
+                        if (isStart) quietStartDialog = true else quietEndDialog = true
+                    }
+                )
+                PermissionsProgressCard(ui, cb.onOpenPermissions)
+                if (ui.config.testMode) {
+                    TestToolsCard(
+                        cb = cb,
+                        onTestTool = { label, action ->
+                            testToolLabel = label
+                            testToolConfirm = action
+                        }
+                    )
+                }
+                options.footer?.invoke()
+                Spacer(Modifier.height(96.dp))
+            }
+        }
+    }
+
+    if (pickerSheet) {
+        ModalBottomSheet(onDismissRequest = { pickerSheet = false }) {
+            Column(Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+                Text("选择紧急联系人", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(16.dp))
+                OutlinedButton(
+                    onClick = { pickerSheet = false; cb.onPickFromContacts() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.ContactPhone, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("从通讯录选择")
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { pickerSheet = false; manualDialog = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("手动输入")
+                }
+                Spacer(Modifier.height(32.dp))
+            }
+        }
+    }
+
+    if (manualDialog) {
+        ManualContactDialog(
+            onSubmit = { n, num -> cb.onManualContact(n, num); manualDialog = false },
+            onDismiss = { manualDialog = false }
+        )
+    }
+    if (smsTimeDialog) {
+        TimePickDialog(
+            title = "平安短信发送时间",
+            minuteOfDay = ui.config.dailySmsMinuteOfDay,
+            onPick = { cb.onDailySmsTime(it); smsTimeDialog = false },
+            onDismiss = { smsTimeDialog = false }
+        )
+    }
+    if (quietStartDialog) {
+        TimePickDialog(
+            title = "免打扰开始时间",
+            minuteOfDay = ui.config.quietStartMinuteOfDay,
+            onPick = { cb.onQuietStart(it); quietStartDialog = false },
+            onDismiss = { quietStartDialog = false }
+        )
+    }
+    if (quietEndDialog) {
+        TimePickDialog(
+            title = "免打扰结束时间",
+            minuteOfDay = ui.config.quietEndMinuteOfDay,
+            onPick = { cb.onQuietEnd(it); quietEndDialog = false },
+            onDismiss = { quietEndDialog = false }
+        )
+    }
     if (testToolConfirm != null) {
         AlertDialog(
             onDismissRequest = { testToolConfirm = null },
@@ -301,7 +351,8 @@ fun GuardianHome(
             text = { Text(testToolLabel) },
             confirmButton = {
                 TextButton(onClick = {
-                    testToolConfirm?.invoke(); testToolConfirm = null
+                    testToolConfirm?.invoke()
+                    testToolConfirm = null
                 }) { Text("确定") }
             },
             dismissButton = {
@@ -332,9 +383,8 @@ private fun statusSubtitle(ui: GuardianHomeUi): String {
 
 @Composable
 private fun SetupSection(
-    ui: GuardianHomeUi, cb: GuardianHomeCallbacks,
-    onChangeContact: () -> Unit, onManual: () -> Unit, onSmsTime: () -> Unit,
-    onQuietTime: (Boolean) -> Unit
+    ui: GuardianHomeUi,
+    cb: GuardianHomeCallbacks
 ) {
     JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
         Text("守护是什么", style = MaterialTheme.typography.titleMedium)
@@ -350,31 +400,7 @@ private fun SetupSection(
         )
     }
 
-    ContactCard(ui, cb, onChangeContact, onManual)
-    SettingsCard(ui, cb, onSmsTime, onQuietTime)
-
-    val required = ui.perms.filter { !it.optional }
-    val done = required.count { it.granted }
-    JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("权限与系统设置", style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.weight(1f))
-            Text(
-                "已完成 $done/${required.size} 项",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
-            progress = { if (required.isEmpty()) 1f else done.toFloat() / required.size },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(onClick = cb.onOpenPermissions, modifier = Modifier.fillMaxWidth()) {
-            Text("查看权限清单")
-        }
-    }
+    SettingsEntryCard(ui, cb.onOpenSettings)
 
     val hasContact = ui.config.contactNumber.isNotBlank()
     Button(
@@ -557,12 +583,9 @@ private fun RunDetails(c: GuardConfig, s: GuardState, now: Long) {
 
 @Composable
 private fun EnabledSection(
-    ui: GuardianHomeUi, cb: GuardianHomeCallbacks,
-    onChangeContact: () -> Unit, onManual: () -> Unit,
-    onAskStop: () -> Unit,
-    onTestTool: (String, () -> Unit) -> Unit,
-    onSmsTime: () -> Unit,
-    onQuietTime: (Boolean) -> Unit
+    ui: GuardianHomeUi,
+    cb: GuardianHomeCallbacks,
+    onAskStop: () -> Unit
 ) {
     val s = ui.state
     val c = ui.config
@@ -664,36 +687,10 @@ private fun EnabledSection(
         }
     }
 
-    ContactCard(ui, cb, onChangeContact, onManual)
-    SettingsCard(ui, cb, onSmsTime, onQuietTime)
-
-    JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        NavRow("权限清单", cb.onOpenPermissions)
-        NavRow("事件日志", cb.onOpenLog)
-    }
-
-    if (c.testMode) {
+    SettingsEntryCard(ui, cb.onOpenSettings)
+    if (s.phase != Phase.MONITORING) {
         JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-            Text("测试工具", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = {
-                    onTestTool("这会真实地进入响铃确认流程，确定吗？", cb.onForceDeadline)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("立即响铃测试") }
-            OutlinedButton(
-                onClick = {
-                    onTestTool("这会真实地发送平安短信，确定吗？", cb.onSendSms)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("立即发送平安短信") }
-            OutlinedButton(
-                onClick = {
-                    onTestTool("这会真实地拨打紧急联系人，确定吗？", cb.onTestCall)
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("测试拨打紧急电话") }
+            NavRow("查看守护记录", cb.onOpenLog)
         }
     }
 
@@ -708,6 +705,100 @@ private fun EnabledSection(
             .height(52.dp)
     ) { Text("停止守护") }
     Spacer(Modifier.height(8.dp))
+}
+
+/** 首页设置入口：把联系人、规则、权限的关键摘要收成一行。 */
+@Composable
+private fun SettingsEntryCard(ui: GuardianHomeUi, onClick: () -> Unit) {
+    val c = ui.config
+    val contact = c.contactName.ifBlank { if (c.contactNumber.isBlank()) "未设置联系人" else "未命名" }
+    val threshold = if (c.testMode) "测试模式" else "${c.thresholdMinutes / 60} 小时无活动"
+    JrxCard(
+        Modifier.fillMaxWidth().padding(vertical = 6.dp).clickable(onClick = onClick)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                Icons.Rounded.Settings,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(22.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("设置", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "$contact · $threshold",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline
+            )
+        }
+    }
+}
+
+/** 设置页的权限进度入口。 */
+@Composable
+private fun PermissionsProgressCard(ui: GuardianHomeUi, onOpenPermissions: () -> Unit) {
+    val required = ui.perms.filter { !it.optional }
+    val done = required.count { it.granted }
+    JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "权限与系统设置",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                "已完成 $done/${required.size} 项",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { if (required.isEmpty()) 1f else done.toFloat() / required.size },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(onClick = onOpenPermissions, modifier = Modifier.fillMaxWidth()) {
+            Text("查看权限清单")
+        }
+    }
+}
+
+/** 测试模式下才出现；每个动作仍需二次确认。 */
+@Composable
+private fun TestToolsCard(
+    cb: GuardianHomeCallbacks,
+    onTestTool: (String, () -> Unit) -> Unit
+) {
+    JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text("测试工具", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {
+                onTestTool("这会真实地进入响铃确认流程，确定吗？", cb.onForceDeadline)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("立即响铃测试") }
+        OutlinedButton(
+            onClick = {
+                onTestTool("这会真实地发送平安短信，确定吗？", cb.onSendSms)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("立即发送平安短信") }
+        OutlinedButton(
+            onClick = {
+                onTestTool("这会真实地拨打紧急联系人，确定吗？", cb.onTestCall)
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("测试拨打紧急电话") }
+    }
 }
 
 @Composable

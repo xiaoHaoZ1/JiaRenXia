@@ -29,7 +29,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
 
 /**
  * 守护侠首页定制：标题“守护侠”（守护侠没有家庭数据，联系人只有通讯录/手动输入），
- * 页头下挂测试模式提示卡，页尾加隐私说明入口与版本号。
+ * 页头下挂测试模式提示卡，设置页末尾加隐私说明入口与版本号。
  * MainActivity 与截图测试共用此工厂。
  */
 fun standaloneHomeOptions(onPrivacy: () -> Unit) = GuardianHomeOptions(
@@ -66,7 +66,7 @@ fun GuardianPromptCard(modifier: Modifier = Modifier) {
     }
 }
 
-/** 页尾：隐私说明入口 + 版本号。 */
+/** 设置页页尾：隐私说明入口 + 版本号。 */
 @Composable
 fun StandaloneFooter(onPrivacy: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier) {

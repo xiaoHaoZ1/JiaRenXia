@@ -24,7 +24,7 @@ import io.github.xiaohaoz1.jiarenxia.guardian.sys.Permissions
 import io.github.xiaohaoz1.jiarenxia.guardian.sys.ServiceLocator
 
 /**
- * 守护侠首页内容：HOME / PERMISSIONS / LOG 三屏手动导航，返回键回 HOME。
+ * 守护侠首页内容：HOME / SETTINGS / PERMISSIONS / LOG 四屏手动导航，返回键回 HOME。
  * 所有引擎操作都通过 Event / GuardStore。
  * [options] 注入标题、提示卡与页尾等定制，默认值即守护侠通用首页。
  */
@@ -113,7 +113,10 @@ fun GuardianTabContent(
     }
 
     BackHandler(enabled = screen != GuardianScreen.HOME) {
-        screenName = GuardianScreen.HOME.name
+        screenName = when (screen) {
+            GuardianScreen.PERMISSIONS -> GuardianScreen.SETTINGS.name
+            else -> GuardianScreen.HOME.name
+        }
     }
 
     val cb = remember {
@@ -190,6 +193,7 @@ fun GuardianTabContent(
             ServiceLocator.store.updateConfig { it.copy(testMode = v) }
             ServiceLocator.engine.handle(Event.ConfigChanged)
         }
+        onOpenSettings = { screenName = GuardianScreen.SETTINGS.name }
         onOpenPermissions = { screenName = GuardianScreen.PERMISSIONS.name }
         onOpenLog = { screenName = GuardianScreen.LOG.name }
         onForceDeadline = { ServiceLocator.engine.handle(Event.ForceDeadline) }
@@ -212,6 +216,17 @@ fun GuardianTabContent(
             cb,
             options
         )
+        GuardianScreen.SETTINGS -> GuardianSettings(
+            ui = GuardianHomeUi(
+                config = config,
+                state = state,
+                perms = perms,
+                now = System.currentTimeMillis()
+            ),
+            cb = cb,
+            options = options,
+            onBack = { screenName = GuardianScreen.HOME.name }
+        )
         GuardianScreen.PERMISSIONS -> GuardianPermissions(
             items = perms,
             onItemClick = { item ->
@@ -221,7 +236,7 @@ fun GuardianTabContent(
             onOpenAutostart = { OemSettings.openAutostart(context) },
             onOpenBattery = { OemSettings.openBattery(context) },
             onOpenAppDetails = { OemSettings.openAppDetails(context) },
-            onBack = { screenName = GuardianScreen.HOME.name }
+            onBack = { screenName = GuardianScreen.SETTINGS.name }
         )
         GuardianScreen.LOG -> GuardianLog(
             lines = logLines,
@@ -231,4 +246,4 @@ fun GuardianTabContent(
     }
 }
 
-enum class GuardianScreen { HOME, PERMISSIONS, LOG }
+enum class GuardianScreen { HOME, SETTINGS, PERMISSIONS, LOG }

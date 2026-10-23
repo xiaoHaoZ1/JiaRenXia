@@ -25,25 +25,40 @@ class GuardianNavTest {
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @Test
-    fun privacyEntryClickAndBothWaysBack() {
+    fun settingsEntryAndPrivacyNavigation() {
         // 首页（默认未开启守护）
         composeRule.onNodeWithText("守护是什么", substring = true).assertIsDisplayed()
 
-        // 页底隐私入口 → 隐私说明页
-        composeRule.onNodeWithText("隐私说明").performScrollTo().performClick()
+        // 页头齿轮 → 独立设置页；系统返回键回首页
+        composeRule.onNodeWithContentDescription("设置").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithText("守护侠不联网", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("守护设置").assertIsDisplayed()
 
-        // 顶栏返回按钮 → 回首页
+        // 设置 → 权限清单 → 返回，仍回设置页
+        composeRule.onNodeWithText("查看权限清单").performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("权限清单").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("返回").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("守护设置").assertIsDisplayed()
+
+        composeRule.activity.onBackPressedDispatcher.onBackPressed()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("守护是什么", substring = true).assertIsDisplayed()
 
-        // 再走一遍：系统返回键（BackHandler）也回首页
+        // 再进设置页，从页底隐私入口进入隐私说明
+        composeRule.onNodeWithContentDescription("设置").performClick()
         composeRule.onNodeWithText("隐私说明").performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("守护侠不联网", substring = true).assertIsDisplayed()
-        composeRule.activity.onBackPressedDispatcher.onBackPressed()
+
+        // 顶栏返回按钮 → 回设置页（保留原导航层级）
+        composeRule.onNodeWithContentDescription("返回").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText("守护设置").assertIsDisplayed()
+
+        // 设置页返回 → 回首页
+        composeRule.onNodeWithContentDescription("返回").performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText("守护是什么", substring = true).assertIsDisplayed()
     }

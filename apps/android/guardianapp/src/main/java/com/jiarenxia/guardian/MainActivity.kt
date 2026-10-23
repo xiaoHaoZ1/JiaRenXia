@@ -6,11 +6,11 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import com.jiarenxia.guardian.ui.PrivacyScreen
 import com.jiarenxia.guardian.ui.standaloneHomeOptions
@@ -19,8 +19,9 @@ import io.github.xiaohaoz1.jiarenxia.guardian.sys.OemSettings
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxTheme
 
 /**
- * 守护侠主界面：单页守护（无底部 tab），页尾进隐私说明二级页。
- * 深色跟随系统、字号跟随系统缩放（守护侠无应用内外观设置）。
+ * 守护侠主界面：守护首页 + 设置二级页（无底部 tab），设置页可进入隐私说明。
+ * 固定使用家人侠品牌的暖白底，避免长辈手机跟随系统深色模式后出现近黑页面；
+ * 字号仍跟随系统缩放。
  * 无家庭数据：紧急联系人只有通讯录与手动输入两条路。
  */
 class MainActivity : ComponentActivity() {
@@ -29,34 +30,38 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val dark = isSystemInDarkTheme()
-            // 系统栏图标对比度随实际深浅切换（edge-to-edge 下状态栏/导航栏透明）
+            // 守护侠固定暖色浅色主题，系统栏透明并使用深色图标。
             SideEffect {
                 enableEdgeToEdge(
-                    statusBarStyle = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-                    else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT),
-                    navigationBarStyle = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
-                    else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                    statusBarStyle = SystemBarStyle.light(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT
+                    ),
+                    navigationBarStyle = SystemBarStyle.light(
+                        android.graphics.Color.TRANSPARENT,
+                        android.graphics.Color.TRANSPARENT
+                    )
                 )
             }
-            JrxTheme(dark = dark) {
-                var screen by rememberSaveable { mutableStateOf(SCREEN_HOME) }
-                BackHandler(enabled = screen == SCREEN_PRIVACY) { screen = SCREEN_HOME }
-                when (screen) {
-                    SCREEN_PRIVACY -> PrivacyScreen(onBack = { screen = SCREEN_HOME })
-                    else -> GuardianTab(
-                        onOpenAppSettings = { OemSettings.openAppDetails(this) },
-                        options = standaloneHomeOptions(
-                            onPrivacy = { screen = SCREEN_PRIVACY }
+            JrxTheme(dark = false) {
+                var showPrivacy by rememberSaveable { mutableStateOf(false) }
+                val stateHolder = rememberSaveableStateHolder()
+                if (showPrivacy) {
+                    PrivacyScreen(onBack = { showPrivacy = false })
+                    BackHandler { showPrivacy = false }
+                } else {
+                    stateHolder.SaveableStateProvider("guardian") {
+                        GuardianTab(
+                            onOpenAppSettings = {
+                                OemSettings.openAppDetails(this@MainActivity)
+                            },
+                            options = standaloneHomeOptions(
+                                onPrivacy = { showPrivacy = true }
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
-    }
-
-    private companion object {
-        const val SCREEN_HOME = "home"
-        const val SCREEN_PRIVACY = "privacy"
     }
 }

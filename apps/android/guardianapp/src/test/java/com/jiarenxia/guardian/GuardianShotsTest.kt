@@ -21,6 +21,7 @@ import io.github.xiaohaoz1.jiarenxia.guardian.sys.Permissions
 import io.github.xiaohaoz1.jiarenxia.guardian.ui.GuardianHome
 import io.github.xiaohaoz1.jiarenxia.guardian.ui.GuardianHomeCallbacks
 import io.github.xiaohaoz1.jiarenxia.guardian.ui.GuardianHomeUi
+import io.github.xiaohaoz1.jiarenxia.guardian.ui.GuardianSettings
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxTheme
 import java.io.File
 import org.junit.Rule
@@ -158,27 +159,32 @@ class GuardianShotsTest {
         )
     }
 
-    // ---------- 首页：未开启（浅色 / 深色 / 大字号） ----------
+    @Composable
+    private fun Settings(enabled: Boolean, contact: Boolean) {
+        GuardianSettings(
+            ui = homeUi(enabled, contact),
+            cb = GuardianHomeCallbacks(),
+            options = standaloneHomeOptions(onPrivacy = {}),
+            onBack = {}
+        )
+    }
+
+    // ---------- 首页：未开启（暖白固定主题 / 大字号） ----------
 
     @Test
     fun homeDisabled() = shot("home_disabled") {
         Home(enabled = false, contact = false)
     }.also {
-        // 标题、状态副标题、提示卡两行、设置入口与页尾
+        // 标题、状态副标题、提示卡、设置入口和主操作
         assertTexts(
             "守护侠", "未开启", "适合装在长辈的手机上",
             "装好后请先用测试模式走一遍，确认能响能拨。",
-            "从通讯录选择", "手动输入", "请先设置紧急联系人",
-            "开启守护", "隐私说明", "版本 1.0.0"
+            "设置", "未设置联系人", "8 小时无活动",
+            "请先设置紧急联系人", "开启守护"
         )
         // 守护侠不提供家人候选入口与空家人列表
         assertNoTexts("从家人中选择", "家人资料里还没有其他家人", "还没填手机号",
             "如果家人侠里开着守护")
-    }
-
-    @Test
-    fun homeDisabledDark() = shot("home_disabled_dark", dark = true) {
-        Home(enabled = false, contact = false)
     }
 
     @Test
@@ -194,22 +200,28 @@ class GuardianShotsTest {
     }.also {
         assertTexts(
             "守护侠", "守护已开启", "就打电话通知", "查看守护记录",
-            "运行状态", "隐私说明", "版本 1.0.0"
+            "运行状态", "设置", "杨明", "停止守护"
         )
         assertNoTexts("从家人中选择", "家人资料里还没有其他家人")
     }
 
-    @Test
-    fun homeEnabledDark() = shot("home_enabled_dark", dark = true) {
-        Home(enabled = true, contact = true)
-    }
+    // ---------- 设置页与联系人选择 ----------
 
-    // ---------- 联系人选择（弹层只剩通讯录/手动输入） ----------
+    @Test
+    fun settings() = shot("settings") {
+        Settings(enabled = false, contact = false)
+    }.also {
+        assertTexts(
+            "设置", "紧急联系人", "从通讯录选择", "手动输入",
+            "守护设置", "无活动阈值", "确认时长", "夜间免打扰",
+            "每日平安短信", "测试模式", "权限与系统设置"
+        )
+    }
 
     @Test
     fun contactPicker() {
         composeRule.setContent {
-            JrxTheme(dark = false) { Home(enabled = false, contact = true) }
+            JrxTheme(dark = false) { Settings(enabled = false, contact = true) }
         }
         composeRule.onNodeWithText("更换").performClick()
         composeRule.waitForIdle()
@@ -220,26 +232,19 @@ class GuardianShotsTest {
         assertNoTexts("王秀兰", "家人资料里还没有其他家人", "还没填手机号")
     }
 
-    // ---------- 页底（滚动到底部：开启/停止按钮、隐私入口、版本号） ----------
+    // ---------- 设置页底（隐私入口、版本号） ----------
 
     @Test
-    fun homeDisabledBottom() = shotScrolledTo("home_disabled_bottom", "版本") {
-        Home(enabled = false, contact = false)
+    fun settingsBottom() = shotScrolledTo("settings_bottom", "版本") {
+        Settings(enabled = false, contact = false)
     }.also {
-        assertTexts("开启守护", "请先设置紧急联系人", "隐私说明", "版本 1.0.0")
+        assertTexts("隐私说明", "版本 1.0.0")
     }
 
     @Test
-    fun homeEnabledBottom() = shotScrolledTo("home_enabled_bottom", "版本") {
-        Home(enabled = true, contact = true)
-    }.also {
-        assertTexts("停止守护", "隐私说明", "版本 1.0.0")
-    }
-
-    @Test
-    fun homeDisabledBottomLarge() =
-        shotScrolledTo("home_disabled_bottom_lg", "版本", large = true) {
-            Home(enabled = false, contact = false)
+    fun settingsBottomLarge() =
+        shotScrolledTo("settings_bottom_lg", "版本", large = true) {
+            Settings(enabled = false, contact = false)
         }.also {
             assertTexts("隐私说明", "版本 1.0.0")
         }
@@ -257,10 +262,5 @@ class GuardianShotsTest {
             "系统选择器读取你选中的那一个号码",
             "不进入系统云备份和设备间迁移"
         )
-    }
-
-    @Test
-    fun privacyDark() = shot("privacy_dark", dark = true) {
-        PrivacyScreen(onBack = {})
     }
 }
