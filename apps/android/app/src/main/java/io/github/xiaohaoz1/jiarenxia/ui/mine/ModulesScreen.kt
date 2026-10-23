@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 
 /**
  * 功能介绍与管理（我的 → 二级页）：第一组介绍核心功能，
- * 第二组跳到共享与连接。
+ * 第二组跳到共享/碰一碰。
  * 2026-10-20（A6）人情/保障彻底移除后，原「家事页的分段」开关组删除；
  * 旧开关值随功能一并清理，不再保留入口或历史资料页。
  * C3（2026-10-20）：守护拆为独立应用「守护侠」，本页不再放守护入口。
@@ -67,7 +67,7 @@ fun ModulesContent(
             SettingsNavRow(
                 icon = Icons.Rounded.ConnectWithoutContact,
                 title = "共享与连接",
-                subtitle = "分享家庭档案 · 接收家人分享 · 家庭协作",
+                subtitle = "分享家庭档案 · 接收家人分享 · 碰一碰",
                 onClick = onOpenShareConnect
             )
         }

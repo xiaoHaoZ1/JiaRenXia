@@ -13,7 +13,7 @@ enum class GraphSide { LEFT, CENTER, RIGHT }
  * 家庭 block 划分与左右归属 BFS。纯计算，可 JVM 单测。
  *
  * 这些结果只描述“怎么摆”，不写任何人物关系；
- * 与分享的选人预设（[GraphBranches]）完全独立。
+ * 与分享/碰一碰的选人预设（[GraphBranches]）完全独立。
  */
 object GraphStructure {
 

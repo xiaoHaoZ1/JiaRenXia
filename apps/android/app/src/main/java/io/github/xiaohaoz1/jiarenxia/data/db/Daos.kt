@@ -225,6 +225,27 @@ interface ContactPlanDao {
 }
 
 /**
+ * 碰一碰配对 DAO：单行配对记录 + 来源人物映射 + 设备角色偏好。
+ * 挂起函数在 withTransaction 内被调用时会自动加入当前事务——
+ * 合并写入与配对写入因此能成为一次本地事务。
+ */
+@Dao
+interface TapPairingDao {
+    @Query("SELECT * FROM spouse_pairing WHERE id = 1")
+    suspend fun getPairing(): SpousePairingEntity?
+    @Upsert suspend fun upsertPairing(e: SpousePairingEntity)
+    @Query("DELETE FROM spouse_pairing") suspend fun deletePairing()
+
+    @Query("SELECT * FROM tap_person_map") suspend fun getMap(): List<TapPersonMapEntity>
+    @Upsert suspend fun upsertMap(entries: List<TapPersonMapEntity>)
+    @Query("DELETE FROM tap_person_map") suspend fun clearMap()
+
+    @Query("SELECT * FROM tap_device WHERE id = 1") suspend fun getDevice(): TapDeviceEntity?
+    @Upsert suspend fun upsertDevice(e: TapDeviceEntity)
+    @Query("DELETE FROM tap_device") suspend fun deleteDevice()
+}
+
+/**
  * person_alias：对方人物 id → 本机人物 id 的对应关系（家人共享合并）。
  * 只存本机、不进备份；写操作包在调用方事务里随家人资料一起提交。
  */

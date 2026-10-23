@@ -387,3 +387,18 @@ val MIGRATION_13_14 = object : Migration(13, 14) {
         db.execSQL("DROP TABLE `tap_device`")
     }
 }
+
+/**
+ * v14 → v15（2026-10-23 恢复碰一碰结为夫妻）：
+ * 重建 v13 的三张碰一碰表（spouse_pairing / tap_person_map / tap_device），
+ * CREATE TABLE 语句与 v13 架构一致；v14 中已删表的设备直接重建，无数据迁移。
+ */
+val MIGRATION_14_15 = object : Migration(14, 15) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `spouse_pairing` (`id` INTEGER NOT NULL, `pairing_id` TEXT NOT NULL, `peer_self_id` TEXT NOT NULL, `local_spouse_id` TEXT NOT NULL, `peer_name` TEXT NOT NULL, `last_session_id` INTEGER, `last_payload_sha` TEXT, `last_role_reader` INTEGER, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`local_spouse_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `tap_person_map` (`remote_person_id` TEXT NOT NULL, `local_person_id` TEXT NOT NULL, PRIMARY KEY(`remote_person_id`), FOREIGN KEY(`local_person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `tap_device` (`id` INTEGER NOT NULL, `role_reader` INTEGER, PRIMARY KEY(`id`))")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_spouse_pairing_local_spouse_id` ON `spouse_pairing` (`local_spouse_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tap_person_map_local_person_id` ON `tap_person_map` (`local_person_id`)")
+    }
+}

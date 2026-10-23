@@ -440,5 +440,32 @@ class ReadmeShotsTest {
     }
 
     /** 碰一碰角色选择页：大字号下两张角色卡与备用入口仍可达。 */
+    @Test
+    fun fontTapChooseRole() {
+        assume()
+        for (fs in listOf(1.3f, 1.5f)) {
+            fontShot("tap_choose_role", fs) {
+                io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+                    st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                        stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                            .TapUiState.Stage.CHOOSE_ROLE, roleReady = true))
+            }
+        }
+    }
 
+    /** 碰一碰等待页（读卡）：大字号下主操作与连接示意仍清楚。 */
+    @Test
+    fun fontTapWaitReader() {
+        assume()
+        for (fs in listOf(1.3f, 1.5f)) {
+            fontShot("tap_wait_reader", fs) {
+                io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+                    st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                        stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                            .TapUiState.Stage.WAITING, isMale = true,
+                        isReader = true, roleReady = true,
+                        selfName = "杨明", paired = false))
+            }
+        }
+    }
 }

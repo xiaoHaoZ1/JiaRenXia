@@ -11,6 +11,8 @@ import io.github.xiaohaoz1.jiarenxia.data.DateEntry
 import io.github.xiaohaoz1.jiarenxia.domain.AffairTimeline
 import io.github.xiaohaoz1.jiarenxia.domain.ContactSchedule
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter
+import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
 import io.github.xiaohaoz1.jiarenxia.reminder.UpcomingBirthdays
@@ -44,7 +46,7 @@ sealed interface WidgetState {
     data object Empty : WidgetState
     /** 读取异常兜底。 */
     data object Error : WidgetState
-    data class Ready(val items: List<WidgetItem>) : WidgetState
+    data class Ready(val items: List<WidgetItem>, val couple: CoupleLine? = null) : WidgetState
 }
 
 /**
@@ -114,10 +116,10 @@ object WidgetTimeline {
         }
 
         // 纪念日 / 忌日
-        val (dToday, dNext) = AffairTimeline.dateRows(dates, titles, today, lunar)
+        val (dToday, dNext) = AffairTimeline.dateRows(dates, titles, today, lunar, overview)
         for (row in dToday + dNext) {
             items += WidgetItem(
-                key = "d:" + row.personId + ":" + row.kind + ":" + row.occurrence,
+                key = "d:" + row.personId + ":" + row.kind + ":" + row.occurrence + ":" + (row.milestoneDays ?: 0),
                 kind = if (row.kind.isCoupleShared) {
                     WidgetItemKind.ANNIVERSARY
                 } else {
@@ -170,8 +172,9 @@ object WidgetTimeline {
             )
         }
 
-        if (items.isEmpty()) return WidgetState.Empty
+        val couple = CoupleCounter.counter(dates, overview, today, lunar)
+        if (items.isEmpty() && couple == null) return WidgetState.Empty
         items.sortWith(compareBy({ it.daysUntil }, { it.kind.ordinal }, { it.title }))
-        return WidgetState.Ready(items.take(MAX_ROWS))
+        return WidgetState.Ready(items.take(MAX_ROWS), couple)
     }
 }

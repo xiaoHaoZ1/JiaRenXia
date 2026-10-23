@@ -16,8 +16,7 @@
 - `:core:model` — 纯 Kotlin/JVM 库，领域模型，不依赖 Android。
 - `:core:kinship` — 纯 Kotlin/JVM 库，亲属关系推导引擎，依赖 `:core:model`，JUnit 单元测试。
 - `:core:designsystem` — Android 库，主题与通用组件（JrxCard、PageHeader 等），不依赖数据层。
-- `:feature:guardian` — Android 库，守护模块（无活动检测 + 紧急联系）。不依赖 Hilt/Room，不依赖 `:app`；只由 `:guardianapp` 使用（家人侠 `:app` 自 C3 起不再依赖）。
-- `:guardianapp` — 独立应用「守护侠」（`com.jiarenxia.guardian`，debug 加 `.debug`），只依赖 `:feature:guardian` 与 `:core:designsystem`。
+- 守护侠已于 2026-10-23 拆出为独立工程，含 `:guardianapp` 与 `:feature:guardian`；`:core:designsystem` 为拆分时的快照副本，两边各自演进。守护侠正式版与家人侠共用同一把签名密钥。
 - `:baselineprofile` — Baseline Profile 生成模块。
 
 ## 构建 / 测试 / 安装（本机 Windows 环境）
@@ -25,7 +24,7 @@
 下文 `<产品根目录>` 指仓库根目录。Devin 会话的命令在 WSL2 内执行（`uname` 可验证），构建、adb 等 Windows 工具链一律经 `cmd.exe /c` 调用。Gradle 根目录是 `apps/android`，以下 Gradle 命令与相对路径都以它为工作目录。完整验证命令：
 
 ```bash
-cmd.exe /c "cd /d <产品根目录>\apps\android && gradlew.bat :feature:guardian:testDebugUnitTest :app:testDebugUnitTest :core:kinship:test :core:model:test :app:lintDebug :app:assembleDebug :app:assembleRelease :guardianapp:testDebugUnitTest :guardianapp:lintDebug :guardianapp:assembleDebug :guardianapp:assembleRelease"
+cmd.exe /c "cd /d <产品根目录>\apps\android && gradlew.bat :app:testDebugUnitTest :core:kinship:test :core:model:test :app:lintDebug :app:assembleDebug :app:assembleRelease"
 ```
 
 在产品根目录也可以运行 `jrx.cmd android-verify`（同一组任务，遇到下述 lint 内部崩溃自动整条重跑一次，日志在 `runtime\logs\`），或 `jrx.cmd android <任务…>`（参数原样转给 `apps\android\gradlew.bat`）。
@@ -104,14 +103,10 @@ gradlew.bat :app:assembleRelease
 - 真机 `<真机序列号>` 装的是新密钥签名的正式版，里面是用户的真实家庭数据，测试时直接用这些数据看效果。debug 包不能覆盖正式版；卸载、清除数据、从备份恢复等会覆盖数据的操作，必须先征得用户同意。可以截图、`uiautomator dump`，但不得把数据库或个人资料拷出手机、写进仓库或测试；测试用例一律用合成名字。
 - `AGENTS.md` 中用「`private:start` / `private:end`」HTML 注释标记包住的段落是本机私密信息，不入公开快照：公开仓库的内容由维护者从开发仓库按版本导出，提交历史以版本为单位。`jrx.cmd public-snapshot <目标目录>` 导出 `git archive` 产物、剔除 `scripts/public-exclude.txt` 列出的文件并删掉这些段落，再做 `scripts/public-scan.txt` 泄漏扫描（有命中即失败）。
 
-## 守护（:feature:guardian，由守护侠 :guardianapp 使用）
+## 守护（已拆出）
 
-- 不依赖 Hilt/Room；引擎唯一入口 `GuardEngine.handle(Event)`，未来时序全部走 AlarmManager。
-- Direct Boot 安全：守护侠的 Application 只初始化守护模块（device-protected 存储）；家人侠自 C3 起不再含守护，`StartupGate` 仍把提醒调度、插件监听、可选更新检查延后到用户解锁后（桌面插件 receiver 为 directBootAware）。
-- 日志与 EventLog 中的电话号码一律脱敏（`maskNumber`）。
-- 使用会话（inUse）由引擎统一判定：解锁开始、锁屏结束；使用中不计倒计时，使用中上限 = 正常阈值、不受测试模式影响。
-- 状态通知只能有一条：前台服务通知（无 tag，渠道 `guardian_status_quiet`）。
-- 真机测试只能用测试模式 + 用户同意的安全号码；**不得**用真实家人号码做拨号回归。
+守护模块随守护侠拆到独立工程（2026-10-23），开发约定见该仓库 AGENTS.md，
+设计文档见该仓库 `docs/GUARDIAN_MODULE.md`。家人侠自 C3 起不含守护代码。
 
 ## 架构指引
 
@@ -120,7 +115,7 @@ gradlew.bat :app:assembleRelease
 - `reminder/` — 数据库是唯一事实来源：每天按各类提醒时刻做 WorkManager 检查（`ReminderTiming`，生日/事项/联系三时刻各自可配，默认 09:00），已过的时刻可当天补跑、按当日已通知键去重，跑完排最近的下一时刻；`ReminderSync` 在启动及生日/纪念日/事项/联系计划与记录/三个开关/三个时刻变化时 reconcile；`POST_NOTIFICATIONS` 只自动问一次。**`BirthdayReminderWorker` 类名不可改**——WorkManager 已持久化已排队任务名。
 - `ui/` — Compose + Hilt ViewModel + StateFlow；业务规则不进 Composable；`ui/graph/GraphLayout` 为纯 JVM 布局算法。
 - `navigation/AppNavHost` — 全部路由与通知深链（`personId` extra）。
-- 界面改版（2026-10-09，见 `docs/DEVELOPMENT_PLAN.md` 2.16）：一级页只放入口，开关与详细设置在二级页，二级页共用 `ui/mine/SettingsRows.kt` 的 `SettingsScaffold`/`SettingsGroup`/`SettingsNavRow`/`SettingsSwitchRow`。「我的」= 个人资料 + 备份卡 + 数据管理/外观与字号/功能管理/帮助与关于四个入口；三类提醒的开关与时刻在**家事页顶栏铃铛**（`settings/reminders`）；分享、接收在**家庭页 → 共享与连接**（`share/connect`）。主题 token 在 `core/designsystem/ui/theme/`，改 token 即全 App 生效；页头组件是 `PageHeader`（平底，原名 `GradientHeader`，渐变页头已取消），背景色取 `JrxColors.pageHeaderBackground`。
+- 界面改版（2026-10-09，见 `docs/DEVELOPMENT_PLAN.md` 2.16）：一级页只放入口，开关与详细设置在二级页，二级页共用 `ui/mine/SettingsRows.kt` 的 `SettingsScaffold`/`SettingsGroup`/`SettingsNavRow`/`SettingsSwitchRow`。「我的」= 个人资料 + 备份卡 + 数据管理/外观与字号/功能管理/帮助与关于四个入口；三类提醒的开关与时刻在**家事页顶栏铃铛**（`settings/reminders`）；分享、接收、碰一碰、婚礼祝词在**家庭页 → 共享与连接**（`share/connect`）。主题 token 在 `core/designsystem/ui/theme/`，改 token 即全 App 生效；页头组件是 `PageHeader`（平底，原名 `GradientHeader`，渐变页头已取消），背景色取 `JrxColors.pageHeaderBackground`。
 
 ## 约定
 
@@ -140,7 +135,7 @@ gradlew.bat :app:assembleRelease
 - 接收 intent-filter：ACTION_VIEW(content) / ACTION_SEND，mimeType 固定 application/octet-stream，不要注册通配 MIME。
 - 真机核对项：微信“用其他应用打开”实际传来的 MIME 类型；若不是 octet-stream，按实际值在 MainActivity 补一个 filter。
 - 从分享面板选家人侠自己，可以在没有微信的情况下测接收流程。
-
+- 碰一碰真机核对需要两部带 NFC 的手机；确认小米 HCE 在 category other 下能正常路由。单机可核对：无 NFC / NFC 关闭提示、男女等待页、读卡模式与 HCE 启停、半颗心动画（我的→调试→预览半颗心 左/右）、共享导入的“和我结为夫妻”。另外 `adb shell dumpsys nfc` 应能列出 `com.jiarenxia.app/io.github.xiaohaoz1.jiarenxia.nfc.TapHostService`（AID F04A52580001）；查不到说明 manifest 没注册该服务，碰一碰会完全无反应（0.8.1 的 bug）。小米手机绑了交通卡时，感应到读卡器会弹出小米钱包（logcat `NfcService: sendFieldOnEvent` → com.miui.tsmclient）；排查 HCE 断连看 `HostEmulationManager`，交易中出现 “Unbinding from service …TapHostService” 说明服务被解绑。协议为 HELLO v4（配对/时钟/多条目纪念日/祝词尾部 + 1 字节用途：0=结为夫妻、1=互加亲人），两部手机须同版本；真机反复测试用彩排模式（结为夫妻不写入数据）。OPPO（ColorOS 15）安全芯片为内置 eSE 且钱包有默认门禁卡时当不了卡片端（NCI 只有 RF_FIELD_INFO、没有 RF_INTF_ACTIVATED，当前 AID 为门禁卡 A0000003964D344D1061707056434D01），让它读卡、对方当卡片即可。
 - FileProvider authority ${applicationId}.share-provider（安装后为 com.jiarenxia.app.share-provider），路径 res/xml/file_paths.xml（cacheDir/share）。
 
 ## 网站（纯静态站点）

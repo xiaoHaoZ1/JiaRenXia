@@ -4,12 +4,15 @@
 
     <!-- 生日提醒通知（Android 13+ 需要运行时申请；无精确闹钟） -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.NFC" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- 「联网检查更新」（默认关）：仅用于查 jiarenxia-version.json 与下载 APK。
          不开启则 App 完全不走网络。REQUEST_INSTALL_PACKAGES 供 App 内装包用，
          用户仍要在系统「安装未知应用」里单独授权。 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
     <application
         android:name=".JiaRenXiaApp"
@@ -70,6 +73,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- 碰一碰卡片端（女方手机 HCE，FAMILY_AFFAIRS 第 10 节）：AID 见 res/xml/apduservice.xml；
+             只在碰一碰页面打开期间应答，其余时间 TapSession 一律回 6A82 -->
+        <service
+            android:name=".nfc.TapHostService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/apduservice" />
+        </service>
 
         <!-- 桌面插件「家事时间线」：未解锁时由 directBootAware 渲染占位 -->
         <receiver

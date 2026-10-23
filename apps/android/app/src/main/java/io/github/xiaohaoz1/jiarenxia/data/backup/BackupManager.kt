@@ -419,7 +419,52 @@ class BackupManager @Inject constructor(
         }
     }
 
-    /** RestorePlan → 合并用的对方快照（oid 来源标注随包携带，共享包不含则为空）。 */
+    // ---------------- 碰一碰结为夫妻（FAMILY_AFFAIRS 第 10 节） ----------------
+
+    /**
+     * 碰一碰资料包：与共享文件相同的备份 JSON 结构（无加密、无头像、
+     * 无私密模块、无设置），整体 Deflate 压缩后交给协议层加头分块。
+     * [personOrigins] 本机人物 id → 当初收到它时的来源 id（配对映射
+     * 反转而来）：对方借此把回环资料认回“本来就是我的人”，重复碰面
+     * 不产生重复人物也不重复追问候选。
+     * [personIds] 为 null 时包内是全部人物（结为夫妻原行为）；非 null 时
+     * 只保留集合内人物——手机号/重要日期按 personId 过滤，关系只留两端
+     * 都在集合内的（“互加亲人”的发送方圈选范围）。集合必须包含“我”。
+     */
+    suspend fun exportTapPayload(
+        personOrigins: Map<String, String> = emptyMap(),
+        personIds: Set<String>? = null
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val snap = db.withTransaction { snapshotTables() }
+        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _) = snap
+        // “仅本机保留”人物默认不进碰一碰（圈选人明确包含时才会带上）
+        val localOnly = db.familyLocalOnlyDao().getIds().toSet()
+        val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id } - localOnly
+        require(allPersons.firstOrNull { it.isSelf }?.id in keep) {
+            "碰一碰资料包必须包含“我”"
+        }
+        val persons = allPersons.filter { it.id in keep }
+        val phones = allPhones.filter { it.personId in keep }
+        val rels = allRels.filter {
+            it.sourcePersonId in keep && it.targetPersonId in keep
+        }
+        val dates = allDates.filter { it.personId in keep }
+        val origins = personOrigins.filterKeys { it in keep }
+        val zip = BackupJson.writeZip(
+            persons = persons, phones = phones, relationships = rels,
+            dates = dates, prefs = emptyList(), customTitles = emptyList(),
+            tasks = emptyList(),
+            settings = null, avatars = emptyMap(),
+            createdAt = System.currentTimeMillis(),
+            appVersion = BuildConfig.VERSION_NAME,
+            purpose = "tap",
+            sharedBy = persons.firstOrNull { it.isSelf }?.id,
+            personOrigins = origins
+        )
+        deflate(zip)
+    }
+
+    /** RestorePlan → 合并用的对方快照（oid 来源标注随包携带）。 */
     fun mergeSnapshotOf(plan: RestorePlan) =
         io.github.xiaohaoz1.jiarenxia.domain.merge.SpouseMerge.Snapshot(
             persons = plan.persons, phones = plan.phones,
@@ -437,10 +482,11 @@ class BackupManager @Inject constructor(
     }
 
     /**
-     * 合并写入（共享“和我结为夫妻”）：与 importShare 同一事务
+     * 合并写入（碰一碰 / 共享“和我结为夫妻”共用）：与 importShare 同一事务
      * 风格——实体由 SpouseMerge 已构造好，这里只做插入与提醒标记清理。
-     * [inTx] 在“同一事务”内追加写入（与家庭资料一起提交/回滚，
-     * 杜绝半截提交）；挂起 DAO 调用在 withTransaction 内自动加入当前事务。
+     * [inTx] 在“同一事务”内追加写入（碰一碰配对记录与来源人物映射经此
+     * 与家庭资料一起提交/回滚，杜绝半截提交）；挂起 DAO 调用在
+     * withTransaction 内自动加入当前事务。
      */
     suspend fun importMerge(
         merge: io.github.xiaohaoz1.jiarenxia.domain.merge.SpouseMerge.MergePlan,

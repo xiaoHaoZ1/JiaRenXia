@@ -307,6 +307,76 @@ data class ContactPlanEntity(
 )
 
 /**
+ * spouse_pairing：碰一碰夫妻配对记录（单行，id 恒 1）。
+ * 本机配偶人物被删（含备份恢复/共享导入/清空数据的整表清空）时级联清除——
+ * 恢复出来的资料不会被误认为“已配对的另一台手机”。
+ * 配对凭据是设备本地状态，不进备份、不随家人共享。
+ */
+@Entity(
+    tableName = "spouse_pairing",
+    foreignKeys = [ForeignKey(
+        entity = PersonEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["local_spouse_id"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [Index("local_spouse_id")]
+)
+data class SpousePairingEntity(
+    /** 恒 1：单行约束。 */
+    @PrimaryKey val id: Int,
+    /** 32 位十六进制配对标识（双方 nonce 推导，两端一致）。 */
+    @ColumnInfo(name = "pairing_id") val pairingId: String,
+    /** 对方机器上“我”的 personId（远程自报身份）。 */
+    @ColumnInfo(name = "peer_self_id") val peerSelfId: String,
+    /** 对方在本机对应的人物 id（本机配偶）。 */
+    @ColumnInfo(name = "local_spouse_id") val localSpouseId: String,
+    /** 对方姓名快照（展示用；身份以 id 为准）。 */
+    @ColumnInfo(name = "peer_name") val peerName: String,
+    /** 最近成功写入的会话 id（重放/诊断）。 */
+    @ColumnInfo(name = "last_session_id") val lastSessionId: Int?,
+    /** 最近一次应用的对方资料包 sha256（十六进制）。 */
+    @ColumnInfo(name = "last_payload_sha") val lastPayloadSha: String?,
+    /** 本机上次成功使用的连接方式：true=主动感应，false=等待感应。 */
+    @ColumnInfo(name = "last_role_reader") val lastRoleReader: Boolean?,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * tap_person_map：对方来源人物 id → 本机人物 id 的持久映射。
+ * 是合并幂等（重放/重连/更新不重复建人）的事实来源；
+ * 本机人物被删时对应映射级联作废。
+ */
+@Entity(
+    tableName = "tap_person_map",
+    foreignKeys = [ForeignKey(
+        entity = PersonEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["local_person_id"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [Index("local_person_id")]
+)
+data class TapPersonMapEntity(
+    /** 对方机器上的人物 id。 */
+    @PrimaryKey @ColumnInfo(name = "remote_person_id") val remotePersonId: String,
+    /** 本机对应的人物 id。 */
+    @ColumnInfo(name = "local_person_id") val localPersonId: String
+)
+
+/**
+ * tap_device：设备级碰一碰偏好（单行，id 恒 1），与配对记录无关——
+ * 未配对/配对被清除后仍记住上次成功的连接方式；
+ * 不进备份，换机/恢复不沿用；“清空所有数据”时一并删除。
+ */
+@Entity(tableName = "tap_device")
+data class TapDeviceEntity(
+    @PrimaryKey val id: Int,
+    /** 本机偏好的连接方式：true=主动感应(读卡)，false=等待感应(卡片)。 */
+    @ColumnInfo(name = "role_reader") val roleReader: Boolean?
+)
+
+/**
  * person_alias（v10，FAMILY_AFFAIRS 16.5 第 1 条）：
  * 对方人物 id → 本机人物 id 的对应关系（家人共享合并时保存）。
  * 只存本机，不进备份、不进共享文件；本机人物删除时级联清除；

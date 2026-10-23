@@ -12,6 +12,7 @@ import heroFam1200 from "../assets/photos/hero-family-1200.webp";
 import heroFam760 from "../assets/photos/hero-family-760.webp";
 import dinner1536 from "../assets/photos/dinner-1536.webp";
 import dinner900 from "../assets/photos/dinner-900.webp";
+import shouhuxiaIcon from "../assets/shouhuxia-icon.png";
 import "./home.css";
 
 /** 按标点（、，；。：？）拆成短语，只在短语之间换行，避免句中断开或末尾单独剩一个字。 */
@@ -243,7 +244,7 @@ function GuardianXia() {
   return (
     <section className="home-gxia" aria-labelledby="gxia-h">
       <div className="gxia-card">
-        <span className="gxia-ico"><Icon name="shield" size={30} /></span>
+        <img className="gxia-appicon" src={shouhuxiaIcon} alt="" />
         <div>
           <h3 id="gxia-h">守护侠（测试版）</h3>
           <p>

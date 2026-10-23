@@ -274,11 +274,20 @@
   background: var(--tertiary-bg);
   color: var(--tertiary);
 }
+/* 守护侠真实应用图标（前景 PNG + 与启动图标一致的暖黄底） */
+.gxia-appicon {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  border-radius: 18px;
+  background: #f9c147;
+}
 .gxia-card h3 { margin: 0 0 0.2em; font-size: 21px; }
 .gxia-card p { margin: 0.2em 0 0; color: var(--text-2); font-size: 16px; }
 @media (max-width: 560px) {
   .gxia-card { padding: 20px 22px; gap: 14px; }
   .gxia-ico { width: 52px; height: 52px; }
+  .gxia-appicon { width: 52px; height: 52px; border-radius: 15px; }
 }
 
 /* ---------- 隐私承诺（浅色） ---------- */

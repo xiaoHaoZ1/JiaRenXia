@@ -6,7 +6,7 @@ import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
  * 关系图可见层（图谱视觉改版）：决定哪些人物入图、
  * 哪些由“展开”动作逐层揭示。纯计算，可 JVM 单测。
  *
- * 与分享的选人预设（[GraphBranches.visibleIds]）完全隔离：
+ * 与分享/碰一碰的选人预设（[GraphBranches.visibleIds]）完全隔离：
  * 收起/展开只影响这张图，不改变分享人数；
  * 图谱的候选全集是“双方可达人物全集”（generations 的键集）。
  *

@@ -98,7 +98,7 @@ fun FamilyScreen(
     onAddFamily: () -> Unit,
     onSearch: () -> Unit,
     onOpenGraph: () -> Unit,
-    /** 「共享与连接」：分享家庭档案、接收家人分享（2026-10-09 从「我的」搬来）。 */
+    /** 「共享与连接」：分享家庭档案、接收家人分享、碰一碰（2026-10-09 从「我的」搬来）。 */
     onShareConnect: () -> Unit = {},
     viewModel: FamilyViewModel = hiltViewModel()
 ) {
@@ -375,7 +375,7 @@ fun FamilyContent(
                     io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsNavRow(
                         icon = Icons.Rounded.Diversity1,
                         title = "共享与连接",
-                        subtitle = "分享家庭档案 · 接收家人分享 · 家庭协作",
+                        subtitle = "分享家庭档案 · 接收家人分享 · 碰一碰",
                         onClick = onShareConnect
                     )
                 }

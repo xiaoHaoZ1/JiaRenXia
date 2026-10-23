@@ -111,13 +111,14 @@ class BirthdayReminderWorker @AssistedInject constructor(
         }
         val dues = ReminderPlanner.dueNotifications(repository.getBirthdayEntries(), titles, today, lunar) +
             // 纪念日和忌日与生日同一开关、独立渠道（V0.8）
-            ReminderPlanner.dueDateReminders(repository.getDateEntries(), titles, today, lunar)
+            ReminderPlanner.dueDateReminders(repository.getDateEntries(), titles, today, lunar, overview)
         if (dues.isEmpty()) return
         ensureChannel()
         ensureAnnivChannel()
         val nm = NotificationManagerCompat.from(context)
         dues.forEach { d ->
-            val key = "date:" + d.kind.name + ":" + d.personId + ":" + d.daysBefore
+            val key = "date:" + d.kind.name + ":" + d.personId + ":" + d.daysBefore +
+                (d.milestoneDays?.let { ":" + it } ?: "")
             if (key in posted) return@forEach
             val isSelf = overview.byId[d.personId]?.person?.isSelf == true
             runCatching { nm.notify(notificationId(d), build(d, isSelf)) }
@@ -126,7 +127,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
     }
 
     private fun notificationId(d: DueReminder): Int =
-        (d.kind.name + ":" + d.personId + ":" + d.daysBefore).hashCode()
+        (d.kind.name + ":" + d.personId + ":" + d.daysBefore +
+                (d.milestoneDays?.let { ":" + it } ?: "")).hashCode()
 
     private fun build(d: DueReminder, isSelf: Boolean): android.app.Notification {
         val text = ReminderPlanner.text(d, isSelf)

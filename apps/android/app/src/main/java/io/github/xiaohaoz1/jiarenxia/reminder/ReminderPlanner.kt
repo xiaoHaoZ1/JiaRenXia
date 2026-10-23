@@ -45,7 +45,11 @@ data class DueReminder(
     /** 生日命中明细（按发生日排序）；非生日提醒为空。 */
     val birthdayParts: List<BirthdayPart> = emptyList(),
     /** 该人一共登记了几条生日（>1 时文案带历法限定词）。 */
-    val birthdayCount: Int = 0
+    val birthdayCount: Int = 0,
+    /** 里程碑天数（相恋/结婚/领证第 N 天）；普通提醒为 null。 */
+    val milestoneDays: Int? = null,
+    /** 里程碑文案用的另一方称呼（自定义称呼或姓名），普通提醒为 null。 */
+    val partnerLabel: String? = null
 )
 
 /**
@@ -66,7 +70,8 @@ object ReminderPlanner {
         entries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry>,
         titles: Map<String, String?>,
         today: LocalDate,
-        lunar: LunarCalendar
+        lunar: LunarCalendar,
+        overview: io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview? = null
     ): List<DueReminder> {
         val out = mutableListOf<DueReminder>()
         for (e in entries) {
@@ -108,6 +113,30 @@ object ReminderPlanner {
                         yearLabel = yearLabel
                     )
                 }
+            }
+        }
+        // “我和另一半”的里程碑：沿用源条目的提醒偏移（until == offset 才发）
+        if (overview != null) {
+            for (m in io.github.xiaohaoz1.jiarenxia.domain.anniversary
+                .CoupleCounter.milestones(entries, overview, today, lunar, 30)) {
+                if (!m.entry.reminderEnabled) continue
+                if (m.daysUntil !in m.entry.reminderOffsets) continue
+                val o = overview.byId[m.partnerId]
+                val lab = o?.customTitle ?: o?.person?.name
+                    ?: m.entry.partnerName ?: m.entry.person.name
+                out += DueReminder(
+                    personId = m.entry.person.id,
+                    name = m.entry.person.name,
+                    title = null,
+                    daysBefore = m.daysUntil,
+                    occurrence = m.date,
+                    kind = m.type,
+                    partnerName = m.entry.partnerName,
+                    isSelfEntry = m.entry.person.isSelf,
+                    partnerIsSelf = m.entry.partnerIsSelf,
+                    milestoneDays = m.dayNumber,
+                    partnerLabel = lab,
+                )
             }
         }
         return out
@@ -160,7 +189,13 @@ object ReminderPlanner {
     }
 
     /** 到期提醒的通知文案；isSelf 用“你”的称谓。 */
-    fun text(due: DueReminder, isSelf: Boolean): String = when (due.kind) {
+    fun text(due: DueReminder, isSelf: Boolean): String {
+        if (due.milestoneDays != null) {
+            val who = due.partnerLabel ?: due.partnerName ?: "另一半"
+            return dayLabel(due.daysBefore, due.occurrence) + "是你和" + who +
+                coupleVerb(due.kind) + "第 " + due.milestoneDays + " 天"
+        }
+        return when (due.kind) {
         ImportantDateType.WEDDING_ANNIVERSARY,
         ImportantDateType.LICENSE_ANNIVERSARY,
         ImportantDateType.DATING_ANNIVERSARY -> {
@@ -174,7 +209,8 @@ object ReminderPlanner {
             val lunar = due.lunarDateText?.let { "（" + it + "）" } ?: ""
             dayLabel(due.daysBefore, due.occurrence) + "是" + who + "的忌日" + lunar
         }
-        else -> birthdayText(due, isSelf)
+            else -> birthdayText(due, isSelf)
+        }
     }
 }
 
@@ -227,6 +263,13 @@ private fun birthdayText(due: DueReminder, isSelf: Boolean): String {
             }
         }
     }
+}
+
+/** 里程碑动词（相恋 / 结婚 / 领证）。 */
+private fun coupleVerb(t: ImportantDateType) = when (t) {
+    ImportantDateType.LICENSE_ANNIVERSARY -> "领证"
+    ImportantDateType.DATING_ANNIVERSARY -> "相恋"
+    else -> "结婚"
 }
 
 /** 夫妻共享纪念日的名称（结婚 / 领证 / 恋爱）。 */

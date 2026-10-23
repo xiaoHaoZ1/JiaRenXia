@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">家人侠</string>
+    <string name="tap_service_desc">家人侠碰一碰</string>
+    <string name="tap_aid_desc">家人侠碰一碰</string>
 
     <!-- 桌面插件 -->
     <string name="widget_affairs_name">家事时间线</string>

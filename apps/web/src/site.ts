@@ -9,17 +9,17 @@ export const SITE = {
   /** 公开源码仓库（GPL-3.0）。 */
   sourceUrl: "https://github.com/xiaoHaoZ1/JiaRenXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.0.0",
+  apkVersion: "2.1.0",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 48,
+  apkVersionCode: 49,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "守护功能搬到独立应用「守护侠」（即将推出），家人侠不再需要电话、短信权限；移除碰一碰和婚礼祝词。",
+  apkNotes: "桌面插件第一行显示你和另一半在一起多久，相恋、结婚第 1000 天等里程碑到点提醒；碰一碰结为夫妻回来了（实验功能，领证拍照时两部带 NFC 的安卓手机一碰，合成一颗心）。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
-  apkSizeBytes: 3_636_275,
-  apkSha256: "d815d57252bd15ae07e303d86bf576825b247e95a225bd8bf1cbcaee5b53a9ed",
+  apkSizeBytes: 3_736_119,
+  apkSha256: "97e0c84159e71d0ee3b6c1cb1a3296eae6427e463867e8ff09afb10004d84891",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.0.0.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.0.apk`,
 };
 
 /** 小侠家族页展示的同作者小应用。安装包同样放站点根目录、不入库；
@@ -33,13 +33,13 @@ export const EXTENSIONS = [
     description:
       "装在长辈手机上：锁屏后太久没人用手机，先响铃请 TA 确认；没人应答就自动打给紧急联系人，" +
       "还能每天发一条平安短信。不联网、不注册，设置只存在这台手机里。",
-    version: "1.0.0",
-    released: "2026-10-21",
-    whatsNew: "首个测试版",
-    sizeBytes: 1_523_251,
-    sha256: "ba19179c6f70cd526f0dc19a03fc0336ad337ab4787e11d5b259244c8a15f4ab",
+    version: "1.0.2",
+    released: "2026-10-23",
+    whatsNew: "首页只保留一个设置入口",
+    sizeBytes: 1_597_039,
+    sha256: "5d9a56ecdb687008c81eb240b61ee3ff79328db368074b766b576d0daa25142b",
     /** 安装包地址：下载服务按版本命名 */
-    file: `${DOWNLOAD_BASE}/shouhuxia-1.0.0.apk`,
+    file: `${DOWNLOAD_BASE}/shouhuxia-1.0.2.apk`,
     minAndroid: "8.0",
     note: "测试版：装好后请先打开「测试模式」走一遍，确认能响铃、能拨通，再开启守护。目前仍在真机测试，暂不建议作为唯一的安全保障。",
   },

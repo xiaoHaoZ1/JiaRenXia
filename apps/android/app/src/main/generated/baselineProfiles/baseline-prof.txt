@@ -6201,6 +6201,10 @@ HSLio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceEntity;-><init>(Ljava
 HSLio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceEntity;->getEnabled()Z
 HSLio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceEntity;->getId()Ljava/lang/String;
 HSLio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceEntity;->getImportantDateId()Ljava/lang/String;
+HSLio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao_Impl$Companion;-><init>()V
+HSLio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao_Impl$Companion;-><init>(Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+HSLio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao_Impl$Companion;->getRequiredConverters()Ljava/util/List;
+HSLio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao_Impl;-><clinit>()V
 HSLio/github/xiaohaoz1/jiarenxia/data/security/AppLockConfig;-><clinit>()V
 HSLio/github/xiaohaoz1/jiarenxia/data/security/AppLockConfig;-><init>(ZIZLio/github/xiaohaoz1/jiarenxia/data/security/RelockPolicy;)V
 HSLio/github/xiaohaoz1/jiarenxia/data/security/AppLockConfig;->getEnabled()Z
@@ -6933,6 +6937,9 @@ HSLio/github/xiaohaoz1/jiarenxia/ui/share/ShareImportViewModel_HiltModules_KeyMo
 HSLio/github/xiaohaoz1/jiarenxia/ui/share/ShareScopeViewModel_HiltModules$KeyModule;->provide()Z
 HSLio/github/xiaohaoz1/jiarenxia/ui/share/ShareScopeViewModel_HiltModules_BindsModule_Binds_LazyMapKey;-><clinit>()V
 HSLio/github/xiaohaoz1/jiarenxia/ui/share/ShareScopeViewModel_HiltModules_KeyModule_Provide_LazyMapKey;-><clinit>()V
+HSLio/github/xiaohaoz1/jiarenxia/ui/tap/TapViewModel_HiltModules$KeyModule;->provide()Z
+HSLio/github/xiaohaoz1/jiarenxia/ui/tap/TapViewModel_HiltModules_BindsModule_Binds_LazyMapKey;-><clinit>()V
+HSLio/github/xiaohaoz1/jiarenxia/ui/tap/TapViewModel_HiltModules_KeyModule_Provide_LazyMapKey;-><clinit>()V
 HSLio/github/xiaohaoz1/jiarenxia/ui/task/TaskEditViewModel_HiltModules$KeyModule;->provide()Z
 HSLio/github/xiaohaoz1/jiarenxia/ui/task/TaskEditViewModel_HiltModules_BindsModule_Binds_LazyMapKey;-><clinit>()V
 HSLio/github/xiaohaoz1/jiarenxia/ui/task/TaskEditViewModel_HiltModules_KeyModule_Provide_LazyMapKey;-><clinit>()V
@@ -55612,6 +55619,9 @@ Lio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceDao_Impl$2;
 Lio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceDao_Impl$Companion;
 Lio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceDao_Impl;
 Lio/github/xiaohaoz1/jiarenxia/data/db/ReminderPreferenceEntity;
+Lio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao;
+Lio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao_Impl$Companion;
+Lio/github/xiaohaoz1/jiarenxia/data/db/TapPairingDao_Impl;
 Lio/github/xiaohaoz1/jiarenxia/data/security/AppLockConfig;
 Lio/github/xiaohaoz1/jiarenxia/data/security/AppLockController$1$1;
 Lio/github/xiaohaoz1/jiarenxia/data/security/AppLockController$1;
@@ -55933,6 +55943,9 @@ Lio/github/xiaohaoz1/jiarenxia/ui/share/ShareImportViewModel_HiltModules_KeyModu
 Lio/github/xiaohaoz1/jiarenxia/ui/share/ShareScopeViewModel_HiltModules$KeyModule;
 Lio/github/xiaohaoz1/jiarenxia/ui/share/ShareScopeViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
 Lio/github/xiaohaoz1/jiarenxia/ui/share/ShareScopeViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
+Lio/github/xiaohaoz1/jiarenxia/ui/tap/TapViewModel_HiltModules$KeyModule;
+Lio/github/xiaohaoz1/jiarenxia/ui/tap/TapViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
+Lio/github/xiaohaoz1/jiarenxia/ui/tap/TapViewModel_HiltModules_KeyModule_Provide_LazyMapKey;
 Lio/github/xiaohaoz1/jiarenxia/ui/task/TaskEditViewModel_HiltModules$KeyModule;
 Lio/github/xiaohaoz1/jiarenxia/ui/task/TaskEditViewModel_HiltModules_BindsModule_Binds_LazyMapKey;
 Lio/github/xiaohaoz1/jiarenxia/ui/task/TaskEditViewModel_HiltModules_KeyModule_Provide_LazyMapKey;

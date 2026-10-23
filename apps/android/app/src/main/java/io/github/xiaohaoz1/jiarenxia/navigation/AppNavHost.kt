@@ -61,7 +61,7 @@ object Routes {
     const val SETTINGS_APPEARANCE = "settings/appearance"
     const val SETTINGS_MODULES = "settings/modules"
     const val SETTINGS_ABOUT = "settings/about"
-    /** 家庭 → 共享与连接（分享、接收）。 */
+    /** 家庭 → 共享与连接（分享、接收、碰一碰）。 */
     const val SHARE_CONNECT = "share/connect"
     /** 家事 → 提醒设置（三类提醒的开关与时刻）。 */
     const val SETTINGS_REMINDERS = "settings/reminders"
@@ -103,6 +103,12 @@ fun taskEdit(
     const val SHARE_SCOPE = "share/scope?branch={branch}"
     /** 协作接收审查页（FAMILY_AFFAIRS §5）：包经 AppEvents.pendingCollab 或待办草稿进入。 */
     const val SHARE_COLLAB = "share/collab"
+    /** 碰一碰：kind = HELLO 用途（0 结为夫妻 / 1 互加亲人），由入口带入。 */
+    const val TAP = "tap?kind={kind}"
+    fun tap(kind: Int) = "tap?kind=" + kind
+    /** 半颗心调试预览：left=true 男方左半边。 */
+    const val TAP_HEART = "tap/heart?left={left}"
+    fun tapHeart(left: Boolean) = "tap/heart?left=" + left
     /** 分享选人页：branch 为 GraphBranch 名（缺省全部）。 */
     fun shareScope(branch: String = "") =
         "share/scope?branch=" + branch
@@ -129,6 +135,16 @@ fun AppNavHost(
     onShareTextPendingConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
+    // 碰一碰备用入口尚无文件，先选择对方发来的共享文件；取消不改变页面。
+    val tapSharePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            navController.navigate(Routes.shareImport(android.net.Uri.encode(uri.toString()))) {
+                launchSingleTop = true
+            }
+        }
+    }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val pending by pendingPersonId.collectAsStateWithLifecycle()
     val pendingTask by pendingTaskId.collectAsStateWithLifecycle()
@@ -438,6 +454,44 @@ fun AppNavHost(
             )
         }
 
+        composable(
+            Routes.TAP_HEART,
+            arguments = listOf(
+                androidx.navigation.navArgument("left") {
+                    type = androidx.navigation.NavType.BoolType
+                    defaultValue = true
+                }
+            )
+        ) { e ->
+            // 调试预览：全屏拼心展示（只从 debug 我的页进入）
+            io.github.xiaohaoz1.jiarenxia.ui.tap.HeartShowPreview(
+                leftHalf = e.arguments?.getBoolean("left") != false)
+        }
+
+        composable(
+            Routes.TAP,
+            arguments = listOf(
+                navArgument("kind") {
+                    type = NavType.IntType
+                    defaultValue =
+                        io.github.xiaohaoz1.jiarenxia.nfc.TapProtocol
+                            .KIND_SPOUSE.toInt()
+                }
+            )
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.tap.TapScreen(
+                onBack = { navController.popBackStack() },
+                onDone = {
+                    navController.navigate(Routes.graph()) {
+                        launchSingleTop = true
+                    }
+                },
+                onShare = {
+                    tapSharePicker.launch(arrayOf("*/*"))
+                }
+            )
+        }
+
         composable(Routes.ADD_FAMILY) {
             AddFamilyScreen(
                 onboarding = false,
@@ -504,6 +558,9 @@ fun AppNavHost(
                     navController.navigate(Routes.SHARE_COLLAB) {
                         launchSingleTop = true
                     }
+                },
+                onHeartPreview = { left ->
+                    navController.navigate(Routes.tapHeart(left))
                 }
             )
         }
@@ -547,6 +604,11 @@ fun AppNavHost(
                 },
                 onShareImport = {
                     navController.navigate(Routes.shareImport(null)) {
+                        launchSingleTop = true
+                    }
+                },
+                onTap = { kind ->
+                    navController.navigate(Routes.tap(kind.toInt())) {
                         launchSingleTop = true
                     }
                 },

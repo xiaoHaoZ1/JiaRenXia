@@ -45,7 +45,7 @@ object FamilyMerge {
     data class Bridge(val remoteId: String, val role: RelationRole)
 
     /**
-     * “他不在我家”锚（共享互加亲人）：对方人物 remoteId 是本机人物
+     * “他不在我家”锚（碰一碰互加亲人）：对方人物 remoteId 是本机人物
      * localAnchorId 的 role——对方本人在本机还不存在时，按声明关系新建
      * 并接入本机关系图；同时作为认人起点参与结构候选比对（对方带来的
      * 亲属可与本机已有人物互相认出）。

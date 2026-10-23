@@ -91,7 +91,7 @@ class ReminderViewModel @Inject constructor(
         val names = overview?.byId?.mapValues { (_, o) -> o.person.name } ?: emptyMap()
         val res = UpcomingBirthdays.build(entries, titles, LocalDate.now(), lunar)
         val dates = repository.getDateEntries()
-        val (dToday, dNext30) = AffairTimeline.dateRows(dates, titles, LocalDate.now(), lunar)
+        val (dToday, dNext30) = AffairTimeline.dateRows(dates, titles, LocalDate.now(), lunar, overview)
         ReminderUiState(
             loading = false,
             remindersEnabled = enabled,

@@ -161,7 +161,7 @@ class GraphViewModel @Inject constructor(
     private val _focusedId = MutableStateFlow(
         savedStateHandle.get<String>("focus")?.takeIf { it.isNotBlank() }
     )
-    /** 图谱可见层状态：已点展开的（锚点+方向）键；与分享选人完全隔离。 */
+    /** 图谱可见层状态：已点展开的（锚点+方向）键；与分享/碰一碰选人完全隔离。 */
     private val _expanded =
         MutableStateFlow<Set<GraphVisibility.Expand>>(emptySet())
     private val _expandAll = MutableStateFlow(false)

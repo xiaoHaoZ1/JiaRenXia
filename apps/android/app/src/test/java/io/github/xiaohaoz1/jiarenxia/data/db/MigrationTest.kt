@@ -13,6 +13,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_10_11
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_11_12
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_12_13
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_13_14
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_14_15
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -22,7 +23,6 @@ import io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -156,17 +156,17 @@ class MigrationTest {
     }
 
     @Test
-    fun v4库升级到v13_家人事项保留且退出表消失() = runTest {
+    fun v4库升级到v15_家人事项保留且退出表消失() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dbFile = File(context.getDatabasePath("x").parentFile, "migration-413.db")
         dbFile.delete()
         createV4Database(context, dbFile)
 
-        // Room 以 v13 打开：整条迁移链 4→13 必须走通
+        // Room 以 v13 打开：整条迁移链 4→15 必须走通
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -177,7 +177,7 @@ class MigrationTest {
     }
 
     @Test
-    fun v5库升级到v13_链走通且退出表消失() = runTest {
+    fun v5库升级到v15_链走通且退出表消失() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val dbFile = File(context.getDatabasePath("x").parentFile, "migration-513.db")
         dbFile.delete()
@@ -187,7 +187,7 @@ class MigrationTest {
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
             )
             .allowMainThreadQueries()
             .build()
@@ -326,7 +326,7 @@ class MigrationTest {
         createV6Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -361,7 +361,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14
+                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15
             )
             .allowMainThreadQueries()
             .build()
@@ -373,6 +373,9 @@ class MigrationTest {
             listOf(ContactPlanEntity("p1", 7, 1, 1))
         )
         assertEquals(7, db.contactPlanDao().get("p1")!!.intervalDays)
+        assertNull(db.tapPairingDao().getPairing())
+        assertTrue(db.tapPairingDao().getMap().isEmpty())
+        assertNull(db.tapPairingDao().getDevice())
         db.close()
         dbFile.delete()
     }
@@ -421,7 +424,7 @@ class MigrationTest {
         createV7Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -487,12 +490,43 @@ class MigrationTest {
 
         // Room 以 v9 打开：执行 MIGRATION_8_9 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
-        // v8 数据原样保留
+        // v8 数据原样保留；v9 三表已建且为空
         assertEquals(3, db.personDao().getAll().size)
+        assertNull(db.tapPairingDao().getPairing())
+        assertTrue(db.tapPairingDao().getMap().isEmpty())
+        assertNull(db.tapPairingDao().getDevice())
+
+        // 配对 + 映射 + 设备偏好可写可读
+        db.tapPairingDao().upsertPairing(
+            SpousePairingEntity(
+                id = 1, pairingId = "ab12", peerSelfId = "r-self",
+                localSpouseId = "p1", peerName = "老伴",
+                lastSessionId = 7, lastPayloadSha = "ff",
+                lastRoleReader = true, updatedAt = 9))
+        db.tapPairingDao().upsertMap(
+            listOf(TapPersonMapEntity("r-self", "p1"),
+                TapPersonMapEntity("r-f", "p2")))
+        db.tapPairingDao().upsertDevice(TapDeviceEntity(1, true))
+        assertEquals("ab12", db.tapPairingDao().getPairing()!!.pairingId)
+        assertEquals(2, db.tapPairingDao().getMap().size)
+        assertEquals(true, db.tapPairingDao().getDevice()!!.roleReader)
+
+        // 映射指向的人物被删 → 该映射级联作废；配对保留（p1 还在）
+        db.personDao().deleteById("p2")
+        assertEquals(
+            mapOf("r-self" to "p1"),
+            db.tapPairingDao().getMap()
+                .associate { it.remotePersonId to it.localPersonId })
+
+        // 本机配偶被删 → 配对记录级联清除；设备偏好保留
+        db.personDao().deleteById("p1")
+        assertNull(db.tapPairingDao().getPairing())
+        assertTrue(db.tapPairingDao().getMap().isEmpty())
+        assertEquals(true, db.tapPairingDao().getDevice()!!.roleReader)
         db.close()
         dbFile.delete()
     }
@@ -528,7 +562,7 @@ class MigrationTest {
 
         // Room 以 v10 打开：执行 MIGRATION_9_10 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -587,7 +621,7 @@ class MigrationTest {
 
         // Room 以 v11 打开：执行 MIGRATION_10_11 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -641,7 +675,7 @@ class MigrationTest {
 
         // Room 以 v13 打开：执行 MIGRATION_11_12 + 12_13 并校验全部表
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -763,7 +797,7 @@ class MigrationTest {
         createV12Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_12_13, MIGRATION_13_14)
+            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
             .allowMainThreadQueries()
             .build()
 
@@ -820,82 +854,6 @@ class MigrationTest {
         assertNull(db.familyTaskDao().get("ptask"))
         assertTrue(db.familyTaskOffsetDao().getForTask("ptask").isEmpty())
         assertEquals("ord1", db.familyTaskDao().get("ord1")!!.id)
-        db.close()
-        dbFile.delete()
-    }
-
-    /** v13 库：v12 之上执行 MIGRATION_12_13（含碰一碰三表），供 v13→v14 校验。 */
-    private fun createV13Database(context: Context, dbFile: File) {
-        createV12Database(context, dbFile)
-        val helper = FrameworkSQLiteOpenHelperFactory().create(
-            SupportSQLiteOpenHelper.Configuration
-                .builder(context)
-                .name(dbFile.absolutePath)
-                .callback(object : SupportSQLiteOpenHelper.Callback(13) {
-                    override fun onConfigure(db: SupportSQLiteDatabase) {}
-                    override fun onCreate(db: SupportSQLiteDatabase) {}
-                    override fun onUpgrade(
-                        db: SupportSQLiteDatabase, oldVersion: Int,
-                        newVersion: Int
-                    ) {
-                        MIGRATION_12_13.migrate(db)
-                    }
-                })
-                .build()
-        )
-        // v13 里的碰一碰数据：配对/映射/设备各一行 + 一名普通人物，
-        // 验证升级只删这三张表、其余资料原样保留
-        helper.writableDatabase.let { d ->
-            d.execSQL(
-                "INSERT INTO `persons` (`id`,`name`,`gender`,`avatar_path`,`note`," +
-                    "`living_status`,`is_self`,`created_at`,`updated_at`) " +
-                    "VALUES ('px','甲','MALE',NULL,NULL,'ALIVE',0,1,1)"
-            )
-            d.execSQL(
-                "INSERT INTO `spouse_pairing` (`id`,`pairing_id`,`peer_self_id`," +
-                    "`local_spouse_id`,`peer_name`,`last_session_id`,`last_payload_sha`," +
-                    "`last_role_reader`,`updated_at`) VALUES (1,'ab12','r-self'," +
-                    "'px','老伴',7,'ff',1,9)"
-            )
-            d.execSQL(
-                "INSERT INTO `tap_person_map` (`remote_person_id`,`local_person_id`)" +
-                    " VALUES ('r-self','px')"
-            )
-            d.execSQL(
-                "INSERT INTO `tap_device` (`id`,`role_reader`) VALUES (1,1)"
-            )
-        }
-        helper.writableDatabase.close()
-    }
-
-    @Test
-    fun v13到v14删碰一碰表且其余资料保留() = runTest {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-1314.db")
-        dbFile.delete()
-        createV13Database(context, dbFile)
-
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_13_14)
-            .allowMainThreadQueries()
-            .build()
-
-        // 三张碰一碰表消失：sqlite_master 里查不到
-        val tables = mutableSetOf<String>()
-        db.openHelper.writableDatabase.query(
-            "SELECT name FROM sqlite_master WHERE type = 'table'"
-        ).use { c -> while (c.moveToNext()) tables.add(c.getString(0)) }
-        assertTrue("spouse_pairing" !in tables)
-        assertTrue("tap_person_map" !in tables)
-        assertTrue("tap_device" !in tables)
-        // 其余资料原样保留：v13 里建的人物与事项都在
-        assertEquals(4, db.personDao().getAll().size)
-        assertNotNull(db.personDao().getAll().firstOrNull { it.id == "px" })
-        assertEquals("ptask", db.familyTaskDao().get("ptask")!!.id)
-        // 外键完整性零违例
-        db.openHelper.writableDatabase.query("PRAGMA foreign_key_check").use { c ->
-            assertEquals(0, c.count)
-        }
         db.close()
         dbFile.delete()
     }

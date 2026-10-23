@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "JiaRenXia"
-include(":app", ":core:model", ":core:kinship", ":core:designsystem", ":feature:guardian", ":guardianapp", ":baselineprofile")
+include(":app", ":core:model", ":core:kinship", ":core:designsystem", ":baselineprofile")

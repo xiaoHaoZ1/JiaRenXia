@@ -138,8 +138,8 @@ data class RestorePlan(
     /** 家人共享：分享者“我”的 personId。 */
     val sharedBy: String? = null,
     /**
-     * 人物来源标注：personId → 当初收到此人物时的来源 id（原为碰一碰资料包
-     * 字段，碰一碰已于 2026-10-21 删除，现恒为空）。对方据此识别
+     * 碰一碰资料包人物来源标注：personId → 该机当初收到此人物时的来源 id
+     * （仅碰一碰资料包携带）。对方据此识别“这个人本来就是从你这儿来的”，
      * 回环资料不会产生重复人物，也不需再次确认候选。
      */
     val personOrigins: Map<String, String> = emptyMap(),
@@ -194,7 +194,7 @@ object BackupJson {
         purpose: String = "backup",
         /** 家人共享：分享者“我”的 personId。 */
         sharedBy: String? = null,
-        /** 人物来源标注（原为碰一碰资料包字段；共享/备份不再写出，恒为空）。 */
+        /** 人物来源标注（仅碰一碰资料包）：本机人物 id → 当初收到它时的来源 id。 */
         personOrigins: Map<String, String> = emptyMap(),
         /** 协作包元数据（purpose="share" 且非空 → schemaVersion=12）。 */
         collaboration: CollabMeta? = null,
@@ -497,13 +497,18 @@ object BackupJson {
             fail("enum $what")
         }
 
-        // oid 是已删除的碰一碰资料包来源标记；备份/共享文件中的 oid 一律忽略，
+        // oid 是碰一碰资料包专有的来源标记；备份/共享文件中的 oid 一律忽略，
         // 防止伪造 oid 绕过“同一人候选”确认而直接并入已有人物
+        val isTap = root.optString("purpose") == "tap"
         val personOrigins = LinkedHashMap<String, String>()
         val avatarHashes = LinkedHashMap<String, String>()
         val persons = root.optJSONArray("persons")?.let { arr ->
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
+                if (isTap) {
+                    o.optString("oid", "").takeIf { it.isNotEmpty() }
+                        ?.let { personOrigins[o.getString("id")] = it }
+                }
                 o.optString("avatarHash", "").takeIf { it.isNotEmpty() }
                     ?.let { avatarHashes[o.getString("id")] = it }
                 PersonEntity(

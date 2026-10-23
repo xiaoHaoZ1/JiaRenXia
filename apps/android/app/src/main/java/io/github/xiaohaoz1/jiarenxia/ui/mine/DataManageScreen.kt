@@ -43,7 +43,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreOutcome
 /**
  * 数据管理（我的 → 二级页）：备份、恢复、清空，以及本机专用的测试工具。
  *
- * 改版前这些和「分享给家人」挤在同一张「数据」卡里。现在按用途分开：
+ * 改版前这些和「分享给家人」「碰一碰」挤在同一张「数据」卡里。现在按用途分开：
  * 这页只管「给自己留副本」，发给家人走 家庭页 → 共享与连接。
  */
 @Composable
@@ -55,6 +55,7 @@ fun DataManageScreen(
     onShareImport: () -> Unit,
     /** 恢复时识别出的是协作包 → 转协作接收页。 */
     onCollabDetected: () -> Unit = {},
+    onHeartPreview: (Boolean) -> Unit = {},
     viewModel: MineViewModel = hiltViewModel(),
     snapshotVm: QuickSnapshotViewModel = hiltViewModel()
 ) {
@@ -162,6 +163,7 @@ fun DataManageScreen(
             viewModel.debugCheckReminders()
             Toast.makeText(context, "已触发一次检查", Toast.LENGTH_SHORT).show()
         },
+        onHeartPreview = onHeartPreview,
         prereceive = prereceive,
         onPrereceive = snapshotVm::askPrereceiveRestore
     )
@@ -276,6 +278,7 @@ fun DataManageContent(
     onQuickRestore: () -> Unit = {},
     onClearKeepSnapshots: () -> Unit = {},
     onDebugCheck: () -> Unit = {},
+    onHeartPreview: (Boolean) -> Unit = {},
     /** “上次接收前副本”信息（null = 无可找回副本，入口隐藏）。 */
     prereceive: io.github.xiaohaoz1.jiarenxia.data.backup
         .QuickSnapshotStore.Snapshot? = null,
@@ -337,6 +340,18 @@ fun DataManageContent(
                     icon = Icons.Rounded.NotificationsActive,
                     title = "立即检查提醒",
                     onClick = onDebugCheck
+                )
+                RowDivider()
+                SettingsNavRow(
+                    icon = Icons.Rounded.Favorite,
+                    title = "预览半颗心（左）",
+                    onClick = { onHeartPreview(true) }
+                )
+                RowDivider()
+                SettingsNavRow(
+                    icon = Icons.Rounded.FavoriteBorder,
+                    title = "预览半颗心（右）",
+                    onClick = { onHeartPreview(false) }
                 )
             }
         }

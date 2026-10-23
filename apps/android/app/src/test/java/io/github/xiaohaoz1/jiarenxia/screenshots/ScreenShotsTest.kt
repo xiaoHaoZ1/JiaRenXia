@@ -1572,7 +1572,10 @@ class ScreenShotsTest {
     fun shareConnect() = shot("share_connect") {
         io.github.xiaohaoz1.jiarenxia.ui.mine.ShareConnectContent(onBack = {})
     }.also {
-        assertTexts("分享给家人", "接收家人分享", "家庭协作")
+        assertTexts(
+            "分享给家人", "接收家人分享", "结为夫妻", "祝福语",
+            "碰一碰 · 实验功能", "尚未完成双机实测"
+        )
     }
 
     @Test
@@ -1580,7 +1583,7 @@ class ScreenShotsTest {
     fun shareConnectDark() = shot("share_connect_dark", dark = true) {
         io.github.xiaohaoz1.jiarenxia.ui.mine.ShareConnectContent(onBack = {})
     }.also {
-        assertTexts("分享给家人", "接收家人分享", "家庭协作")
+        assertTexts("碰一碰 · 实验功能", "尚未完成双机实测", "结为夫妻", "祝福语")
     }
 
     @Test
@@ -1588,7 +1591,7 @@ class ScreenShotsTest {
     fun shareConnectLarge() = shotLarge("share_connect") {
         io.github.xiaohaoz1.jiarenxia.ui.mine.ShareConnectContent(onBack = {})
     }.also {
-        assertTexts("分享给家人", "接收家人分享", "家庭协作")
+        assertTexts("碰一碰 · 实验功能", "尚未完成双机实测", "结为夫妻", "祝福语")
     }
 
     @Test
@@ -1874,6 +1877,254 @@ class ScreenShotsTest {
             settings = null,
             avatars = emptyMap(), purpose = "share", sharedBy = "sharer"
         )
+    }
+
+    // ---------------- 碰一碰（V0.7） ----------------
+
+    @Test
+    fun tapNoNfc() = shot("tap_no_nfc") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.NO_NFC))
+    }.also {
+        assertTexts("这部手机不支持 NFC（或不支持卡片模拟）",
+            "改用家人共享")
+    }
+
+    @Test
+    fun tapNfcOff() = shot("tap_nfc_off") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.NFC_OFF))
+    }.also {
+        assertTexts("手机的 NFC 没有打开", "去打开 NFC")
+    }
+
+    @Test
+    fun tapChooseRole() = shot("tap_choose_role") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.CHOOSE_ROLE, roleReady = true))
+    }.also {
+        assertTexts("先选这部手机的连接方式", "这部手机主动感应",
+            "这部手机等待感应")
+    }
+
+    @Test
+    fun tapWaitReader() = shot("tap_wait_reader") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.WAITING, isMale = true,
+                isReader = true, roleChosen = true))
+    }.also {
+        assertTexts("靠近一点，成为一家人", "本机：主动感应中",
+            "交换连接方式", "预演模式")
+    }
+
+    @Test
+    fun tapWaitCard() = shot("tap_wait_card") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.WAITING, isMale = false,
+                isReader = false, roleChosen = true))
+    }.also {
+        assertTexts("靠近一点，成为一家人", "本机：等待感应",
+            "交换连接方式", "预演模式")
+    }
+
+    @Test
+    fun tapWaitPaired() = shot("tap_wait_paired") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.WAITING, isMale = true,
+                isReader = true, roleChosen = true,
+                paired = true, selfSpouseName = "李雪"))
+    }.also {
+        assertTexts("和你，再心动一次", "碰一碰 · 纪念",
+            "更新家人资料", "预演模式")
+    }
+
+    @Test
+    fun tapConfirmSpouse() = shot("tap_confirm_spouse") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.CONFIRMING, roleReady = true,
+                confirm = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Confirm.SPOUSE_CANDIDATE,
+                confirmName = "杨明", peerName = "杨明"))
+    }.also {
+        assertTexts("对方「杨明」就是你已录入的配偶吗？", "是，就是我的配偶",
+            "不是")
+    }
+
+    @Test
+    fun tapUpdatePreview() = shot("tap_update_preview") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.UPDATE_PREVIEW, roleReady = true,
+                paired = true, updateNew = 1, updateNewRels = 1,
+                updateMatched = 6,
+                updateConflicts = listOf(
+                    "杨明 的生日不一致：本机 公历 1990年1月1日，" +
+                        "对方 公历 1990年1月2日")))
+    }.also {
+        assertTexts("家人资料更新预览", "确认更新（本机）",
+            "两边不一致（本机保留原样）：")
+    }
+
+    @Test
+    fun tapExchange() = shot("tap_exchange") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.EXCHANGING,
+                peerName = "李雪", peerFamilyCount = 4))
+    }.also {
+        assertTexts("正在交换家人资料…", "对方：李雪（4 位家人）",
+            "请保持两部手机贴在一起")
+    }
+
+    @Test
+    fun tapWaitNotice() = shot("tap_wait_notice") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.WAITING, isMale = true,
+                isReader = true, roleChosen = true, roleReady = true,
+                notice = "连接断开了，再贴一下继续"))
+    }.also {
+        assertTexts("连接断开了，再贴一下继续",
+            "两部手机都打开这个页面，背靠背贴在一起")
+    }
+
+    @Test
+    fun tapErrorRetry() = shot("tap_error_retry") {
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState(
+                stage = io.github.xiaohaoz1.jiarenxia.ui.tap
+                    .TapUiState.Stage.ERROR, roleReady = true,
+                error = "碰一碰失败：资料包校验失败"))
+    }.also {
+        assertTexts("碰一碰失败：资料包校验失败", "重试")
+    }
+
+    private fun tapShowLabels() = listOf(
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState
+            .FamilyLabel("妻子", "李雪"),
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState
+            .FamilyLabel("岳父", "李国强"),
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState
+            .FamilyLabel("岳母", "周淑芬"),
+        io.github.xiaohaoz1.jiarenxia.ui.tap.TapUiState
+            .FamilyLabel("小姨子", "李晴")
+    )
+
+    @Test
+    fun tapShowLeft() {
+        shot("tap_show_left") {
+            io.github.xiaohaoz1.jiarenxia.ui.tap.HeartShowFrame(
+                timeMs = 20_000L, startAt = 0L,
+                selfName = "杨明", peerName = "李雪",
+                leftHalf = true,
+                labels = tapShowLabels(), moreCount = 0,
+                rehearsal = false,
+                date = java.time.LocalDate.of(2026, 10, 4))
+        }
+        // 男方左半心：右缘（接缝）是心色，左缘是背景
+        assertShowEdge(
+            "build/outputs/roborazzi/b_tap_show_left.png",
+            heartOnRight = true)
+    }
+
+    @Test
+    fun tapShowRight() {
+        shot("tap_show_right") {
+            io.github.xiaohaoz1.jiarenxia.ui.tap.HeartShowFrame(
+                timeMs = 20_000L, startAt = 0L,
+                selfName = "李雪", peerName = "杨明",
+                leftHalf = false,
+                labels = tapShowLabels(), moreCount = 0,
+                rehearsal = false,
+                date = java.time.LocalDate.of(2026, 10, 4))
+        }
+        // 女方右半心：左缘（接缝）是心色，右缘是背景
+        assertShowEdge(
+            "build/outputs/roborazzi/b_tap_show_right.png",
+            heartOnRight = false)
+    }
+
+    @Test
+    fun tapShowReveal() {
+        shot("tap_show_reveal") {
+            io.github.xiaohaoz1.jiarenxia.ui.tap.HeartShowFrame(
+                timeMs = 1_800L, startAt = 0L,
+                selfName = "杨明", peerName = "李雪",
+                leftHalf = true,
+                labels = tapShowLabels(), moreCount = 0,
+                rehearsal = false,
+                date = java.time.LocalDate.of(2026, 10, 4))
+        }
+        // 新家人飘入途中：画面已渲染（心 + 飞行中的称谓）
+        assertDescs("杨明 与 李雪 喜结连理")
+    }
+
+    @Test
+    fun tapShowCustomWords() {
+        shot("tap_show_words") {
+            io.github.xiaohaoz1.jiarenxia.ui.tap.HeartShowFrame(
+                timeMs = 20_000L, startAt = 0L,
+                selfName = "杨明", peerName = "李雪",
+                leftHalf = true,
+                labels = emptyList(), moreCount = 0,
+                rehearsal = false,
+                date = java.time.LocalDate.of(2026, 10, 4),
+                weddingWords = "永结" to "同心")
+        }
+        // 自定义祝词：无障碍描述跟随“左词+右词”
+        assertDescs("杨明 与 李雪 永结同心")
+    }
+
+    @Test
+    fun tapShowMemorial() {
+        shot("tap_show_memorial") {
+            io.github.xiaohaoz1.jiarenxia.ui.tap.HeartShowFrame(
+                timeMs = 20_000L, startAt = 0L,
+                selfName = "杨明", peerName = "李雪",
+                leftHalf = true,
+                labels = emptyList(), moreCount = 0,
+                rehearsal = false,
+                date = java.time.LocalDate.of(2026, 10, 4),
+                memorialLine = "结婚 10 周年快乐",
+                anniversary = true)
+        }
+        assertDescs("杨明 与 李雪 的纪念日：结婚 10 周年快乐")
+    }
+
+    /** 断言合心截图边缘像素：接缝侧为心色（red>200），外侧为背景（red<160）。 */
+    private fun assertShowEdge(path: String, heartOnRight: Boolean) {
+        val bmp = android.graphics.BitmapFactory.decodeFile(path)
+        val midY = bmp.height / 2
+        val leftPx = bmp.getPixel(2, midY)
+        val rightPx = bmp.getPixel(bmp.width - 3, midY)
+        if (heartOnRight) {
+            org.junit.Assert.assertTrue("右缘应为心色",
+                android.graphics.Color.red(rightPx) > 200)
+            org.junit.Assert.assertTrue("左缘应为背景",
+                android.graphics.Color.red(leftPx) < 160)
+        } else {
+            org.junit.Assert.assertTrue("左缘应为心色",
+                android.graphics.Color.red(leftPx) > 200)
+            org.junit.Assert.assertTrue("右缘应为背景",
+                android.graphics.Color.red(rightPx) < 160)
+        }
     }
 
     @Test

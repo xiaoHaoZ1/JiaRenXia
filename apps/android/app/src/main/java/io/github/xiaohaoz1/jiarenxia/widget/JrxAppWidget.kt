@@ -33,6 +33,7 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import io.github.xiaohaoz1.jiarenxia.MainActivity
 import io.github.xiaohaoz1.jiarenxia.R
+import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -120,7 +121,7 @@ private fun Content(context: Context, state: WidgetState) {
     ) {
         Header(context)
         when (state) {
-            is WidgetState.Ready -> ReadyList(context, state.items)
+            is WidgetState.Ready -> ReadyList(context, state.items, state.couple)
             else -> Placeholder(context, state)
         }
     }
@@ -153,10 +154,48 @@ private fun Header(context: Context) {
 }
 
 @Composable
-private fun ReadyList(context: Context, items: List<WidgetItem>) {
+private fun ReadyList(context: Context, items: List<WidgetItem>, couple: CoupleLine?) {
     LazyColumn(GlanceModifier.fillMaxSize()) {
+        if (couple != null) {
+            item { CoupleRow(context, couple) }
+        }
         items(items, itemId = { it.key.hashCode().toLong() }) { item ->
             ItemRow(context, item)
+        }
+    }
+}
+
+/** “我和另一半”计数首行：主色左边条 + 标题加粗，点击进入对方详情。 */
+@Composable
+private fun CoupleRow(context: Context, couple: CoupleLine) {
+    val intent = Intent(context, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        .putExtra(MainActivity.EXTRA_PERSON_ID, couple.partnerId)
+    Row(
+        GlanceModifier.fillMaxWidth()
+            .clickable(actionStartActivity(intent))
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(GlanceModifier.width(3.dp).height(30.dp).background(WidgetColors.accent)) {}
+        Spacer(GlanceModifier.width(8.dp))
+        Column(GlanceModifier.defaultWeight()) {
+            Text(
+                couple.title,
+                style = TextStyle(
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WidgetColors.text,
+                ),
+                maxLines = 1,
+            )
+            if (couple.note != null) {
+                Text(
+                    couple.note,
+                    style = TextStyle(fontSize = 11.sp, color = WidgetColors.secondary),
+                    maxLines = 1,
+                )
+            }
         }
     }
 }

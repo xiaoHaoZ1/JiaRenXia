@@ -36,12 +36,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.xiaohaoz1.jiarenxia.domain.ceremony.WeddingWords
+import io.github.xiaohaoz1.jiarenxia.nfc.TapProtocol
 import io.github.xiaohaoz1.jiarenxia.ui.restore.OpenBackupDocument
 import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreDialogs
 import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreOutcome
 
 /**
- * 共享与连接（家庭页 → 二级页）：把家庭档案发给家人、接收家人的分享。
+ * 共享与连接（家庭页 → 二级页）：把家庭档案发给家人、接收家人的分享、碰一碰。
  *
  * 这些动作本质是「和家人交换资料」，2026-10-09 改版从「我的 → 数据」搬到家庭页，
  * 与「数据管理」（只给自己留副本）分开。
@@ -55,6 +57,8 @@ fun ShareConnectScreen(
     onShareScope: () -> Unit,
     /** 识别出共享文件 → 共享导入页。 */
     onShareImport: () -> Unit,
+    /** 碰一碰：kind = TapProtocol.KIND_*。 */
+    onTap: (Byte) -> Unit,
     onNeedsSelf: () -> Unit = {},
     /** 识别出协作包 → 协作接收页。 */
     onCollabDetected: () -> Unit = {},
@@ -117,11 +121,15 @@ fun ShareConnectScreen(
         }
     }
 
+    var showWeddingWords by remember { mutableStateOf(false) }
 
     ShareConnectContent(
+        weddingWords = WeddingWords.split(st.weddingWords),
         onBack = onBack,
         onShare = onShareScope,
         onReceive = { receiveLauncher.launch(arrayOf("*/*")) },
+        onTap = onTap,
+        onWeddingWordsClick = { showWeddingWords = true },
         collabStatus = collabStatus,
         collabPendingDiff = collabPendingDiff,
         onPublish = collabViewModel::publish,
@@ -176,6 +184,14 @@ fun ShareConnectScreen(
         )
     }
 
+    if (showWeddingWords) {
+        WeddingWordsDialog(
+            current = WeddingWords.split(st.weddingWords),
+            onSave = { viewModel.setWeddingWords(it); showWeddingWords = false },
+            onDismiss = { showWeddingWords = false }
+        )
+    }
+
     // 接收到的若是普通备份文件，仍走恢复确认（与我的页同一套对话框）
     val restoreStep by viewModel.restore.step.collectAsStateWithLifecycle()
     RestoreDialogs(
@@ -189,9 +205,12 @@ fun ShareConnectScreen(
 
 @Composable
 fun ShareConnectContent(
+    weddingWords: Pair<String, String> = WeddingWords.DEFAULT,
     onBack: () -> Unit,
     onShare: () -> Unit = {},
     onReceive: () -> Unit = {},
+    onTap: (Byte) -> Unit = {},
+    onWeddingWordsClick: () -> Unit = {},
     collabStatus: io.github.xiaohaoz1.jiarenxia.data.collab
         .FamilyCollaborationService.Status? = null,
     /** 本机相对基准的差异项数（成员“发回补充”副文案）。 */
@@ -275,6 +294,22 @@ fun ShareConnectContent(
             else "还没有加入协作：汇总者先「发布确认版」，家人收到后即可反复补充。"
         )
 
+        SettingsGroup("碰一碰 · 实验功能") {
+            SettingsNavRow(
+                icon = Icons.Rounded.Favorite,
+                title = "结为夫妻",
+                subtitle = "领证拍照时一碰 · 两家关系合并",
+                onClick = { onTap(TapProtocol.KIND_SPOUSE) }
+            )
+            RowDivider()
+            SettingsNavRow(
+                icon = Icons.Rounded.FormatQuote,
+                title = "祝福语",
+                value = WeddingWords.phrase(weddingWords),
+                onClick = onWeddingWordsClick
+            )
+        }
+        SettingsHint("需要两部带 NFC 的安卓手机，尚未完成双机实测。", center = true)
         Spacer(Modifier.height(16.dp))
     }
 }

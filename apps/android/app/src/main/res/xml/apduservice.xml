@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 碰一碰 AID：F04A52580001，category other（FAMILY_AFFAIRS 第 10 节） -->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/tap_service_desc"
+    android:requireDeviceUnlock="false"
+    android:apduServiceBanner="@drawable/ic_launcher_foreground">
+    <aid-group android:category="other" android:description="@string/tap_aid_desc">
+        <aid-filter android:name="F04A52580001" />
+    </aid-group>
+</host-apdu-service>

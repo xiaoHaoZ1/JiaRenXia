@@ -192,6 +192,14 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   background: var(--primary-bg);
   color: var(--primary);
 }
+/* 小侠家族：有真实应用图标的条目（前景 PNG + 与启动图标一致的暖黄底） */
+.ext-appicon {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 14px;
+  background: #f9c147;
+}
 /* 下载区：按钮 + 二维码并排，窄屏自动换行 */
 .ext-dl {
   display: flex;

@@ -321,11 +321,9 @@ switch ($cmd) {
         $logDir = Join-Path $root "runtime\logs"
         if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Force $logDir | Out-Null }
         $ts = Get-Date -Format "yyyyMMdd-HHmmss"
-        $tasks = @(":feature:guardian:testDebugUnitTest", ":app:testDebugUnitTest",
+        $tasks = @(":app:testDebugUnitTest",
                    ":core:kinship:test", ":core:model:test", ":app:lintDebug",
-                   ":app:assembleDebug", ":app:assembleRelease",
-                   ":guardianapp:testDebugUnitTest", ":guardianapp:lintDebug",
-                   ":guardianapp:assembleDebug", ":guardianapp:assembleRelease")
+                   ":app:assembleDebug", ":app:assembleRelease")
         $maxTry = 2
         for ($try = 1; $try -le $maxTry; $try++) {
             $log = Join-Path $logDir "android-verify-$ts-$try.log"

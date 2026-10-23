@@ -29,7 +29,7 @@ object ShareImport {
     fun graphOf(plan: RestorePlan, lunar: LunarCalendar): FamilyGraph =
         graphOf(plan.persons, plan.relationships, plan.importantDates, lunar)
 
-    /** 实体表 → 称谓引擎用的 FamilyGraph（共享“和我结为夫妻”合并后的内存图也走这里）。 */
+    /** 实体表 → 称谓引擎用的 FamilyGraph（碰一碰合并后的内存图也走这里）。 */
     fun graphOf(
         persons: List<PersonEntity>,
         relationships: List<RelationshipEntity>,
@@ -59,7 +59,7 @@ object ShareImport {
      * “我是谁”候选条目（标签从分享者视角说清关系）：
      * 分享者本人 → “姓名（分享者本人）”；亲属 → “姓名（分享者的X）”；
      * 无关联 → 仅姓名。排序 = FamilyOrdering 分组 + 组内拼音（同 PersonPickList）。
-     * [sharerWord]：共享接收时传 "对方"（“对方本人”“对方的母亲”）。
+     * [sharerWord]：碰一碰互加亲人传 "对方"（“对方本人”“对方的母亲”）。
      */
     fun candidates(
         plan: RestorePlan,

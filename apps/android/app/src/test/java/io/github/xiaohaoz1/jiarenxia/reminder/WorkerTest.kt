@@ -39,10 +39,12 @@ import org.robolectric.annotation.Config
 /** 仅实现 Worker 需要的最小仓储 fake。 */
 private class FakeRepo(
     private val self: Person,
-    private val entries: List<BirthdayEntry>
+    private val entries: List<BirthdayEntry>,
+    private val dateEntries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry> = emptyList(),
+    extraPersons: List<Person> = emptyList()
 ) : FamilyRepository {
     private val graph = FamilyGraph(
-        listOf(self), emptyList(), emptyMap(),
+        listOf(self) + extraPersons, emptyList(), emptyMap(),
         birthdayValues = entries.groupBy({ it.person.id }, { it.birthday })
     )
     override fun observeSelf() = flowOf<Person?>(self)
@@ -96,8 +98,7 @@ private class FakeRepo(
         personId: String,
         value: io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue?
     ) = FamilyResult.Success(Unit)
-    override suspend fun getDateEntries() =
-        emptyList<io.github.xiaohaoz1.jiarenxia.data.DateEntry>()
+    override suspend fun getDateEntries() = dateEntries
     override suspend fun coParentCandidate(personId: String) = null
     override suspend fun commonChildCandidates(a: String, b: String) =
         emptyList<io.github.xiaohaoz1.jiarenxia.data.CommonChildCandidate>()
@@ -197,13 +198,16 @@ class WorkerTest {
         settings: FakeSettings,
         force: Boolean = false,
         taskRepo: FakeTaskRepo = FakeTaskRepo(),
-        clock: TimeSource = FakeClock(LocalDate.now().atTime(12, 0))
+        clock: TimeSource = FakeClock(LocalDate.now().atTime(12, 0)),
+        dateEntries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry> = emptyList(),
+        spouse: Person? = null
     ): BirthdayReminderWorker {
         val self = Person(id = "me", name = "我", gender = Gender.MALE, isSelf = true)
         val entries = listOf(
             BirthdayEntry(self, BirthdayValue(PartialDate(1990, LocalDate.now().monthValue, LocalDate.now().dayOfMonth)), true)
         )
-        val repo = FakeRepo(self, entries)
+        val repo = FakeRepo(self, entries, dateEntries,
+            listOfNotNull(spouse))
         val overview = ObserveFamilyOverview(repo, KinshipEngine())
         return TestListenableWorkerBuilder<BirthdayReminderWorker>(context)
             .setInputData(
@@ -281,6 +285,31 @@ class WorkerTest {
         )
 
     /** 通知内容文本（锁屏公开版不外泄内容，用私有版断言）。 */
+    @Test
+    fun 相恋第1000天里程碑当天发通知且不与同日纪念冲突() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        val wife = Person(id = "w1", name = "李雪", gender = Gender.FEMALE)
+        val dating = io.github.xiaohaoz1.jiarenxia.data.DateEntry(
+            type = io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType.DATING_ANNIVERSARY,
+            person = Person(id = "me", name = "我", gender = Gender.MALE, isSelf = true),
+            date = BirthdayValue(PartialDate(today.minusDays(999).year,
+                today.minusDays(999).monthValue, today.minusDays(999).dayOfMonth)),
+            reminderEnabled = true, reminderOffsets = setOf(0),
+            partnerId = "w1", partnerName = "李雪")
+        val wedding = dating.copy(
+            type = io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType.WEDDING_ANNIVERSARY,
+            date = BirthdayValue(PartialDate(today.year - 5, today.monthValue, today.dayOfMonth)))
+        val result = buildWorker(settings,
+            dateEntries = listOf(dating, wedding), spouse = wife).doWork()
+        assertEquals(ListenableWorker.Result.success(), result)
+        val texts = postedTexts()
+        assertTrue(texts.any { it == "今天是你和李雪相恋第 1000 天" })
+        // 同日的结婚里程碑也单独发出（通知 id 不冲突）
+        // 同日另一类纪念（结婚纪念日，非里程碑）单独发出
+        assertTrue(texts.any { it.contains("结婚纪念日") })
+    }
+
     private fun postedTexts(): List<String> {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE)
             as android.app.NotificationManager

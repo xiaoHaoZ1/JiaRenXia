@@ -9,7 +9,7 @@ import java.time.Period
 
 /**
  * 夫妻共享纪念日（结婚 / 领证 / 恋爱）的“已经多久了”计算与文案。
- * 详情页与纪念页共用同一套口径。
+ * 详情页与碰一碰纪念页共用同一套口径。
  */
 object AnniversaryDurations {
 

@@ -104,6 +104,8 @@ class MineViewModelBackupTest : RepoTestBase() {
             scheduler = FakeScheduler,
             clearAll = ClearAllDataUseCase(
                 ctx, repo, settings, FakeScheduler,
+                io.github.xiaohaoz1.jiarenxia.data.tap
+                    .RoomSpousePairingStore(db),
                 io.github.xiaohaoz1.jiarenxia.data.backup
                     .QuickSnapshotStore(ctx, db, BackupManager(ctx, db, settings))
             ),

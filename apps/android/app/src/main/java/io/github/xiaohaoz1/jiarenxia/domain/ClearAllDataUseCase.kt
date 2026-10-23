@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import io.github.xiaohaoz1.jiarenxia.data.backup.QuickSnapshotStore
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
+import io.github.xiaohaoz1.jiarenxia.domain.merge.SpousePairingStore
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -17,7 +18,7 @@ interface DataClearer {
 
 /**
  * 清空所有数据（DEVELOPMENT_PLAN 2.6）：数据库、头像目录、设置、
- * 快速存档、提醒任务与通知。
+ * 碰一碰配对记录、快速存档、提醒任务与通知。
  * 测试工具里的“清空数据但保留存档”走 [run] 的 keepSnapshots 变体。
  */
 @Singleton
@@ -26,6 +27,7 @@ class ClearAllDataUseCase @Inject constructor(
     private val repository: FamilyRepository,
     private val settings: SettingsRepository,
     private val scheduler: ReminderScheduler,
+    private val pairingStore: SpousePairingStore,
     private val snapshots: QuickSnapshotStore
 ) : DataClearer {
     override suspend fun run() = run(keepSnapshots = false)
@@ -34,6 +36,7 @@ class ClearAllDataUseCase @Inject constructor(
     suspend fun run(keepSnapshots: Boolean) {
         repository.clearAllData()
         settings.clear()
+        pairingStore.clear()
         scheduler.cancelAll()
         // 协作接收暂存的加密文件随资料一起清（与 BackupManager.restore 一致）
         java.io.File(context.filesDir, "collab_incoming").deleteRecursively()

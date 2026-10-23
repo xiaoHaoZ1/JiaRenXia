@@ -9,7 +9,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.RelationshipEntity
 import java.util.UUID
 
 /**
- * 共享“和我结为夫妻”的合并逻辑（FAMILY_AFFAIRS 第 10 节，纯 JVM）。
+ * 碰一碰结为夫妻的合并逻辑（FAMILY_AFFAIRS 第 10 节，纯 JVM）。
  *
  * 输入双方快照（人物/关系/手机号/生日；不含头像与私密模块）与各自的“我”的 id；
  * 输出一个写入计划（MergePlan），由写入方在一个事务里执行。
@@ -42,7 +42,7 @@ object SpouseMerge {
         val relationships: List<RelationshipEntity>,
         val dates: List<ImportantDateEntity>,
         /**
-         * 来源标注：人物 id → 对方当初收到此人物时的来源 id（原为碰一碰资料包
+         * 来源标注：人物 id → 对方当初收到此人物时的来源 id（碰一碰资料包
          * 携带的 oid）。指向本机仍存在的同姓名同性别人物即“回环资料”——
          * 这条人物本来就从本机出去，直接复用映射，不再作为候选打扰用户。
          */
@@ -351,7 +351,7 @@ object SpouseMerge {
             )
         }
 
-        // 关系约束（FAMILY_AFFAIRS 16.6）：
+        // 关系约束（FAMILY_AFFAIRS 16.6，碰一碰同样校验）：
         // 把合并后的关系逐条在本机图上验约束；违规不写入，列入冲突清单
         val graph = RelationGraph(
             local.persons.associateBy { it.id } +

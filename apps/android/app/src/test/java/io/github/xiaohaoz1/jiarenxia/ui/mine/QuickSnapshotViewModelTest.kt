@@ -59,6 +59,7 @@ class QuickSnapshotViewModelTest : RepoTestBase() {
 
     private fun clearer() = ClearAllDataUseCase(
         ctx, repo, settings, SnapshotFakeScheduler,
+        io.github.xiaohaoz1.jiarenxia.data.tap.RoomSpousePairingStore(db),
         store
     )
 

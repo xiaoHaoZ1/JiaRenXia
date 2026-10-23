@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.xiaohaoz1.jiarenxia.domain.ceremony.WeddingWords
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -99,6 +100,15 @@ interface SettingsRepository {
     suspend fun setIntroSeen(seen: Boolean) {}
 
     /**
+     * 婚礼祝词（碰一碰婚礼模式左右两词，“左|右”），默认“喜结|连理”。
+     * 碰一碰时随 HELLO 带给对方，两端不一致以读卡端为准。
+     * 本机偏好，不进备份；接口提供默认实现，测试假类无需逐个补。
+     */
+    val weddingWords: Flow<String> get() =
+        kotlinx.coroutines.flow.flowOf(WeddingWords.join(WeddingWords.DEFAULT))
+    suspend fun setWeddingWords(raw: String) {}
+
+    /**
      * 「联网检查更新」开关：默认关闭，关闭时 App 完全不联网（INTERNET
      * 权限虽随包声明，但所有联网代码都受本开关门控）。开启即表示用户
      * 同意联网——仅用于查询官网版本信息与下载安装包，可随时关闭。
@@ -159,6 +169,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyTestTools = booleanPreferencesKey("test_tools_enabled")
     private val keyEdgeLabels = booleanPreferencesKey("edge_labels_enabled")
     private val keyIntroSeen = booleanPreferencesKey("intro_seen")
+    private val keyWeddingWords = stringPreferencesKey("wedding_words")
     private val keyUpdateCheckEnabled = booleanPreferencesKey("update_check_enabled")
     private val keyUpdateLastCheckAt = longPreferencesKey("update_last_check_at")
     private val keyUpdateKnownCode = intPreferencesKey("update_known_code")
@@ -290,6 +301,18 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setIntroSeen(seen: Boolean) {
         dataStore.edit { it[keyIntroSeen] = seen }
+    }
+
+    override val weddingWords: Flow<String> =
+        dataStore.data.map {
+            it[keyWeddingWords] ?: WeddingWords.join(WeddingWords.DEFAULT)
+        }.distinctUntilChanged()
+
+    override suspend fun setWeddingWords(raw: String) {
+        // 落库前归一化：非法输入回落默认，保证上屏两词非空
+        dataStore.edit {
+            it[keyWeddingWords] = WeddingWords.join(WeddingWords.split(raw))
+        }
     }
 
     override val updateCheckEnabled: Flow<Boolean> =

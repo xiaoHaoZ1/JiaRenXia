@@ -120,7 +120,7 @@ apps/android
 | [ARCHITECTURE.md](ARCHITECTURE.md) | 技术架构 |
 | [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md) | 数据库结构 |
 | [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md) | 各版本的实现决策与开发记录（编号偏旧，非仅 V0.1/V0.2） |
-| [GUARDIAN_MODULE.md](GUARDIAN_MODULE.md) | 守护模块设计与约定 |
+| GUARDIAN_MODULE.md | 守护模块设计与约定（2026-10-23 已随守护侠迁往独立工程） |
 | [FAMILY_AFFAIRS.md](FAMILY_AFFAIRS.md) | 家事、家人共享、碰一碰、合并（会员设计已下线，第 8 节留档） |
 | [web/README.md](web/README.md) | 网站信息结构、界面与使用流程 |
 | [deployment/LOCAL_WINDOWS.md](deployment/LOCAL_WINDOWS.md) | 官网静态构建与部署 |

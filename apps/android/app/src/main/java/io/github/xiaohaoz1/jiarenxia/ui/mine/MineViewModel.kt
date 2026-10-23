@@ -9,6 +9,7 @@ import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.domain.ClearAllDataUseCase
+import io.github.xiaohaoz1.jiarenxia.domain.ceremony.WeddingWords
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderScheduler
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -36,6 +37,8 @@ data class MineUiState(
     val lastBackupAt: Long? = null,
     /** Snackbar 提示（备份/恢复结果等），一次性事件。 */
     val message: String? = null,
+    /** 婚礼祝词原始串（“左|右”），展示经 WeddingWords.split。 */
+    val weddingWords: String = WeddingWords.join(WeddingWords.DEFAULT)
 )
 
 @HiltViewModel
@@ -95,6 +98,7 @@ class MineViewModel @Inject constructor(
             st.copy(contactReminderMinuteOfDay = m) }
         .combine(settings.lastBackupAt) { st, t -> st.copy(lastBackupAt = t) }
         .combine(message) { st, m -> st.copy(message = m) }
+        .combine(settings.weddingWords) { st, w -> st.copy(weddingWords = w) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MineUiState())
 
     fun setRemindersEnabled(enabled: Boolean) {
@@ -112,6 +116,9 @@ class MineViewModel @Inject constructor(
     }
 
     /** 婚礼祝词（左词/右词）；落库前由 settings 归一化。 */
+    fun setWeddingWords(words: Pair<String, String>) {
+        viewModelScope.launch { settings.setWeddingWords(WeddingWords.join(words)) }
+    }
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }

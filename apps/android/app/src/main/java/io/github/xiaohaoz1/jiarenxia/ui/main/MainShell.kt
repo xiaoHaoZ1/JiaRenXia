@@ -87,7 +87,7 @@ fun MainShell(
     onAppearance: () -> Unit = {},
     onModules: () -> Unit = {},
     onAbout: () -> Unit = {},
-    /** 家庭页「共享与连接」：分享、接收。 */
+    /** 家庭页「共享与连接」：分享、接收、碰一碰。 */
     onShareConnect: () -> Unit = {},
     /** 家事页顶栏铃铛：三类提醒的开关与时刻。 */
     onReminderSettings: () -> Unit = {},

@@ -34,13 +34,16 @@ import androidx.room.RoomDatabase
         FamilyTaskOffsetEntity::class,
         ContactLogEntity::class,
         ContactPlanEntity::class,
+        SpousePairingEntity::class,
+        TapPersonMapEntity::class,
+        TapDeviceEntity::class,
         PersonAliasEntity::class,
         FamilyCollabStateEntity::class,
         FamilyPublicationEntity::class,
         FamilyReceiveDraftEntity::class,
         FamilyLocalOnlyEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -55,6 +58,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun familyTaskOffsetDao(): FamilyTaskOffsetDao
     abstract fun contactLogDao(): ContactLogDao
     abstract fun contactPlanDao(): ContactPlanDao
+    abstract fun tapPairingDao(): TapPairingDao
     abstract fun personAliasDao(): PersonAliasDao
     abstract fun familyCollabDao(): FamilyCollabDao
     abstract fun familyPublicationDao(): FamilyPublicationDao
@@ -66,6 +70,9 @@ abstract class AppDatabase : RoomDatabase() {
  * 按外键依赖顺序清空全部业务表（子表 → 父表）。
  * 备份恢复、共享导入、“清空所有数据”共用这份表清单；
  * 必须由调用方包在 withTransaction 中执行。
+ * 碰一碰配对与来源映射随 persons 一起清（恢复的资料不算“已配对的
+ * 另一台手机”）；设备级连接偏好 tap_device 保留——它是本机硬件
+ * 相关设置，不属于家庭资料。
  */
 internal suspend fun AppDatabase.clearTables() {
     customTitleDao().deleteAll()
@@ -78,6 +85,10 @@ internal suspend fun AppDatabase.clearTables() {
     importantDateDao().deleteAll()
     relationshipDao().deleteAll()
     phoneNumberDao().deleteAll()
+    // 配对与映射显式先清（persons 级联是兜底）；设备偏好不随资料清除
+    // （tap_device 不在清空列表里，本就不写不删）
+    tapPairingDao().clearMap()
+    tapPairingDao().deletePairing()
     // 家人共享的对方→本机对应关系随资料清掉（本机人物都没了）
     personAliasDao().deleteAll()
     // 协作表：绑定/发布索引/草稿/仅本机标记全部随资料清掉

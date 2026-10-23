@@ -20,7 +20,9 @@ data class DateRow(
     /** “第 41 年”/“10 周年”，年份未知为 null。 */
     val yearLabel: String? = null,
     /** 农历原文（“农历八月廿五”），公历为 null。 */
-    val lunarText: String? = null
+    val lunarText: String? = null,
+    /** 里程碑天数（如 1000）；普通纪念行为 null。 */
+    val milestoneDays: Int? = null
 )
 
 /** 家事时间线共享合成逻辑（家事页与桌面插件同口径）。 */
@@ -31,7 +33,8 @@ object AffairTimeline {
         dates: List<DateEntry>,
         titles: Map<String, String?>,
         today: LocalDate,
-        lunar: LunarCalendar
+        lunar: LunarCalendar,
+        overview: FamilyOverview? = null
     ): Pair<List<DateRow>, List<DateRow>> {
         val outToday = mutableListOf<DateRow>()
         val outNext = mutableListOf<DateRow>()
@@ -68,6 +71,17 @@ object AffairTimeline {
                 else null
             )
             (if (days == 0) outToday else outNext).add(row)
+        }
+        if (overview != null) {
+            for (m in io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.milestones(
+                dates, overview, today, lunar, windowDays = 30)) {
+                val row = DateRow(
+                    kind = m.type, personId = m.partnerId, label = m.label,
+                    daysUntil = m.daysUntil, occurrence = m.date,
+                    milestoneDays = m.dayNumber
+                )
+                (if (m.daysUntil == 0) outToday else outNext).add(row)
+            }
         }
         outToday.sortBy { it.label }; outNext.sortBy { it.occurrence }
         return outToday to outNext
