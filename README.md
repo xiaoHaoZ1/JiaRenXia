@@ -8,6 +8,8 @@
 
 请在手机空间中，给家人留一个位置。
 
+**献给每一个有孝心的普通人。**
+
 ## 为什么做家人侠
 
 **一、谁是谁，俺得先认全。** 俺妈打电话说"你二姑家老三要结婚了"，俺愣了半天——二姑家几个孩子？老三叫什么？过年走亲戚，一屋子人谁是谁、该叫什么，全靠俺妈在旁边小声提醒。所以先做了张关系图：全家按辈分排开，点谁就知道谁，还告诉俺"你该叫他表叔"。
@@ -20,6 +22,14 @@
 
 ## 截图
 
+### 真机实拍：每周提醒给爷爷打电话
+
+<img src="docs/images/realdevice_call_reminder.jpg" width="240">
+
+给爷爷定了每周联系一次，到点锁屏上就会弹出提醒；打完电话记一笔，下一次重新算日子。
+
+### 功能截图
+
 | | | |
 |---|---|---|
 | <img src="docs/images/screenshot_home.png" width="240"> | <img src="docs/images/screenshot_detail.png" width="240"> | <img src="docs/images/screenshot_graph.png" width="240"> |
@@ -27,7 +37,7 @@
 | <img src="docs/images/screenshot_affairs.png" width="240"> | <img src="docs/images/screenshot_home_dark.png" width="240"> | |
 | 家事（提醒） | 深色模式 | |
 
-截图为合成示例数据。
+功能截图为合成示例数据。
 
 ---
 

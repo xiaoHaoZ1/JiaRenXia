@@ -193,10 +193,12 @@ switch ($cmd) {
         try {
             $tmp = Join-Path $env:TEMP ("jrx-snap-" + [guid]::NewGuid().ToString("N"))
             New-Item -ItemType Directory -Force $tmp | Out-Null
-            $tarPath = Join-Path $tmp "repo.tar"
             # worktree 的 .git 指针是 WSL 路径（/mnt/x/...）时 Windows git 认不出；
             # 转成盘符路径后用 --git-dir/--work-tree 直接指定
             $gitArgs = @()
+            # git 子进程输出是 UTF-8，PS 默认按控制台代码页解码会把中文路径读乱
+            $prevOutEnc = [Console]::OutputEncoding
+            [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
             $dotgit = Join-Path $root ".git"
             if ((Test-Path $dotgit) -and -not (Get-Item $dotgit -Force).PSIsContainer) {
                 $gd = (Get-Content $dotgit -Raw).Trim() -replace '^gitdir:\s*', ''
@@ -205,34 +207,73 @@ switch ($cmd) {
                     $gitArgs = @("--git-dir=$gdWin", "--work-tree=$root")
                 }
             }
-            & git @gitArgs archive HEAD -o $tarPath
-            if ($LASTEXITCODE -ne 0) { Write-JrxErr "git archive 失败"; exit 1 }
-            & tar -xf $tarPath -C $tmp
-            if ($LASTEXITCODE -ne 0) { Write-JrxErr "tar 解包失败"; exit 1 }
-            Remove-Item -Force $tarPath
+            # 用临时 worktree 展开 HEAD：git tar/zip 包按当前代码页写文件名，
+            # Windows 的 GBK 会把 UTF-8 文件名写乱；worktree 检出能正确还原。
+            $srcDir = Join-Path $tmp "src"
+            & git @gitArgs worktree add --detach $srcDir HEAD
+            if ($LASTEXITCODE -ne 0) { Write-JrxErr "git worktree add 失败"; exit 1 }
             # 排除清单：先删文件/目录本体，再整体拷贝
             foreach ($e in $excludes) {
-                $f = Join-Path $tmp ($e -replace '/', '\')
+                $f = Join-Path $srcDir ($e -replace '/', '\')
                 if (Test-Path $f) { Remove-Item -Recurse -Force $f }
             }
-            Copy-Item -Recurse -Force (Join-Path $tmp '*') $target
+            Copy-Item -Recurse -Force (Join-Path $srcDir '*') $target
+            Remove-Item -Force -ErrorAction SilentlyContinue (Join-Path $target '.git')
+            & git @gitArgs worktree remove --force $srcDir | Out-Null
             # 被排除文件替换为占位文件（scripts/public-stubs/ 下，键 = 路径以 _ 连接）
+            $stubTargets = @()
             foreach ($e in $excludes) {
                 $stub = Join-Path $root ("scripts\public-stubs\" + ($e -replace '/', '_' -replace '\.md$', '') + '.md')
                 if (Test-Path $stub) {
                     $dst = Join-Path $target ($e -replace '/', '\')
                     New-Item -ItemType Directory -Force (Split-Path $dst) | Out-Null
                     Copy-Item -Force $stub $dst
+                    $stubTargets += ($e -replace '/', '\')
                 }
             }
-            # 剔除 private 标记块（所有含标记的文本文件）
-            Get-ChildItem -Recurse -Force -File $target | ForEach-Object {
+            # 剔除 private 标记块：只对 .md 文件执行（脚本/代码里出现的标记字面量不是私密段落）；
+            # 保留原 BOM。
+            Get-ChildItem -Recurse -Force -File $target -Include *.md | ForEach-Object {
                 $fp = $_.FullName
-                $c = [System.IO.File]::ReadAllText($fp)
+                $bytes = [System.IO.File]::ReadAllBytes($fp)
+                $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+                $c = [System.Text.Encoding]::UTF8.GetString($bytes)
                 if ($c.Contains('<!-- private:start -->')) {
                     $c2 = [regex]::Replace($c, '(?s)<!-- private:start -->.*?<!-- private:end -->\s*', '')
-                    [System.IO.File]::WriteAllText($fp, $c2)
+                    $enc = New-Object System.Text.UTF8Encoding($hasBom)
+                    [System.IO.File]::WriteAllText($fp, $c2, $enc)
                 }
+            }
+            # 自检 1：文件清单 = git ls-files - 排除项 + 占位文件
+            $exWin = @($excludes | ForEach-Object { ($_ -replace '/', '\').TrimEnd('\') })
+            $expected = @(& git -c core.quotepath=false @gitArgs ls-files | ForEach-Object { $_ -replace '/', '\' } |
+                Where-Object { $f = $_; -not ($exWin | Where-Object { $f -eq $_ -or $f.StartsWith($_ + '\') }) }) +
+                $stubTargets
+            $actual = Get-ChildItem -Recurse -Force -File $target | ForEach-Object {
+                $_.FullName.Substring($target.Length).TrimStart('\') } |
+                Where-Object { $_ -ne '.git' }
+            $diff = Compare-Object ($expected | Sort-Object) ($actual | Sort-Object)
+            if ($diff) {
+                Write-JrxErr "自检失败：文件清单不一致"
+                $diff | ForEach-Object { Write-Host ("  {0} {1}" -f $_.SideIndicator, $_.InputObject) }
+                exit 1
+            }
+            # 自检 2：除 AGENTS.md 与占位文件外，与 git show HEAD:<path> 逐字节一致
+            $stubSet = @{}; $stubTargets | ForEach-Object { $stubSet[$_] = $true }
+            $mismatch = @()
+            foreach ($rel in $actual) {
+                $relUnix = $rel -replace '\\', '/'
+                if ($relUnix -eq 'AGENTS.md' -or $stubSet.ContainsKey($rel)) { continue }
+                $fp = Join-Path $target $rel
+                # 二进制安全：用 git hash-object 比哈希
+                $h1 = & git hash-object $fp
+                $h2 = & git @gitArgs rev-parse ("HEAD:" + $relUnix)
+                if ($h1 -ne $h2) { $mismatch += $relUnix }
+            }
+            if ($mismatch) {
+                Write-JrxErr "自检失败：内容不一致 $($mismatch.Count) 个文件"
+                $mismatch | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" }
+                exit 1
             }
             # 泄漏扫描
             $hits = 0
@@ -254,7 +295,7 @@ switch ($cmd) {
             if ($hits -gt 0) { Write-JrxErr "泄漏扫描发现 $hits 处命中"; exit 1 }
             Write-JrxInfo "公开快照完成：$target"
             exit 0
-        } finally { Pop-Location }
+        } finally { [Console]::OutputEncoding = $prevOutEnc; Pop-Location }
     }
     "android" {
         $ad = Join-Path $root "apps\android"
