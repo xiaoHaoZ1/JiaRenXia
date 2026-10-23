@@ -110,4 +110,70 @@ class TestFamilyBackupTest : RepoTestBase() {
         file.copyTo(out, overwrite = true)
         assertTrue(out.isFile && out.length() > 0)
     }
+
+    /**
+     * 同一家庭的英文名变体（`-PtestFamily=true` 时写
+     * `testdata/jrx_test_family_en.jrxb`，密码同为 test1234）：
+     * 全员改英文名、设为健在（并删掉爷爷的农历忌日），供 README/官网等
+     * 对外真机截图使用，不对应真实家庭。
+     */
+    @Test
+    fun `英文名测试家庭导出`() = runTest {
+        Assume.assumeTrue(
+            "英文名备份仅在 -PtestFamily=true 时生成 testdata/jrx_test_family_en.jrxb",
+            System.getProperty("jrx.testFamily") == "true"
+        )
+        TestFamily.seed(repo, db)
+        val persons = db.personDao().getAll()
+        persons.forEach { p ->
+            val en = ENGLISH_NAMES[p.name] ?: error("缺少英文名映射：${p.name}")
+            db.personDao().update(
+                p.copy(
+                    name = en,
+                    livingStatus = io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+                )
+            )
+        }
+        db.importantDateDao().deleteByPersonAndType(
+            persons.first { it.name == "杨福生" }.id,
+            io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType.DEATH_ANNIVERSARY.name
+        )
+        val file = File(ctx.cacheDir, "jrx_test_family_en.jrxb")
+        FileOutputStream(file).use {
+            val summary = backup.export(it, TestFamily.PASSWORD.toCharArray())
+            assertEquals(55, summary.persons)
+        }
+        val out = File(
+            requireNotNull(File(System.getProperty("user.dir")).parentFile),
+            "testdata/jrx_test_family_en.jrxb"
+        )
+        out.parentFile?.mkdirs()
+        file.copyTo(out, overwrite = true)
+        assertTrue(out.isFile && out.length() > 0)
+    }
+
+    private companion object {
+        /** 中文姓名 → 英文名（覆盖 TestFamily 全员，含“我”）。 */
+        val ENGLISH_NAMES = mapOf(
+            "杨明" to "Alex", "李雪" to "Lily", "杨建国" to "David",
+            "王秀兰" to "Emma", "杨福生" to "George", "李桂英" to "Grace",
+            "杨老太爷" to "Walter", "杨福来" to "Frank", "杨福英" to "Dorothy",
+            "李桂林" to "Victor", "杨建春" to "James", "杨建英" to "Alice",
+            "周丽" to "Rose", "杨磊" to "Leo", "刘静" to "Anna",
+            "杨朵朵" to "Ruby", "杨建华" to "Carl", "杨建业" to "Dennis",
+            "赵红" to "Nancy", "张建明" to "Peter", "李秀梅" to "Betty",
+            "王德福" to "Harold", "赵淑珍" to "Helen", "王志刚" to "Jack",
+            "孙丽" to "Julia", "王磊" to "Ryan", "陈晨" to "Sophie",
+            "王小宝" to "Ethan", "杨帆" to "Ben", "赵敏" to "Laura",
+            "杨小帆" to "Noah", "钱多多" to "Chloe", "杨豆豆" to "Lucas",
+            "杨小明" to "Sam", "吴佳" to "Emily", "吴建军" to "Edward",
+            "郑红" to "Susan", "杨乐乐" to "Owen", "孙悦" to "Mia",
+            "杨小小" to "Felix", "李国强" to "Henry", "陈美华" to "Margaret",
+            "李老爷子" to "Arthur", "刘奶奶" to "Edith", "李国华" to "Tom",
+            "马丽" to "Jane", "李国栋" to "Robert", "陈美玲" to "Carol",
+            "李伟" to "Kevin", "李强" to "Brian", "何静" to "Karen",
+            "李小龙" to "Max", "李老二" to "Oscar", "李国平" to "Paul",
+            "赵老师" to "Oliver"
+        )
+    }
 }
