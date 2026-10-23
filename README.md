@@ -37,7 +37,7 @@
 | <img src="docs/images/screenshot_affairs.png" width="240"> | <img src="docs/images/screenshot_home_dark.png" width="240"> | |
 | 家事（提醒） | 深色模式 | |
 
-功能截图为合成示例数据。
+功能截图来自当前 2.0.0 版本，人物均为英文名的合成示例，全部设为健在，不对应真实家庭。
 
 ---
 

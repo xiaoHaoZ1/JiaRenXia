@@ -4,11 +4,17 @@ import androidx.activity.ComponentActivity
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.xiaohaoz1.jiarenxia.core.kinship.FamilyGraph
 import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine
@@ -23,11 +29,12 @@ import io.github.xiaohaoz1.jiarenxia.ui.addfamily.AddFamilyContent
 import io.github.xiaohaoz1.jiarenxia.ui.addfamily.buildQuickEntries
 import io.github.xiaohaoz1.jiarenxia.ui.family.FamilyContent
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphBranch
-import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphBranches
+import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphFamilyScope
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphContent
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphLayout
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphTextMeasure
 import io.github.xiaohaoz1.jiarenxia.ui.mine.MineContent
+import io.github.xiaohaoz1.jiarenxia.ui.main.MainBottomBar
 import io.github.xiaohaoz1.jiarenxia.ui.person.PersonEditCallbacks
 import io.github.xiaohaoz1.jiarenxia.ui.person.PersonEditContent
 import io.github.xiaohaoz1.jiarenxia.ui.person.PersonEditMode
@@ -51,7 +58,8 @@ import java.time.LocalDate
 /**
  * README 与适老化截图（opt-in）：仅在 `-PreadmeShots=true` 时生成文件。
  *
- * - 六张 README 截图：手机尺寸（412×915dp），缩小到 540px 宽写入 docs/images/。
+ * - 七张 README 截图：手机尺寸（412×915dp），缩小到 540px 宽写入 docs/images/。
+ * - 公开截图统一使用英文合成姓名、健在人物，避免重名与状态标记造成误解。
  * - 大字号走查：fontScale 1.3 / 1.5 各一遍，写到临时目录供人工检查。
  * 普通测试运行全部跳过（不触碰 docs/images）。
  */
@@ -69,13 +77,19 @@ class ReadmeShotsTest {
             System.getProperty("jrx.readmeShots") == "true"
         )
 
-    private fun render(dark: Boolean, content: @Composable () -> Unit) {
+    private fun render(dark: Boolean, route: String? = null, content: @Composable () -> Unit) {
         composeRule.setContent {
             JiaRenXiaTheme(mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT) {
                 Surface(
                     color = MaterialTheme.colorScheme.background,
                     contentColor = MaterialTheme.colorScheme.onBackground
-                ) { content() }
+                ) {
+                    if (route == null) content() else Scaffold(
+                        bottomBar = { MainBottomBar(route) {} }
+                    ) { padding ->
+                        Box(Modifier.padding(padding)) { content() }
+                    }
+                }
             }
         }
     }
@@ -104,8 +118,8 @@ class ReadmeShotsTest {
     @Test
     fun readmeHome() {
         assume()
-        render(dark = false) {
-            FamilyContent(Demo.familyState(), Demo.lunar, {}, {}, {}, {}, {})
+        render(dark = false, route = "family") {
+            FamilyContent(Demo.familyState(publicSample = true), Demo.lunar, {}, {}, {}, {}, {})
         }
         save(File("../../../docs/images/screenshot_home.png"), 540)
     }
@@ -116,7 +130,7 @@ class ReadmeShotsTest {
         render(dark = false) {
             PersonDetailContent(
                 lunar = Demo.lunar,
-                st = Demo.detailOf("uncle"), today = Demo.today,
+                st = Demo.detailOf("uncle", publicSample = true), today = Demo.today,
                 snackbar = SnackbarHostState(),
                 onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
                 onDial = {}, onSetReminder = { _, _ -> }, onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {}, onDeletePerson = {},
@@ -132,7 +146,7 @@ class ReadmeShotsTest {
         render(dark = false) {
             PersonDetailContent(
                 lunar = Demo.lunar,
-                st = Demo.selfDetail(), today = Demo.today,
+                st = Demo.selfDetail(publicSample = true), today = Demo.today,
                 snackbar = SnackbarHostState(),
                 onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
                 onDial = {}, onSetReminder = { _, _ -> }, onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {}, onDeletePerson = {},
@@ -146,19 +160,23 @@ class ReadmeShotsTest {
     fun readmeGraph() {
         assume()
         render(dark = false) {
-            val ov = Demo.demoOverview()
+            val ov = Demo.demoOverview(publicSample = true)
             val gens = KinshipEngine().generations(ov.graph, ov.self.person.id)
+            val visible = GraphFamilyScope.visibleIds(ov, GraphBranch.ALL)
             GraphContent(
                 model = GraphLayout.build(
-                    ov, gens, sizer = GraphTextMeasure.sizer),
+                    ov, gens, visibleIds = visible, sizer = GraphTextMeasure.sizer),
                 byId = ov.byId, selfId = ov.self.person.id,
                 onBack = {}, onOpenPerson = {},
-                // README 图带上分支筛选行
                 branch = GraphBranch.ALL,
-                availableBranches = GraphBranches.available(ov),
-                connectedTotal = gens.size
+                availableBranches = GraphFamilyScope.available(ov),
+                familyTabs = GraphFamilyScope.tabs,
+                scopeAnchorId = ov.self.person.id,
+                connectedTotal = visible.size
             )
         }
+        composeRule.onNodeWithText("本支总览").performClick()
+        composeRule.waitForIdle()
         save(File("../../../docs/images/screenshot_graph.png"), 540)
     }
 
@@ -175,7 +193,7 @@ class ReadmeShotsTest {
     @Test
     fun readmeAffairs() {
         assume()
-        render(dark = false) {
+        render(dark = false, route = "reminder") {
             AffairsDemo()
         }
         save(File("../../../docs/images/screenshot_affairs.png"), 540)
@@ -184,8 +202,8 @@ class ReadmeShotsTest {
     @Test
     fun readmeHomeDark() {
         assume()
-        render(dark = true) {
-            FamilyContent(Demo.familyState(), Demo.lunar, {}, {}, {}, {}, {})
+        render(dark = true, route = "family") {
+            FamilyContent(Demo.familyState(publicSample = true), Demo.lunar, {}, {}, {}, {}, {})
         }
         save(File("../../../docs/images/screenshot_home_dark.png"), 540)
     }
@@ -201,7 +219,7 @@ class ReadmeShotsTest {
     private fun fontShot(name: String, fontScale: Float, dark: Boolean = false,
                          content: @Composable () -> Unit) {
         RuntimeEnvironment.setFontScale(fontScale)
-        render(dark, content)
+        render(dark, content = content)
         val dir = File(System.getenv("JRX_SHOTS_DIR")
             ?: File(System.getProperty("java.io.tmpdir"), "jiarenxia_shots").path)
         val prefix = if (fontScale >= 1.4f) "f15_" else "f13_"
@@ -223,7 +241,7 @@ class ReadmeShotsTest {
     }
 
     private fun reminderDemoState(): ReminderUiState {
-        val ov = Demo.demoOverview()
+        val ov = Demo.demoOverview(publicSample = true)
         val mom = ov.byId.getValue("mom")
         val gmd = ov.byId.getValue("gmd")
         val mil = ov.byId.getValue("mil")

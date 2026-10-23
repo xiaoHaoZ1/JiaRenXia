@@ -169,8 +169,11 @@ switch ($cmd) {
             "WHERE day >= date('now', '-30 days') ORDER BY day DESC, file, src; " +
             "SELECT file, src, SUM(n) AS total FROM daily " +
             "WHERE day >= date('now', '-30 days') GROUP BY file, src ORDER BY file, total DESC"
-        & npx.cmd --yes "wrangler@4.151.3" d1 execute jrx-stats --remote --command $sql
-        exit $LASTEXITCODE
+        Push-Location (Join-Path $root "apps\dl-worker")
+        try {
+            & npx.cmd --yes "wrangler@4.151.3" d1 execute jrx-stats --remote --command $sql
+            exit $LASTEXITCODE
+        } finally { Pop-Location }
     }
     "public-snapshot" {
         if ($rest.Count -lt 1) {
