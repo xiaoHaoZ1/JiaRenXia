@@ -1,5 +1,5 @@
 // 帮助页：给家里老人看的图文教程。每一节配一张 App 截图 + 「跟着点」的步骤。
-// 截图与首页同源——ReadmeShotsTest 用合成数据生成在 docs/images/，复制到 assets/shots/；
+// 截图与首页同源——真机实拍（英文名合成数据）存在 docs/images/，复制到 assets/shots/；
 // App 界面有明显变化时同步更新。
 
 import { SITE } from "../site";
