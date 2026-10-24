@@ -7,7 +7,7 @@ import { ROOT, shot } from "./helpers";
 
 test("公共页面与导航", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /帮你记着/, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /记住该惦记的事/, level: 1 })).toBeVisible();
   await shot(page, testInfo, "home");
 
   for (const [path, heading] of [

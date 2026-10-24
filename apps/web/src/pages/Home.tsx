@@ -61,11 +61,11 @@ function Hero() {
       <div className="hero-copy">
         <span className="kicker"><Icon name="heart" size={16} />家人侠 · 给家里人留个位置</span>
         <h1>
-          家里的人和事，
-          <span className="accent">帮你记着。</span>
+          认全家族所有人，
+          <span className="accent">记住该惦记的事。</span>
         </h1>
         <p className="hero-lead">
-          <Phrases text="群里说好的事、该给谁打个电话、谁的生日快到了，家人侠都替你记着；家里人是谁、该怎么叫，也都在一张图里。资料只存在你自己的手机里。" />
+          <Phrases text="家里人是谁、该怎么叫，一张图里看明白；群里说好的事、该给谁打个电话、谁的生日快到了，家人侠也都替你记着。资料只存在你自己的手机里。" />
         </p>
         <div className="hero-actions">
           <Link className="btn btn-primary btn-lg" to="/download">

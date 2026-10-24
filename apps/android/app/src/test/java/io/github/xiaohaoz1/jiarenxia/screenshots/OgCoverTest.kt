@@ -94,8 +94,8 @@ class OgCoverTest {
                             }
                         }
                         Spacer(Modifier.height(64.dp))
-                        Text("亲戚怎么叫，", fontSize = 58.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4A2B20))
-                        Text("家人侠帮你算。", fontSize = 58.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB4473C))
+                        Text("认全家族所有人，", fontSize = 58.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4A2B20))
+                        Text("记住该惦记的事。", fontSize = 58.sp, fontWeight = FontWeight.Bold, color = Color(0xFFB4473C))
                         Spacer(Modifier.height(56.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                             Chip("完全免费", Color(0xFFF6E1DC))

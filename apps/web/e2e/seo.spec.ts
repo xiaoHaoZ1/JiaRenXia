@@ -45,7 +45,7 @@ test("首页静态 HTML 含结构化数据与首屏文案", async ({ request }) 
   const html = await (await request.get("/")).text();
   expect(html).toContain('<script type="application/ld+json">');
   expect(html).toContain("SoftwareApplication");
-  expect(html).toContain("帮你记着");
+  expect(html).toContain("认全家族所有人");
 });
 
 test("分享卡片与站点图标齐全", async ({ request }) => {
@@ -91,7 +91,7 @@ test("预渲染页面能正常 hydrate，控制台没有报错", async ({ page }
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: /帮你记着/, level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /认全家族所有人/, level: 1 })).toBeVisible();
   await page.goto("/help");
   await expect(page.getByRole("heading", { name: "帮助", exact: true })).toBeVisible();
   expect(errors).toEqual([]);

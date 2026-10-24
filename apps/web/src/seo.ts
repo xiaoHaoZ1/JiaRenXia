@@ -16,7 +16,7 @@ export const OG_IMAGE = {
   path: "/og-cover.png",
   width: 1200,
   height: 630,
-  alt: "家人侠 — 家里的人和事，帮你记着。",
+  alt: "家人侠 — 认全家族所有人，记住该惦记的事。",
 };
 
 export type PageSeo = {
@@ -32,10 +32,10 @@ export type PageSeo = {
 /** 可被搜索引擎收录的页面，顺序即 sitemap 顺序。 */
 export const PAGES: Record<string, PageSeo> = {
   "/": {
-    title: "家人侠 — 家里的人和事，帮你记着",
+    title: "家人侠 — 认全家族所有人，记住该惦记的事",
     description:
-      "家人侠是一款完全免费的安卓应用：家事提醒、联系提醒、生日与纪念日按时到点提醒；" +
-      "关系图与称谓一看就懂，分享给家人换成他的叫法。" +
+      "家人侠是一款完全免费的安卓应用：录入家人关系生成关系图，称谓一看就懂、分享给家人换成他的叫法；" +
+      "生日、纪念日、家事、联系提醒按时到点。" +
       "所有资料只保存在自己手机里，默认不联网、不上传、不用注册。",
     priority: "1.0",
     changefreq: "weekly",
