@@ -31,6 +31,7 @@ import androidx.glance.layout.width
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import androidx.glance.unit.ColorProvider as GlanceColorProvider
 import io.github.xiaohaoz1.jiarenxia.MainActivity
 import io.github.xiaohaoz1.jiarenxia.R
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
@@ -39,7 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * 「家事时间线」桌面插件（默认可滚动列表，4x2 起、纵向可调）：
+ * 「家事时间线」桌面插件（默认可滚动列表，4x3 起、纵向可调）：
  * 今天到未来 30 天的生日 / 纪念日 / 忌日 / 家事 / 联系提醒，与家事页同口径。
  * 头部点击打开家事页；行点击深链进人物详情或事项编辑。
  * 数据刷新：写库后由 [WidgetRefresh] 即时刷新，系统 30 分钟周期兜底。
@@ -48,7 +49,8 @@ class JrxAppWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val state = withContext(Dispatchers.IO) { WidgetTimeline.load(context) }
-        provideContent { Content(context, state) }
+        val today = LocalDate.now()
+        provideContent { JrxWidgetContent(context, state, today) }
     }
 }
 
@@ -58,40 +60,78 @@ private object WidgetColors {
     val surface = ColorProvider(day = Color(0xFFFBF8F5), night = Color(0xFF26201C))
     val text = ColorProvider(day = Color(0xFF1F1A17), night = Color(0xFFF4EDEA))
     val secondary = ColorProvider(day = Color(0xFF7A6E68), night = Color(0xFFB8AAA3))
-    val accent = ColorProvider(day = Color(0xFFB4473C), night = Color(0xFFFFB4A7))
+    val primary = ColorProvider(day = Color(0xFFB4473C), night = Color(0xFFFFB4A7))
+    val onPrimary = ColorProvider(day = Color.White, night = Color(0xFF3A1010))
     val error = ColorProvider(day = Color(0xFFBA1A1A), night = Color(0xFFFF8A80))
-    val tertiary = ColorProvider(day = Color(0xFF57755B), night = Color(0xFFBDD3B9))
-    val deceased = ColorProvider(day = Color(0xFF8A817D), night = Color(0xFF9C948F))
-    val task = ColorProvider(day = Color(0xFF7D5A44), night = Color(0xFFEDBFA2))
-    val contact = ColorProvider(day = Color(0xFF2F6B4F), night = Color(0xFF86C9A0))
+
+    val primaryContainer = ColorProvider(day = Color(0xFFFBEAE7), night = Color(0xFF3A2420))
+    val onPrimaryContainer = ColorProvider(day = Color(0xFF7E2A22), night = Color(0xFFFFB4A7))
+    val onPrimaryContainerMuted = ColorProvider(day = Color(0xBF7E2A22), night = Color(0xBFFFB4A7))
+    val tertiaryContainer = ColorProvider(day = Color(0xFFF1F6F2), night = Color(0xFF24322A))
+    val onTertiaryContainer = ColorProvider(day = Color(0xFF1C3B2B), night = Color(0xFFBDD3B9))
+    val secondaryContainer = ColorProvider(day = Color(0xFFF6EDE4), night = Color(0xFF2E2420))
+    val onSecondaryContainer = ColorProvider(day = Color(0xFF53433E), night = Color(0xFFEDBFA2))
+    val contactContainer = ColorProvider(day = Color(0xFFE4F0E9), night = Color(0xFF223528))
+    val onContactContainer = ColorProvider(day = Color(0xFF1E4A35), night = Color(0xFF9BD8B2))
+    val memorialContainer = ColorProvider(day = Color(0xFFF2ECE8), night = Color(0xFF322A26))
+    val onMemorialContainer = ColorProvider(day = Color(0xFF8A817D), night = Color(0xFF9C948F))
+    val hairline = ColorProvider(day = Color(0xFFEFE7E1), night = Color(0xFF342A25))
+    val focusBadge = ColorProvider(day = Color(0x66FFFFFF), night = Color(0x66FFFFFF))
 }
 
 private val WEEK_CN = arrayOf("日", "一", "二", "三", "四", "五", "六")
 
-private fun todayLabel(): String {
-    val t = LocalDate.now()
-    return "${t.monthValue}/${t.dayOfMonth} 周" + WEEK_CN[t.dayOfWeek.value % 7]
-}
+private fun todayLabel(today: LocalDate): String =
+    "${today.monthValue}月${today.dayOfMonth}日 周" + WEEK_CN[today.dayOfWeek.value % 7]
 
-/** 行尾日期标签：逾期 / 今天 / 明天 / 后天 / M月d日。 */
-internal fun dayLabel(daysUntil: Int): String = when {
-    daysUntil < 0 -> "逾期 ${-daysUntil} 天"
+/** 分组标题：逾期合并，今明后天单列，其他按日期。 */
+internal fun groupLabel(daysUntil: Int, today: LocalDate): String = when {
+    daysUntil < 0 -> "逾期"
     daysUntil == 0 -> "今天"
     daysUntil == 1 -> "明天"
     daysUntil == 2 -> "后天"
-    else -> {
-        val d = LocalDate.now().plusDays(daysUntil.toLong())
-        "${d.monthValue}月${d.dayOfMonth}日"
-    }
+    else -> dateLabel(today.plusDays(daysUntil.toLong()))
 }
 
-private fun kindColor(kind: WidgetItemKind) = when (kind) {
-    WidgetItemKind.BIRTHDAY -> WidgetColors.accent
-    WidgetItemKind.ANNIVERSARY -> WidgetColors.tertiary
-    WidgetItemKind.MEMORIAL -> WidgetColors.deceased
-    WidgetItemKind.CONTACT -> WidgetColors.contact
-    WidgetItemKind.TASK -> WidgetColors.task
+/** 行尾标签强调今天和近期，更远日期直接显示月日。 */
+internal fun trailingLabel(daysUntil: Int, today: LocalDate): String = when {
+    daysUntil < 0 -> "逾期${-daysUntil}天"
+    daysUntil == 0 -> "今天"
+    daysUntil in 3..14 -> "${daysUntil}天后"
+    else -> dateLabel(today.plusDays(daysUntil.toLong()))
 }
+
+private fun dateLabel(date: LocalDate): String = "${date.monthValue}月${date.dayOfMonth}日"
+
+private data class KindStyle(
+    val badge: String,
+    val container: GlanceColorProvider,
+    val content: GlanceColorProvider,
+)
+
+private fun kindStyle(kind: WidgetItemKind): KindStyle = when (kind) {
+    WidgetItemKind.BIRTHDAY -> KindStyle(
+        "生", WidgetColors.primaryContainer, WidgetColors.onPrimaryContainer)
+    WidgetItemKind.ANNIVERSARY -> KindStyle(
+        "念", WidgetColors.tertiaryContainer, WidgetColors.onTertiaryContainer)
+    WidgetItemKind.MEMORIAL -> KindStyle(
+        "忌", WidgetColors.memorialContainer, WidgetColors.onMemorialContainer)
+    WidgetItemKind.CONTACT -> KindStyle(
+        "联", WidgetColors.contactContainer, WidgetColors.onContactContainer)
+    WidgetItemKind.TASK -> KindStyle(
+        "事", WidgetColors.secondaryContainer, WidgetColors.onSecondaryContainer)
+}
+
+private data class TimelineGroup(val label: String, val items: List<WidgetItem>)
+
+/** 只在 UI 层根据 daysUntil 分组，不改变时间线的数据口径。 */
+private fun timelineGroups(items: List<WidgetItem>, today: LocalDate): List<TimelineGroup> =
+    items.groupBy { if (it.daysUntil < 0) -1 else it.daysUntil }
+        .map { (daysUntil, groupItems) ->
+            TimelineGroup(groupLabel(daysUntil, today), groupItems)
+        }
+
+private fun stableItemId(key: String): Long = key.hashCode().toLong()
 
 private fun tabIntent(context: Context): Intent =
     Intent(context, MainActivity::class.java)
@@ -111,7 +151,12 @@ private fun itemIntent(context: Context, item: WidgetItem): Intent {
 }
 
 @Composable
-private fun Content(context: Context, state: WidgetState) {
+internal fun JrxWidgetContent(
+    context: Context,
+    state: WidgetState,
+    today: LocalDate = LocalDate.now(),
+    staticTimelineForTest: Boolean = false,
+) {
     Column(
         GlanceModifier.fillMaxSize()
             .appWidgetBackground()
@@ -119,16 +164,17 @@ private fun Content(context: Context, state: WidgetState) {
             .cornerRadius(16.dp)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        Header(context)
+        Header(context, today)
         when (state) {
-            is WidgetState.Ready -> ReadyList(context, state.items, state.couple)
+            is WidgetState.Ready -> ReadyContent(
+                context, state.items, state.couple, today, staticTimelineForTest)
             else -> Placeholder(context, state)
         }
     }
 }
 
 @Composable
-private fun Header(context: Context) {
+private fun Header(context: Context, today: LocalDate) {
     Row(
         GlanceModifier.fillMaxWidth()
             .clickable(actionStartActivity(tabIntent(context)))
@@ -136,7 +182,7 @@ private fun Header(context: Context) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            context.getString(R.string.widget_affairs_name),
+            todayLabel(today),
             style = TextStyle(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
@@ -146,7 +192,7 @@ private fun Header(context: Context) {
         )
         Spacer(GlanceModifier.defaultWeight())
         Text(
-            todayLabel(),
+            context.getString(R.string.widget_affairs_name),
             style = TextStyle(fontSize = 11.sp, color = WidgetColors.secondary),
             maxLines = 1,
         )
@@ -154,45 +200,91 @@ private fun Header(context: Context) {
 }
 
 @Composable
-private fun ReadyList(context: Context, items: List<WidgetItem>, couple: CoupleLine?) {
-    LazyColumn(GlanceModifier.fillMaxSize()) {
+private fun ReadyContent(
+    context: Context,
+    items: List<WidgetItem>,
+    couple: CoupleLine?,
+    today: LocalDate,
+    staticTimelineForTest: Boolean,
+) {
+    Column(GlanceModifier.fillMaxSize()) {
         if (couple != null) {
-            item { CoupleRow(context, couple) }
+            CoupleCard(context, couple)
+            Spacer(GlanceModifier.height(6.dp))
         }
-        items(items, itemId = { it.key.hashCode().toLong() }) { item ->
-            ItemRow(context, item)
+        val groups = timelineGroups(items, today)
+        if (staticTimelineForTest) {
+            // Robolectric 不会给 Glance 远程列表绑定 adapter，截图时静态展开同一套行 UI。
+            Column(GlanceModifier.fillMaxSize()) {
+                groups.forEach { group ->
+                    GroupHeader(group.label)
+                    group.items.forEach { item -> ItemRow(context, item, today) }
+                }
+            }
+        } else {
+            LazyColumn(GlanceModifier.fillMaxSize()) {
+                groups.forEach { group ->
+                    item(itemId = stableItemId("h:${group.label}")) {
+                        GroupHeader(group.label)
+                    }
+                    items(group.items, itemId = { stableItemId(it.key) }) { item ->
+                        ItemRow(context, item, today)
+                    }
+                }
+            }
         }
     }
 }
 
-/** “我和另一半”计数首行：主色左边条 + 标题加粗，点击进入对方详情。 */
+/** “我和另一半”焦点卡，点击进入对方详情。 */
 @Composable
-private fun CoupleRow(context: Context, couple: CoupleLine) {
+private fun CoupleCard(context: Context, couple: CoupleLine) {
     val intent = Intent(context, MainActivity::class.java)
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         .putExtra(MainActivity.EXTRA_PERSON_ID, couple.partnerId)
     Row(
         GlanceModifier.fillMaxWidth()
             .clickable(actionStartActivity(intent))
-            .padding(vertical = 3.dp),
+            .background(WidgetColors.primaryContainer)
+            .cornerRadius(16.dp)
+            .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(GlanceModifier.width(3.dp).height(30.dp).background(WidgetColors.accent)) {}
+        Box(
+            GlanceModifier.width(18.dp)
+                .height(18.dp)
+                .background(WidgetColors.focusBadge)
+                .cornerRadius(5.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "恋",
+                style = TextStyle(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WidgetColors.onPrimaryContainer,
+                ),
+                maxLines = 1,
+            )
+        }
         Spacer(GlanceModifier.width(8.dp))
         Column(GlanceModifier.defaultWeight()) {
             Text(
                 couple.title,
                 style = TextStyle(
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = WidgetColors.text,
+                    color = WidgetColors.onPrimaryContainer,
                 ),
                 maxLines = 1,
             )
             if (couple.note != null) {
                 Text(
                     couple.note,
-                    style = TextStyle(fontSize = 11.sp, color = WidgetColors.secondary),
+                    style = TextStyle(
+                        fontSize = 11.sp,
+                        color = WidgetColors.onPrimaryContainerMuted,
+                    ),
                     maxLines = 1,
                 )
             }
@@ -201,21 +293,61 @@ private fun CoupleRow(context: Context, couple: CoupleLine) {
 }
 
 @Composable
-private fun ItemRow(context: Context, item: WidgetItem) {
-    val overdue = item.daysUntil < 0
+private fun GroupHeader(label: String) {
+    Row(
+        GlanceModifier.fillMaxWidth().padding(top = 4.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            style = TextStyle(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (label == "逾期") WidgetColors.error else WidgetColors.secondary,
+            ),
+            maxLines = 1,
+        )
+        Spacer(GlanceModifier.width(8.dp))
+        Box(
+            GlanceModifier.defaultWeight()
+                .height(1.dp)
+                .background(WidgetColors.hairline)
+        ) {}
+    }
+}
+
+@Composable
+private fun ItemRow(context: Context, item: WidgetItem, today: LocalDate) {
+    val kindStyle = kindStyle(item.kind)
     Row(
         GlanceModifier.fillMaxWidth()
             .clickable(actionStartActivity(itemIntent(context, item)))
-            .padding(vertical = 3.dp),
+            .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(GlanceModifier.width(3.dp).height(30.dp).background(kindColor(item.kind))) {}
+        Box(
+            GlanceModifier.width(18.dp)
+                .height(18.dp)
+                .background(kindStyle.container)
+                .cornerRadius(5.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                kindStyle.badge,
+                style = TextStyle(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = kindStyle.content,
+                ),
+                maxLines = 1,
+            )
+        }
         Spacer(GlanceModifier.width(8.dp))
         Column(GlanceModifier.defaultWeight()) {
             Text(
                 item.title,
                 style = TextStyle(
-                    fontSize = 13.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = WidgetColors.text,
                 ),
@@ -230,15 +362,35 @@ private fun ItemRow(context: Context, item: WidgetItem) {
             }
         }
         Spacer(GlanceModifier.width(6.dp))
+        ItemTrailing(item.daysUntil, today)
+    }
+}
+
+@Composable
+private fun ItemTrailing(daysUntil: Int, today: LocalDate) {
+    if (daysUntil == 0) {
+        Box(
+            GlanceModifier.background(WidgetColors.primary)
+                .cornerRadius(50.dp)
+                .padding(horizontal = 7.dp, vertical = 3.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                "今天",
+                style = TextStyle(
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = WidgetColors.onPrimary,
+                ),
+                maxLines = 1,
+            )
+        }
+    } else {
         Text(
-            dayLabel(item.daysUntil),
+            trailingLabel(daysUntil, today),
             style = TextStyle(
                 fontSize = 11.sp,
-                color = when {
-                    overdue -> WidgetColors.error
-                    item.daysUntil == 0 -> WidgetColors.accent
-                    else -> WidgetColors.secondary
-                },
+                color = if (daysUntil < 0) WidgetColors.error else WidgetColors.secondary,
             ),
             maxLines = 1,
         )
