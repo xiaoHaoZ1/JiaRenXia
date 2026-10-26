@@ -59,7 +59,7 @@ function Hero() {
   return (
     <section className="home-hero">
       <div className="hero-copy">
-        <span className="kicker"><Icon name="heart" size={16} />家人侠 · 给家里人留个位置</span>
+        <span className="kicker"><Icon name="heart" size={16} />家人侠 · 献给有孝心的普通人</span>
         <h1>
           认全家族所有人，
           <span className="accent">记住该惦记的事。</span>
