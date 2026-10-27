@@ -244,7 +244,7 @@ fun DataManageScreen(
     // 内置演示家庭（仅 debug 包）：覆盖当前数据前确认一次
     if (showDemoConfirm) {
         ConfirmDialog(
-            text = "将导入明朝朱棣一家 25 位演示家人，覆盖当前全部数据。",
+            text = "将导入明朝朱棣一家 65 位演示家人，覆盖当前全部数据。",
             confirmText = "导入",
             onConfirm = {
                 showDemoConfirm = false

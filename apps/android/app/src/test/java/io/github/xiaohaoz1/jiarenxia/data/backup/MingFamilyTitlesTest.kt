@@ -13,8 +13,8 @@ class MingFamilyTitlesTest {
     @Test
     fun `明朝家庭全部称谓符合期望表`() {
         val graph = MingFamily.graph()
-        assertEquals(25, graph.persons.size)
-        assertEquals(34, graph.relationships.size)
+        assertEquals(65, graph.persons.size)
+        assertEquals(90, graph.relationships.size)
 
         val results = KinshipEngine().resolveAll(graph, MingFamily.SELF_NAME)
         val failures = StringBuilder()

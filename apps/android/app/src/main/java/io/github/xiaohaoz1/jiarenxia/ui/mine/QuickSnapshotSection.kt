@@ -66,7 +66,7 @@ fun TestToolsCard(
                 Column {
                     Text("导入演示家庭")
                     Text(
-                        "明朝朱棣一家 25 人（合成演示数据）",
+                        "明朝朱棣一家 65 人（合成演示数据）",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

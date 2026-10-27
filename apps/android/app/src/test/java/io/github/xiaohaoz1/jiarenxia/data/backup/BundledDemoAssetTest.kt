@@ -31,12 +31,12 @@ class BundledDemoAssetTest : RepoTestBase() {
         val plan = ctx.assets.open("ming_yongle_family.jrxb").use { input ->
             backup.inspect(input, MingFamily.PASSWORD.toCharArray()).getOrThrow()
         }
-        assertEquals(25, plan.summary.persons)
-        assertEquals(34, plan.summary.relationships)
+        assertEquals(65, plan.summary.persons)
+        assertEquals(90, plan.summary.relationships)
         assertEquals(MingFamily.SELF_NAME, plan.summary.selfName)
 
         backup.restore(plan)
-        assertEquals(25, db.personDao().count())
-        assertEquals(34, db.relationshipDao().count())
+        assertEquals(65, db.personDao().count())
+        assertEquals(90, db.relationshipDao().count())
     }
 }

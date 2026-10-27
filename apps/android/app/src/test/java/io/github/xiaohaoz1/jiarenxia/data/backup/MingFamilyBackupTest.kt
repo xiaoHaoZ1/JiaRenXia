@@ -39,14 +39,14 @@ class MingFamilyBackupTest : RepoTestBase() {
         val file = File(dir, "ming_yongle_family.jrxb")
         FileOutputStream(file).use {
             val summary = backup.export(it, MingFamily.PASSWORD.toCharArray())
-            assertEquals(25, summary.persons)
-            assertEquals(34, summary.relationships)
+            assertEquals(65, summary.persons)
+            assertEquals(90, summary.relationships)
         }
         val plan = backup.inspect(
             FileInputStream(file), MingFamily.PASSWORD.toCharArray()
         ).getOrThrow()
-        assertEquals(25, plan.summary.persons)
-        assertEquals(34, plan.summary.relationships)
+        assertEquals(65, plan.summary.persons)
+        assertEquals(90, plan.summary.relationships)
         assertEquals(MingFamily.SELF_NAME, plan.summary.selfName)
 
         // opt-in：把文件落到 Android 工程根目录的 testdata/（测试 user.dir 是模块目录 app/）
