@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- debug 变体（包名 com.jiarenxia.app.debug，与正式版共存）：应用名加「测试版」后缀，
+         桌面图标与 App 内显示处都与正式版区分。仅覆盖 app_name，其余字符串沿用 main。 -->
+    <string name="app_name">家人侠-测试版</string>
+</resources>

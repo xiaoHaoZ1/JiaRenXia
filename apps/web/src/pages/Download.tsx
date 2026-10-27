@@ -2,7 +2,7 @@
 // 走外部地址（版本与校验值在 site.ts 同步维护）。
 
 import { Link } from "react-router";
-import { SITE } from "../site";
+import { APK_BETA, SITE } from "../site";
 
 export default function Download() {
   return (
@@ -36,6 +36,35 @@ export default function Download() {
               <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>。
             </p>
           </>
+        )}
+      </div>
+      <div className="card">
+        <h3>Android 测试版（Beta）</h3>
+        <p className="muted">
+          开发中的功能抢先体验。它与正式版是两个独立应用（桌面图标名「家人侠-测试版」），
+          可以同时安装、数据互不相通；签名与正式版不同，两者之间不能直接覆盖升级；
+          未做压缩优化，体积比正式版大。
+        </p>
+        {APK_BETA.version ? (
+          <>
+            <ul className="plain">
+              <li>版本：{APK_BETA.version}</li>
+              <li>大小：{(APK_BETA.sizeBytes / 1024 / 1024).toFixed(1)} MB</li>
+              <li>系统要求：Android 8.0 及以上</li>
+              <li>
+                SHA-256：<code style={{ wordBreak: "break-all" }}>{APK_BETA.sha256}</code>
+              </li>
+            </ul>
+            <a
+              className="btn btn-soft btn-big"
+              href={APK_BETA.file + "?src=web"}
+              download
+            >
+              下载测试版
+            </a>
+          </>
+        ) : (
+          <p className="muted">暂无测试版可下载。</p>
         )}
       </div>
       <p className="muted">

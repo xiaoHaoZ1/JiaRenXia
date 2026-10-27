@@ -46,7 +46,9 @@ android {
 
     buildTypes {
         debug {
-            // debug 签名与正式版不同：换 applicationId 与正式版共存，预览不影响真实数据
+            // debug 签名与正式版不同：换 applicationId 与正式版共存，预览不影响真实数据。
+            // 应用名在 src/debug/res/values/strings.xml 覆盖为「家人侠-测试版」，
+            // 官网下载页的 Beta 栏发布的就是这个包（jiarenxia-beta-<版本>.apk）。
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }

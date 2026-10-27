@@ -22,6 +22,19 @@ export const SITE = {
   apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.2.apk`,
 };
 
+/** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
+ * 应用名「家人侠-测试版」），可与正式版同时安装、数据互不相通。
+ * 发布测试版时：构建 :app:assembleDebug，把 app-debug.apk 按
+ * 「jiarenxia-beta-<versionName 去掉 -debug>.apk」上传 R2 桶 jrx-download，
+ * 并同步这里的版本/大小/校验值。version 留空表示暂无测试版。 */
+export const APK_BETA = {
+  /** 安装包的 versionName，含 -debug 后缀 */
+  version: "2.1.2-debug",
+  sizeBytes: 25_338_540,
+  sha256: "f463b834c0e98f52e99ec77886808259afd8072ba238c80ad8dffd6e4d0e2648",
+  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.1.2.apk`,
+};
+
 /** 小侠家族页展示的同作者小应用。安装包同样放站点根目录、不入库；
  * 发新版时更新这里的版本/大小/校验值并替换安装包。version 留空表示尚未发布。 */
 export const EXTENSIONS = [
