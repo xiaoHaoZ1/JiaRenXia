@@ -30,8 +30,8 @@ export const SITE = {
 export const APK_BETA = {
   /** 安装包的 versionName，含 -debug 后缀 */
   version: "2.1.2-debug",
-  sizeBytes: 25_704_459,
-  sha256: "b40c80bb4d15b2ea528d800f8470ce524378f217624f3da1ae7796004297ff21",
+  sizeBytes: 26_189_272,
+  sha256: "22493cc1cb787cd7850b700fc183d272b47eeaac8f4993b159848ab5e12b7cf6",
   file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.1.2.apk`,
 };
 
@@ -93,5 +93,21 @@ export const EXTENSIONS = [
     minAndroid: "8.0",
     /** 可选的安装提示（如实说明签名变更等需要用户知道的事） */
     note: "0.1.2 起换用正式签名：手机若已装更早的测试包，请先卸载再安装（卸载会清掉已改的菜）。",
+  },
+  {
+    id: "fantongxia",
+    name: "饭桶侠",
+    icon: "wheel",
+    stage: "测试版",
+    description:
+      "一日三餐不知道吃什么，就交给转盘。在家做、出去吃都能转——烤鱼自助烤肉店也行，" +
+      "转盘可以自己加、自己改，午晚夜宵到点提醒，还能把结果一键发给微信好友。",
+    version: "0.1.0",
+    released: "2026-10-27",
+    whatsNew: "首个版本（由「吃什么」改名独立而成）",
+    sizeBytes: 2_073_845,
+    sha256: "6bd661904b5418dfaae6d2b5990ca6f0663616f7bd84c838f21abe43da255f06",
+    file: `${DOWNLOAD_BASE}/fantongxia-0.1.0.apk`,
+    minAndroid: "8.0",
   },
 ] as const;
