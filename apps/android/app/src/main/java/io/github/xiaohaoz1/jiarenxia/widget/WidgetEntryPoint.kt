@@ -9,6 +9,7 @@ import io.github.xiaohaoz1.jiarenxia.data.ContactRepository
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository
 import io.github.xiaohaoz1.jiarenxia.data.db.AppDatabase
+import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
 
@@ -23,6 +24,7 @@ interface WidgetEntryPoint {
     fun observeOverview(): ObserveFamilyOverview
     fun lunarCalendar(): LunarCalendar
     fun database(): AppDatabase
+    fun settings(): SettingsRepository
 
     companion object {
         fun of(context: Context): WidgetEntryPoint =

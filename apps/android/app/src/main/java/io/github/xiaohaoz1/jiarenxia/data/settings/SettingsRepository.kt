@@ -67,6 +67,15 @@ interface SettingsRepository {
     val themeMode: Flow<ThemeMode>
     suspend fun setThemeMode(mode: ThemeMode)
 
+    /**
+     * 桌面插件配色：跟随系统 / 浅色 / 深色，默认跟随系统。
+     * 与 [themeMode] 相互独立（系统深色时可以只要插件保持浅色）。
+     * 本机偏好，不进备份；接口提供默认实现，测试假类无需逐个补。
+     */
+    val widgetThemeMode: Flow<WidgetThemeMode> get() =
+        kotlinx.coroutines.flow.flowOf(WidgetThemeMode.SYSTEM)
+    suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {}
+
     /** 应用内字体大小级别，默认标准（叠加在系统字号之上）。 */
     val fontScaleLevel: Flow<FontScaleLevel>
     suspend fun setFontScaleLevel(level: FontScaleLevel)
@@ -144,6 +153,9 @@ interface SettingsRepository {
 /** 外观模式：浅色 / 深色 / 跟随系统。默认浅色。 */
 enum class ThemeMode { LIGHT, DARK, SYSTEM }
 
+/** 桌面插件配色：跟随系统 / 浅色 / 深色。默认跟随系统。 */
+enum class WidgetThemeMode { SYSTEM, LIGHT, DARK }
+
 /** 应用内字体大小级别：在系统字号之上再乘以 factor。 */
 enum class FontScaleLevel(val factor: Float) {
     STANDARD(1.0f), LARGE(1.15f), EXTRA_LARGE(1.3f)
@@ -163,6 +175,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyContactReminderMinute = intPreferencesKey("contact_reminder_minute_of_day")
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
+    private val keyWidgetThemeMode = stringPreferencesKey("widget_theme_mode")
     private val keyFontScale = stringPreferencesKey("font_scale_level")
     private val keyContactReminders = booleanPreferencesKey("contact_reminders_enabled")
     private val keyLastBackupAt = longPreferencesKey("last_backup_at")
@@ -271,6 +284,17 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[keyThemeMode] = mode.name }
+    }
+
+    override val widgetThemeMode: Flow<WidgetThemeMode> =
+        dataStore.data.map {
+            it[keyWidgetThemeMode]?.let { v ->
+                runCatching { WidgetThemeMode.valueOf(v) }.getOrNull()
+            } ?: WidgetThemeMode.SYSTEM
+        }.distinctUntilChanged()
+
+    override suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {
+        dataStore.edit { it[keyWidgetThemeMode] = mode.name }
     }
 
     override val lastBackupAt: Flow<Long?> =

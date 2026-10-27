@@ -1598,10 +1598,11 @@ class ScreenShotsTest {
     fun appearance() = shot("appearance") {
         io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
             themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
+            widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
             fontScaleLevel = io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD,
-            onThemeMode = {}, onFontScale = {}, onBack = {}
+            onThemeMode = {}, onWidgetThemeMode = {}, onFontScale = {}, onBack = {}
         )
-    }.also { assertTexts("浅色", "标准") }
+    }.also { assertTexts("浅色", "标准", "桌面插件配色") }
 
     @Test
     fun about() = shot("about") {

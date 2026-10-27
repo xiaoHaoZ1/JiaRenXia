@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.glance.GlanceId
@@ -17,10 +18,12 @@ import androidx.glance.testing.unit.assertHasText
 import androidx.glance.testing.unit.hasTextEqualTo
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
+import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import java.io.File
 import java.time.LocalDate
 import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -62,11 +65,47 @@ class JrxWidgetRenderTest {
     @Config(qualifiers = "w360dp-h800dp-night-xxhdpi")
     fun emptyDark() = verifyAndCapture("empty_dark", WidgetState.Empty)
 
-    private fun verifyAndCapture(name: String, state: WidgetState) {
+    // 强制配色：系统是深色但插件强制浅色（及反向），两档 ColorProvider 应收拢到同一套。
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-night-xxhdpi")
+    fun forcedLightOnNightSystem() = verifyAndCapture(
+        "ready_forced_light", readyState(), WidgetThemeMode.LIGHT)
+
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-notnight-xxhdpi")
+    fun forcedDarkOnLightSystem() = verifyAndCapture(
+        "ready_forced_dark", readyState(), WidgetThemeMode.DARK)
+
+    /** 调色板断言：强制模式下 day/night 两档解出同一个颜色。 */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-notnight-xxhdpi")
+    fun paletteRespectsForcedMode() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val light = WidgetColors(WidgetThemeMode.LIGHT)
+        val dark = WidgetColors(WidgetThemeMode.DARK)
+        // 浅色环境下：强制浅色是暖白，强制深色是深棕
+        assertEquals(
+            Color(0xFFFBF8F5), light.surface.getColor(context))
+        assertEquals(
+            Color(0xFF26201C), dark.surface.getColor(context))
+        // 强制模式下正文色也不随环境翻转
+        assertEquals(
+            Color(0xFF1F1A17), light.text.getColor(context))
+        assertEquals(
+            Color(0xFFF4EDEA), dark.text.getColor(context))
+    }
+
+    private fun verifyAndCapture(
+        name: String,
+        state: WidgetState,
+        themeMode: WidgetThemeMode = WidgetThemeMode.SYSTEM,
+    ) {
         val context = ApplicationProvider.getApplicationContext<Context>()
         runGlanceAppWidgetUnitTest {
             setContext(context)
-            provideComposable { JrxWidgetContent(context, state, FIXED_TODAY) }
+            provideComposable {
+                JrxWidgetContent(context, state, FIXED_TODAY, themeMode)
+            }
 
             onNode(hasTextEqualTo("10月26日 周一")).assertHasText("10月26日 周一")
             onNode(hasTextEqualTo("家事时间线")).assertHasText("家事时间线")
@@ -99,17 +138,22 @@ class JrxWidgetRenderTest {
                 WidgetState.Error -> error("本测试不覆盖 Error 状态")
             }
         }
-        captureRemoteViews(name, state, WIDGET_HEIGHT_DP)
+        captureRemoteViews(name, state, WIDGET_HEIGHT_DP, themeMode)
         if (state is WidgetState.Ready) {
-            captureRemoteViews("${name}_tall", state, WIDGET_TALL_HEIGHT_DP)
+            captureRemoteViews("${name}_tall", state, WIDGET_TALL_HEIGHT_DP, themeMode)
         }
     }
 
-    private fun captureRemoteViews(name: String, state: WidgetState, heightDp: Int) {
+    private fun captureRemoteViews(
+        name: String,
+        state: WidgetState,
+        heightDp: Int,
+        themeMode: WidgetThemeMode,
+    ) {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()
         val remoteViews = runBlocking {
-            FixtureWidget(state).compose(
+            FixtureWidget(state, themeMode).compose(
                 context = activity,
                 size = DpSize(WIDGET_WIDTH_DP.dp, heightDp.dp),
             )
@@ -133,13 +177,17 @@ class JrxWidgetRenderTest {
         controller.pause().stop().destroy()
     }
 
-    private class FixtureWidget(private val state: WidgetState) : GlanceAppWidget() {
+    private class FixtureWidget(
+        private val state: WidgetState,
+        private val themeMode: WidgetThemeMode,
+    ) : GlanceAppWidget() {
         override suspend fun provideGlance(context: Context, id: GlanceId) {
             provideContent {
                 JrxWidgetContent(
                     context = context,
                     state = state,
                     today = FIXED_TODAY,
+                    themeMode = themeMode,
                     staticTimelineForTest = true,
                 )
             }

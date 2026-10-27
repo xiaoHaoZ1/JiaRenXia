@@ -8,6 +8,7 @@ import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
+import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
 import io.github.xiaohaoz1.jiarenxia.domain.ClearAllDataUseCase
 import io.github.xiaohaoz1.jiarenxia.domain.ceremony.WeddingWords
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderScheduler
@@ -25,6 +26,8 @@ data class MineUiState(
     val taskRemindersEnabled: Boolean = true,
     val contactRemindersEnabled: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.LIGHT,
+    /** 桌面插件配色（跟随系统/浅色/深色），默认跟随系统。 */
+    val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.SYSTEM,
     val fontScaleLevel: FontScaleLevel = FontScaleLevel.STANDARD,
     val cleared: Boolean = false,
     /** 生日与纪念日提醒时刻（一天内分钟数，默认 09:00）。 */
@@ -96,6 +99,7 @@ class MineViewModel @Inject constructor(
             st.copy(taskReminderMinuteOfDay = m) }
         .combine(settings.contactReminderMinuteOfDay) { st, m ->
             st.copy(contactReminderMinuteOfDay = m) }
+        .combine(settings.widgetThemeMode) { st, m -> st.copy(widgetThemeMode = m) }
         .combine(settings.lastBackupAt) { st, t -> st.copy(lastBackupAt = t) }
         .combine(message) { st, m -> st.copy(message = m) }
         .combine(settings.weddingWords) { st, w -> st.copy(weddingWords = w) }
@@ -122,6 +126,11 @@ class MineViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
+    }
+
+    /** 桌面插件配色；保存后由 WidgetRefresh 监听到设置变化即时重绘。 */
+    fun setWidgetThemeMode(mode: WidgetThemeMode) {
+        viewModelScope.launch { settings.setWidgetThemeMode(mode) }
     }
 
     /** 设置应用内字体大小级别（我的 → 外观）。 */
