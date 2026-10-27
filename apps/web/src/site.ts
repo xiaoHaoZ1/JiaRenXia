@@ -9,17 +9,17 @@ export const SITE = {
   /** 公开源码仓库（GPL-3.0）。 */
   sourceUrl: "https://github.com/xiaoHaoZ1/JiaRenXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.1.2",
+  apkVersion: "2.1.3",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 51,
+  apkVersionCode: 52,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "桌面插件新增配色设置：跟随系统 / 强制浅色 / 强制深色（我的 → 外观与字号）。系统深色时也可以让插件保持浅色。",
+  apkNotes: "关系图横屏改全屏沉浸：隐去状态栏与标题栏，分支与操作收进顶部悬浮条；去掉缩放加减按钮（双指缩放即可），底栏只留回到我与总览。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
-  apkSizeBytes: 3_736_119,
-  apkSha256: "7fa72c9cf1b09959e8a6e011218645fa5f08d1b2bba4852f38c347d7514f81c1",
+  apkSizeBytes: 3_752_503,
+  apkSha256: "67d25701175564e1ceb0421ebf88614b0727f390fc0c4765cda187411944a939",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.2.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.3.apk`,
 };
 
 /** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
