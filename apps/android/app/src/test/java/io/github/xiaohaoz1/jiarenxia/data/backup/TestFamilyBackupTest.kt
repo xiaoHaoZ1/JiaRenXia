@@ -30,7 +30,8 @@ class TestFamilyBackupTest : RepoTestBase() {
     private lateinit var backup: BackupManager
     private lateinit var ctx: Context
 
-    private class FakeSettings : SettingsRepository {
+    /** 共享给其它备份生成测试（如 MingFamilyBackupTest）。 */
+    internal class FakeSettings : SettingsRepository {
         override val remindersEnabled: Flow<Boolean> = MutableStateFlow(true)
         override suspend fun setRemindersEnabled(enabled: Boolean) {}
         override val taskRemindersEnabled = MutableStateFlow(true)
