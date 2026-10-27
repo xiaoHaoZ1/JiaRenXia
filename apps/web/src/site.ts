@@ -9,17 +9,17 @@ export const SITE = {
   /** 公开源码仓库（GPL-3.0）。 */
   sourceUrl: "https://github.com/xiaoHaoZ1/JiaRenXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.1.1",
+  apkVersion: "2.1.2",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 50,
+  apkVersionCode: 51,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "「家事时间线」桌面插件重设计：按日分组，今天要办的事一眼看到；你和另一半的相恋天数独立成卡。默认格子加大到 4×3。",
+  apkNotes: "桌面插件新增配色设置：跟随系统 / 强制浅色 / 强制深色（我的 → 外观与字号）。系统深色时也可以让插件保持浅色。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
   apkSizeBytes: 3_736_119,
-  apkSha256: "b30fd7a97306655854a62c4db80043d9bc2c6dc2435bd4a92679a4ad6fec4086",
+  apkSha256: "7fa72c9cf1b09959e8a6e011218645fa5f08d1b2bba4852f38c347d7514f81c1",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.1.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.2.apk`,
 };
 
 /** 小侠家族页展示的同作者小应用。安装包同样放站点根目录、不入库；
