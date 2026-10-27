@@ -1,8 +1,10 @@
 package io.github.xiaohaoz1.jiarenxia.ui.mine
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager
 import io.github.xiaohaoz1.jiarenxia.data.backup.QuickSnapshotStore
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.domain.ClearAllDataUseCase
@@ -29,7 +31,8 @@ import kotlinx.coroutines.launch
 class QuickSnapshotViewModel @Inject constructor(
     private val store: QuickSnapshotStore,
     private val settings: SettingsRepository,
-    private val clearAll: ClearAllDataUseCase
+    private val clearAll: ClearAllDataUseCase,
+    private val backup: BackupManager
 ) : ViewModel() {
 
     /** 存档列表（新的在前）；打开读档对话框时 [refresh]。 */
@@ -118,6 +121,35 @@ class QuickSnapshotViewModel @Inject constructor(
         }
     }
 
+    // ---------- 内置演示家庭（仅 debug 包：assets 里的明朝朱棣一家） ----------
+
+    /**
+     * 一键导入内置演示家庭：直接读 assets/ming_yongle_family.jrxb
+     * （testdata 里同名文件的拷贝，密码固定 test1234，不弹输入框）。
+     * 与整库恢复同口径——覆盖当前全部数据，界面确认后才调用。
+     */
+    fun importDemoFamily(context: Context) {
+        if (busy.value) return
+        busy.value = true
+        viewModelScope.launch {
+            val persons = runCatching {
+                val plan = context.assets.open(DEMO_ASSET).use { input ->
+                    backup.inspect(input, DEMO_PASSWORD.toCharArray()).getOrThrow()
+                }
+                backup.restore(plan)
+                plan.summary.persons
+            }
+            busy.value = false
+            persons.fold(
+                onSuccess = {
+                    message.value = "已导入演示家庭（" + it + " 人）"
+                    outcome.value = RestoreOutcome.RESTORED_WITH_SELF
+                },
+                onFailure = { message.value = "导入演示家庭失败，请重试" }
+            )
+        }
+    }
+
     // ---------- 清空数据但保留存档 ----------
 
     fun clearDataKeepSnapshots() {
@@ -200,5 +232,9 @@ class QuickSnapshotViewModel @Inject constructor(
     companion object {
         private const val TAP_TARGET = 7
         private const val TAP_WINDOW_MS = 2000L
+
+        /** 内置演示家庭：assets 路径与备份密码（生成见 testdata 下 MingFamily*）。 */
+        const val DEMO_ASSET = "ming_yongle_family.jrxb"
+        const val DEMO_PASSWORD = "test1234"
     }
 }

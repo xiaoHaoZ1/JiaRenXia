@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.xiaohaoz1.jiarenxia.BuildConfig
 import io.github.xiaohaoz1.jiarenxia.data.backup.QuickSnapshotStore
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -36,7 +37,8 @@ import java.util.Locale
 fun TestToolsCard(
     onQuickSave: () -> Unit,
     onQuickRestore: () -> Unit,
-    onClearKeepSnapshots: () -> Unit
+    onClearKeepSnapshots: () -> Unit,
+    onImportDemo: () -> Unit = {}
 ) {
     MineCard {
         CardRow(Icons.Rounded.Science, "测试工具")
@@ -53,6 +55,23 @@ fun TestToolsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("快速读档")
+        }
+        // 演示家庭只打进 debug 包的 assets，正式版即使开了测试工具也不显示
+        if (BuildConfig.DEBUG) {
+            Row(
+                Modifier.fillMaxWidth().clickable(onClick = onImportDemo)
+                    .padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("导入演示家庭")
+                    Text(
+                        "明朝朱棣一家 25 人（合成演示数据）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
         Row(
             Modifier.fillMaxWidth().clickable(onClick = onClearKeepSnapshots)

@@ -48,7 +48,7 @@ class QuickSnapshotViewModelTest : RepoTestBase() {
         settings = FakeSettingsRepository()
         val backup = BackupManager(ctx, db, settings)
         store = QuickSnapshotStore(ctx, db, backup)
-        vm = QuickSnapshotViewModel(store, settings, clearer())
+        vm = QuickSnapshotViewModel(store, settings, clearer(), backup)
     }
 
     @After

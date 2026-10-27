@@ -65,6 +65,7 @@ fun DataManageScreen(
     var showClear2 by remember { mutableStateOf(false) }
     var clearText by remember { mutableStateOf("") }
     var showClearKeepSnapshots by remember { mutableStateOf(false) }
+    var showDemoConfirm by remember { mutableStateOf(false) }
 
     // ---------- 备份导出：选保存位置（密码已在导出流程内暂存） ----------
     val exportLauncher = rememberLauncherForActivityResult(
@@ -159,6 +160,7 @@ fun DataManageScreen(
         onQuickSave = snapshotVm::save,
         onQuickRestore = snapshotVm::openList,
         onClearKeepSnapshots = { showClearKeepSnapshots = true },
+        onImportDemo = { showDemoConfirm = true },
         onDebugCheck = {
             viewModel.debugCheckReminders()
             Toast.makeText(context, "已触发一次检查", Toast.LENGTH_SHORT).show()
@@ -239,6 +241,18 @@ fun DataManageScreen(
             onDismiss = { showClearKeepSnapshots = false }
         )
     }
+    // 内置演示家庭（仅 debug 包）：覆盖当前数据前确认一次
+    if (showDemoConfirm) {
+        ConfirmDialog(
+            text = "将导入明朝朱棣一家 25 位演示家人，覆盖当前全部数据。",
+            confirmText = "导入",
+            onConfirm = {
+                showDemoConfirm = false
+                snapshotVm.importDemoFamily(context)
+            },
+            onDismiss = { showDemoConfirm = false }
+        )
+    }
 
     // 备份导出对话框（设置密码 / 进行中），与关系图共用
     BackupExportDialogs(
@@ -277,6 +291,7 @@ fun DataManageContent(
     onQuickSave: () -> Unit = {},
     onQuickRestore: () -> Unit = {},
     onClearKeepSnapshots: () -> Unit = {},
+    onImportDemo: () -> Unit = {},
     onDebugCheck: () -> Unit = {},
     onHeartPreview: (Boolean) -> Unit = {},
     /** “上次接收前副本”信息（null = 无可找回副本，入口隐藏）。 */
@@ -331,7 +346,8 @@ fun DataManageContent(
             TestToolsCard(
                 onQuickSave = onQuickSave,
                 onQuickRestore = onQuickRestore,
-                onClearKeepSnapshots = onClearKeepSnapshots
+                onClearKeepSnapshots = onClearKeepSnapshots,
+                onImportDemo = onImportDemo
             )
         }
         if (BuildConfig.DEBUG) {
