@@ -18,10 +18,10 @@ export function PublicLayout() {
   const [open, setOpen] = useState(false);
   const [donateOpen, setDonateOpen] = useState(false);
   const loc = useLocation();
-  // 路由变化时收起菜单
   const key = loc.pathname;
-  // 站内跳转时同步标题与搜索摘要（首屏的 head 由预渲染写好，这里只管后续切换）
-  useEffect(() => { applyHead(key); }, [key]);
+  // 站内跳转时同步标题与搜索摘要（首屏的 head 由预渲染写好，这里只管后续切换），
+  // 并收起手机菜单：open 是本组件 state，key 只重建子树 DOM 不会重置它
+  useEffect(() => { applyHead(key); setOpen(false); }, [key]);
   return (
     <div key={key} className="site">
       <header className="site-header">
