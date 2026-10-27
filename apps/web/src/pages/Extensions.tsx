@@ -6,9 +6,13 @@ import { EXTENSIONS, SITE } from "../site";
 import { SITE_URL } from "../seo";
 import { Icon } from "../icons";
 import shouhuxiaIcon from "../assets/shouhuxia-icon.png";
+import fantongxiaIcon from "../assets/fantongxia-icon.png";
 
 /** 有真实应用图标的条目按 id 放这里；其余回落到 site.ts 的线性图标名。 */
-const APP_ICONS: Record<string, string> = { shouhuxia: shouhuxiaIcon };
+const APP_ICONS: Record<string, string> = {
+  shouhuxia: shouhuxiaIcon,
+  fantongxia: fantongxiaIcon,
+};
 
 /** 复制按钮：点一下复制文本，短暂显示“已复制” */
 function CopyButton({ text }: { text: string }) {
