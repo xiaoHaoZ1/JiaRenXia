@@ -353,18 +353,6 @@ fun GraphContent(
         }
         onDispose { controller.show(WindowInsetsCompat.Type.systemBars()) }
     }
-    fun zoomBy(multiplier: Float) {
-        val old = scale
-        val next = (old * multiplier).coerceIn(0.15f, 2.5f)
-        val x = container.width / 2f
-        val y = container.height / 2f
-        panX = x - (x - panX) * next / old
-        panY = y - (y - panY) * next / old
-        scale = next
-        overview = false
-        overviewPick = null
-    }
-
     val scopeTitle = when {
         familyMode && branch == GraphBranch.ALL -> "我的家庭"
         familyMode -> scopeAnchorId?.let { id ->
@@ -404,7 +392,7 @@ fun GraphContent(
             )
         },
         bottomBar = {
-            // 横屏不渲染底栏：同样的操作改到画布内悬浮（见下方画布末尾）
+            // 横屏不渲染底栏：回到我/总览/展开家人收进 ⋮ 菜单（见下方菜单）
             if (!landscape) {
                 Column(
                     modifier = Modifier.fillMaxWidth().navigationBarsPadding()
@@ -425,12 +413,8 @@ fun GraphContent(
                             overviewPick = null
                             homeReq++
                         }
-                        if (familyMode) {
-                            BottomAction(label = "−", primary = false,
-                                modifier = Modifier.weight(0.55f)) { zoomBy(0.8f) }
-                            BottomAction(label = "＋", primary = false,
-                                modifier = Modifier.weight(0.55f)) { zoomBy(1.25f) }
-                        } else BottomAction(
+                        // 加减号不摆：双指缩放已经足够
+                        if (!familyMode) BottomAction(
                             label = "展开家人", primary = false,
                             modifier = Modifier.weight(1f)
                         ) { expandSheet = true }
@@ -1169,8 +1153,17 @@ fun GraphContent(
                         modifier = Modifier.padding(vertical = 4.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
                 }
-                // 横屏没有底栏按钮，总览/展开家人收进菜单
+                // 横屏没有底栏按钮，回到我/总览/展开家人收进菜单
                 if (landscape) {
+                    SheetRow(
+                        title = "回到我",
+                        action = {
+                            menuSheet = false
+                            overview = false
+                            overviewPick = null
+                            homeReq++
+                        }
+                    )
                     SheetRow(
                         title = if (overview) "退出总览"
                         else if (familyMode) "本支总览" else "查看总览",
