@@ -1,11 +1,13 @@
 package io.github.xiaohaoz1.jiarenxia.ui.graph
 
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectTransformGestures
@@ -80,6 +82,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsPropertyKey
@@ -331,6 +334,9 @@ fun GraphContent(
     var handledCam by rememberSaveable { mutableLongStateOf(0L) }
     var exportKind by remember { mutableStateOf<String?>(null) }
     val density = LocalDensity.current
+    // 横屏高度紧张：底栏操作挪进画布悬浮、分支选择收成单行横滑，把高度让给画布
+    val landscape = LocalConfiguration.current.orientation ==
+        Configuration.ORIENTATION_LANDSCAPE
     val familyMode = familyTabs.isNotEmpty()
     fun zoomBy(multiplier: Float) {
         val old = scale
@@ -382,83 +388,96 @@ fun GraphContent(
             )
         },
         bottomBar = {
-            Column(
-                modifier = Modifier.fillMaxWidth().navigationBarsPadding()
-            ) {
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant)
-                // 三个胶囊按钮（≥48dp 触控高），回到我用浅主色强调
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+            // 横屏不渲染底栏：同样的操作改到画布内悬浮（见下方画布末尾）
+            if (!landscape) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().navigationBarsPadding()
                 ) {
-                    BottomAction(
-                        label = "回到我", primary = true,
-                        modifier = Modifier.weight(1f)
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant)
+                    // 三个胶囊按钮（≥48dp 触控高），回到我用浅主色强调
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        overview = false
-                        overviewPick = null
-                        homeReq++
-                    }
-                    if (familyMode) {
-                        BottomAction(label = "−", primary = false,
-                            modifier = Modifier.weight(0.55f)) { zoomBy(0.8f) }
-                        BottomAction(label = "＋", primary = false,
-                            modifier = Modifier.weight(0.55f)) { zoomBy(1.25f) }
-                    } else BottomAction(
-                        label = "展开家人", primary = false,
-                        modifier = Modifier.weight(1f)
-                    ) { expandSheet = true }
-                    BottomAction(
-                        label = if (familyMode) "本支总览" else "查看总览", primary = false,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (overview) {
-                            // 退出总览：回到本人家庭的阅读比例
+                        BottomAction(
+                            label = "回到我", primary = true,
+                            modifier = Modifier.weight(1f)
+                        ) {
                             overview = false
                             overviewPick = null
                             homeReq++
-                        } else {
-                            overview = true
-                            overviewPick = null
+                        }
+                        if (familyMode) {
+                            BottomAction(label = "−", primary = false,
+                                modifier = Modifier.weight(0.55f)) { zoomBy(0.8f) }
+                            BottomAction(label = "＋", primary = false,
+                                modifier = Modifier.weight(0.55f)) { zoomBy(1.25f) }
+                        } else BottomAction(
+                            label = "展开家人", primary = false,
+                            modifier = Modifier.weight(1f)
+                        ) { expandSheet = true }
+                        BottomAction(
+                            label = if (familyMode) "本支总览" else "查看总览", primary = false,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            if (overview) {
+                                // 退出总览：回到本人家庭的阅读比例
+                                overview = false
+                                overviewPick = null
+                                homeReq++
+                            } else {
+                                overview = true
+                                overviewPick = null
+                            }
                         }
                     }
+                    Text(
+                        if (familyMode) "称谓始终相对我 · 双指缩放拖动"
+                        else "点卡片查看资料 · 双指缩放拖动",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
+                        textAlign = TextAlign.Center
+                    )
                 }
-                Text(
-                    if (familyMode) "称谓始终相对我 · 双指缩放拖动"
-                    else "点卡片查看资料 · 双指缩放拖动",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
-                    textAlign = TextAlign.Center
-                )
             }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             if (familyMode) {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                    familyTabs.chunked(3).forEach { row ->
-                        Row(Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            row.forEach { item ->
-                                FilterChip(
-                                    selected = branch == item,
-                                    enabled = item in availableBranches,
-                                    onClick = {
-                                        overview = false
-                                        overviewPick = null
-                                        onSelectBranch(item)
-                                    },
-                                    label = {
-                                        Text(GraphFamilyScope.labelOf(item),
-                                            style = MaterialTheme.typography.labelMedium,
-                                            modifier = Modifier.fillMaxWidth(),
-                                            textAlign = TextAlign.Center)
-                                    },
-                                    modifier = Modifier.weight(1f)
-                                )
+                if (landscape) {
+                    // 横屏：分支收成单行横滑，不再堆两行
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        familyTabs.forEach { item ->
+                            BranchChip(item, branch, item in availableBranches,
+                                onSelect = {
+                                    overview = false
+                                    overviewPick = null
+                                    onSelectBranch(item)
+                                })
+                        }
+                    }
+                } else {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                        familyTabs.chunked(3).forEach { row ->
+                            Row(Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                row.forEach { item ->
+                                    BranchChip(item, branch, item in availableBranches,
+                                        onSelect = {
+                                            overview = false
+                                            overviewPick = null
+                                            onSelectBranch(item)
+                                        },
+                                        modifier = Modifier.weight(1f))
+                                }
                             }
                         }
                     }
@@ -954,6 +973,43 @@ fun GraphContent(
                         }
                     }
                 }
+                // 横屏：竖屏底栏的几个操作浮到画布下缘（不占布局高度）
+                if (landscape) {
+                    Row(
+                        Modifier.align(Alignment.BottomCenter)
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        BottomAction(label = "回到我", primary = true) {
+                            overview = false
+                            overviewPick = null
+                            homeReq++
+                        }
+                        if (familyMode) {
+                            BottomAction(label = "−", primary = false) {
+                                zoomBy(0.8f)
+                            }
+                            BottomAction(label = "＋", primary = false) {
+                                zoomBy(1.25f)
+                            }
+                        } else BottomAction(
+                            label = "展开家人", primary = false
+                        ) { expandSheet = true }
+                        BottomAction(
+                            label = if (familyMode) "本支总览" else "查看总览",
+                            primary = false
+                        ) {
+                            if (overview) {
+                                overview = false
+                                overviewPick = null
+                                homeReq++
+                            } else {
+                                overview = true
+                                overviewPick = null
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -1355,6 +1411,29 @@ fun GraphContent(
         }
         LaunchedEffect(Unit) { fr.requestFocus() }
     }
+}
+
+/** 分支筛选 chip：竖屏三列分行（weight 等宽），横屏单行横滑（自然宽度）。 */
+@Composable
+private fun BranchChip(
+    item: GraphBranch,
+    branch: GraphBranch,
+    available: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FilterChip(
+        selected = branch == item,
+        enabled = available,
+        onClick = onSelect,
+        label = {
+            Text(GraphFamilyScope.labelOf(item),
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center)
+        },
+        modifier = modifier
+    )
 }
 
 /** 底部工具胶囊按钮：独立占位、触控高 48dp。 */

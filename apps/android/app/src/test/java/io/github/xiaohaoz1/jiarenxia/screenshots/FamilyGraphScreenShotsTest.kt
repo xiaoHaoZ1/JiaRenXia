@@ -60,7 +60,8 @@ class FamilyGraphScreenShotsTest : RepoTestBase() {
         overview = GraphFamilyTitles.resolve(FamilyOverview(byId.getValue(self.id), graph, byId, emptyList(), emptyList()))
     }
 
-    private fun shot(branch: GraphBranch, dark: Boolean = false, large: Boolean = false) {
+    private fun shot(branch: GraphBranch, dark: Boolean = false, large: Boolean = false,
+                     suffix: String = "") {
         val ids = GraphFamilyScope.visibleIds(overview, branch)
         val gens = KinshipEngine().generations(overview.graph, overview.self.person.id)
             .filterKeys { it in ids }
@@ -83,7 +84,7 @@ class FamilyGraphScreenShotsTest : RepoTestBase() {
             }
         }
         compose.onRoot().captureRoboImage(File("build/outputs/roborazzi/" +
-            "family_${branch.name.lowercase()}${if (dark) "_dark" else ""}${if (large) "_large" else ""}.png").absolutePath)
+            "family_${branch.name.lowercase()}${if (dark) "_dark" else ""}${if (large) "_large" else ""}$suffix.png").absolutePath)
     }
 
     @Test fun mine() = shot(GraphBranch.ALL)
@@ -94,4 +95,7 @@ class FamilyGraphScreenShotsTest : RepoTestBase() {
     @Test fun spouseMother() = shot(GraphBranch.SPOUSE_MOTHER)
     @Test fun dark() = shot(GraphBranch.FATHER, dark = true)
     @Test fun large() = shot(GraphBranch.ALL, large = true)
+    // 横屏：分支 chip 应收成单行横滑、缩放/总览悬浮在画布下缘而不是底栏
+    @Config(qualifiers = "w915dp-h412dp-land-xxhdpi")
+    @Test fun landscape() = shot(GraphBranch.FATHER, suffix = "_land")
 }
