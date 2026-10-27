@@ -1014,43 +1014,6 @@ fun GraphContent(
                         }
                     }
                 }
-                // 横屏：竖屏底栏的几个操作浮到画布下缘（不占布局高度）
-                if (landscape) {
-                    Row(
-                        Modifier.align(Alignment.BottomCenter)
-                            .padding(bottom = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        BottomAction(label = "回到我", primary = true) {
-                            overview = false
-                            overviewPick = null
-                            homeReq++
-                        }
-                        if (familyMode) {
-                            BottomAction(label = "−", primary = false) {
-                                zoomBy(0.8f)
-                            }
-                            BottomAction(label = "＋", primary = false) {
-                                zoomBy(1.25f)
-                            }
-                        } else BottomAction(
-                            label = "展开家人", primary = false
-                        ) { expandSheet = true }
-                        BottomAction(
-                            label = if (familyMode) "本支总览" else "查看总览",
-                            primary = false
-                        ) {
-                            if (overview) {
-                                overview = false
-                                overviewPick = null
-                                homeReq++
-                            } else {
-                                overview = true
-                                overviewPick = null
-                            }
-                        }
-                    }
-                }
             }
         }
     }
@@ -1205,6 +1168,31 @@ fun GraphContent(
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 4.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                // 横屏没有底栏按钮，总览/展开家人收进菜单
+                if (landscape) {
+                    SheetRow(
+                        title = if (overview) "退出总览"
+                        else if (familyMode) "本支总览" else "查看总览",
+                        action = {
+                            menuSheet = false
+                            if (overview) {
+                                overview = false
+                                overviewPick = null
+                                homeReq++
+                            } else {
+                                overview = true
+                                overviewPick = null
+                            }
+                        }
+                    )
+                    if (!familyMode) SheetRow(
+                        title = "展开家人",
+                        action = {
+                            menuSheet = false
+                            expandSheet = true
+                        }
+                    )
                 }
                 if (onToggleLandscape != null) {
                     SheetRow(
