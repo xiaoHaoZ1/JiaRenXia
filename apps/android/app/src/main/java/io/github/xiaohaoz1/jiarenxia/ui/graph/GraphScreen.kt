@@ -93,6 +93,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -338,6 +341,18 @@ fun GraphContent(
     val landscape = LocalConfiguration.current.orientation ==
         Configuration.ORIENTATION_LANDSCAPE
     val familyMode = familyTabs.isNotEmpty()
+    // 横屏全屏：隐藏系统状态栏/导航栏，边缘滑动可临时唤出；离开或转竖屏时恢复
+    val activity = LocalActivity.current
+    DisposableEffect(landscape, activity) {
+        val window = activity?.window ?: return@DisposableEffect onDispose {}
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        if (landscape) {
+            controller.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { controller.show(WindowInsetsCompat.Type.systemBars()) }
+    }
     fun zoomBy(multiplier: Float) {
         val old = scale
         val next = (old * multiplier).coerceIn(0.15f, 2.5f)
@@ -364,7 +379,8 @@ fun GraphContent(
 
     Scaffold(
         topBar = {
-            TopAppBar(
+            // 横屏不渲染顶栏：返回/查找/添加/菜单并入画布上缘的悬浮条
+            if (!landscape) TopAppBar(
                 title = { Text("家庭关系图") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -446,45 +462,27 @@ fun GraphContent(
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            if (familyMode) {
-                if (landscape) {
-                    // 横屏：分支收成单行横滑，不再堆两行
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        familyTabs.forEach { item ->
-                            BranchChip(item, branch, item in availableBranches,
-                                onSelect = {
-                                    overview = false
-                                    overviewPick = null
-                                    onSelectBranch(item)
-                                })
-                        }
-                    }
-                } else {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                        familyTabs.chunked(3).forEach { row ->
-                            Row(Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                row.forEach { item ->
-                                    BranchChip(item, branch, item in availableBranches,
-                                        onSelect = {
-                                            overview = false
-                                            overviewPick = null
-                                            onSelectBranch(item)
-                                        },
-                                        modifier = Modifier.weight(1f))
-                                }
+            // 横屏时分支 chip 并到画布上缘悬浮条，这里只占竖屏布局
+            if (familyMode && !landscape) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    familyTabs.chunked(3).forEach { row ->
+                        Row(Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            row.forEach { item ->
+                                BranchChip(item, branch, item in availableBranches,
+                                    onSelect = {
+                                        overview = false
+                                        overviewPick = null
+                                        onSelectBranch(item)
+                                    },
+                                    modifier = Modifier.weight(1f))
                             }
                         }
                     }
                 }
             }
-            // 第二行：查看范围 + 已展开人数（人物去重计数）
-            Row(
+            // 第二行：查看范围 + 已展开人数（人物去重计数）；横屏隐藏省高度
+            if (!landscape) Row(
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 2.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -504,7 +502,8 @@ fun GraphContent(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (familyMode && branch != GraphBranch.ALL && familyRoots.size > 1) {
+            if (!landscape && familyMode && branch != GraphBranch.ALL
+                && familyRoots.size > 1) {
                 val selectedRoot = cameraTarget?.takeIf { it in familyRoots }
                     ?: familyRoots.first()
                 TextButton(onClick = { familySheet = true },
@@ -515,7 +514,7 @@ fun GraphContent(
                         overflow = TextOverflow.Ellipsis)
                 }
             }
-            if (model != null && model.unconnectedCount > 0) {
+            if (!landscape && model != null && model.unconnectedCount > 0) {
                 Text(
                     "另有" + model.unconnectedCount +
                         "位家人尚未与“我”关联，可在家庭页查看",
@@ -960,7 +959,7 @@ fun GraphContent(
                                 .surfaceContainerHigh,
                             shape = MaterialTheme.shapes.large,
                             modifier = Modifier.align(Alignment.TopCenter)
-                                .padding(top = 8.dp)
+                                .padding(top = if (landscape) 56.dp else 8.dp)
                         ) {
                             Text(
                                 "总览 · 点一个人放大查看",
@@ -970,6 +969,48 @@ fun GraphContent(
                                 modifier = Modifier.padding(
                                     horizontal = 12.dp, vertical = 6.dp)
                             )
+                        }
+                    }
+                }
+                // 横屏：顶栏收缩成一条压在画布上缘的悬浮条（返回+分支+查找/添加/菜单）
+                if (landscape) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                        modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = onBack) {
+                                Icon(Icons.AutoMirrored.Rounded.ArrowBack,
+                                    contentDescription = "返回")
+                            }
+                            if (familyMode) Row(
+                                Modifier.weight(1f)
+                                    .horizontalScroll(rememberScrollState()),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                familyTabs.forEach { item ->
+                                    BranchChip(item, branch,
+                                        item in availableBranches,
+                                        onSelect = {
+                                            overview = false
+                                            overviewPick = null
+                                            onSelectBranch(item)
+                                        })
+                                }
+                            } else Spacer(Modifier.weight(1f))
+                            IconButton(onClick = { searchOpen = true }) {
+                                Icon(Icons.Rounded.Search, contentDescription = "查找")
+                            }
+                            IconButton(onClick = onAddFamily) {
+                                Icon(Icons.Rounded.PersonAdd,
+                                    contentDescription = "添加家人")
+                            }
+                            IconButton(onClick = { menuSheet = true }) {
+                                Icon(Icons.Rounded.MoreVert, contentDescription = "更多")
+                            }
                         }
                     }
                 }

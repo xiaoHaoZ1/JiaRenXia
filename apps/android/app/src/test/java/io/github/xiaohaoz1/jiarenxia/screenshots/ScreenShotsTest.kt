@@ -950,7 +950,11 @@ class ScreenShotsTest {
             connectedTotal = gens.size
         )
     }.also {
-        assertTexts("家庭关系图", "查看总览")
+        // 横屏全屏：无标题栏与信息行，返回/查找等并入画布悬浮条，
+        // 回到我/展开家人/查看总览浮在下缘
+        assertTexts("查看总览", "回到我", "展开家人")
+        assertNoTexts("家庭关系图")
+        assertDescs("返回", "查找", "添加家人", "更多")
     }
 
     // ---------- 阶段B：图谱可见层（收起/展开/全展开/双方视角） ----------
