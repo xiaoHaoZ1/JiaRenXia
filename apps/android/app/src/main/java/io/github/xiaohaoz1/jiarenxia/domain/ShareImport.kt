@@ -208,7 +208,8 @@ object ShareImport {
                 id = newId, name = name.trim(), gender = role.gender,
                 avatarPath = null, note = null,
                 livingStatus = LivingStatus.ALIVE,
-                isSelf = false, createdAt = now, updatedAt = now
+                isSelf = false, siblingRank = null,
+                createdAt = now, updatedAt = now
             ),
             relationships = plan.relationships + rel,
             summary = plan.summary.copy(

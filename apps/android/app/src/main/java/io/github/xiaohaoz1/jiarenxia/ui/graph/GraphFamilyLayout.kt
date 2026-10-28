@@ -59,8 +59,29 @@ object GraphFamilyLayout {
             }
         }
         fun name(t: Tree) = overview.byId[t.block.memberIds.first()]?.person?.name.orEmpty()
+        // 子树的血亲成员：其父母落在父块里的人；找不到退化到首成员
+        fun blood(t: Tree): String {
+            val p = t.parent ?: return t.block.memberIds.first()
+            val ids = p.block.memberIds.toSet()
+            return t.block.memberIds.firstOrNull { m ->
+                GraphStructure.parentsOf(graph, m).any { it in ids } }
+                ?: t.block.memberIds.first()
+        }
+        fun birthKey(id: String): Int {
+            val d = overview.byId[id]?.solarBirthday ?: return Int.MAX_VALUE
+            return (d.year ?: return Int.MAX_VALUE) * 10000 + d.month * 100 + d.day
+        }
+        fun rankKey(id: String) =
+            overview.byId[id]?.person?.siblingRank ?: Int.MAX_VALUE
+        // 子代/同胞家庭排序信号：完整生日 → 排行 → 姓名 → id
+        // （生日客观最强；生日缺失时名次定先后，长者在左）
+        val childCmp = compareBy<Tree> { birthKey(blood(it)) }
+            .thenBy { rankKey(blood(it)) }
+            .thenBy { name(it) }.thenBy { it.block.id }
+        val sibCmp = compareBy<String>(::birthKey).thenBy(::rankKey)
+            .thenBy { overview.byId[it]?.person?.name.orEmpty() }
         fun width(t: Tree): Float {
-            t.children.sortWith(compareBy<Tree> { name(it) }.thenBy { it.block.id })
+            t.children.sortWith(childCmp)
             val childrenWidth = t.children.sumOf { width(it).toDouble() }.toFloat() +
                 GAP * (t.children.size - 1).coerceAtLeast(0)
             t.span = max(t.width, childrenWidth)
@@ -118,7 +139,9 @@ object GraphFamilyLayout {
             subtree(own, -own.span / 2f)
             var innerLeft = -own.span / 2f - GAP
             var innerRight = own.span / 2f + GAP
-            familyUnits(siblings(origin)).sortedBy(::name).forEach { t ->
+            // 本人同胞在左：先放最幼（贴着本人），长者排最左
+            familyUnits(siblings(origin).sortedWith(sibCmp).asReversed())
+                .forEach { t ->
                 if (t !in done) {
                     subtree(t, innerLeft - t.span)
                     innerLeft -= t.span + GAP
@@ -132,7 +155,10 @@ object GraphFamilyLayout {
             parentUnits.forEach { t -> center(t, parentCursor + t.width / 2f); parentCursor += t.width + GAP }
             for (parent in parentIds) {
                 val leftSide = overview.byId[parent]?.person?.gender == Gender.MALE
-                familyUnits(siblings(parent)).sortedBy(::name).forEach { t ->
+                // 左侧（父系）倒序摆放、右侧（母系）正序，统一"长者在左、幼者在右"
+                val sibTrees = familyUnits(siblings(parent).sortedWith(sibCmp)
+                    .let { if (leftSide) it.asReversed() else it })
+                sibTrees.forEach { t ->
                     if (t !in done) {
                         if (leftSide) {
                             subtree(t, innerLeft - t.span)

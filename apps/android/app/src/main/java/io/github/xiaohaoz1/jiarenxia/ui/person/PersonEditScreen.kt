@@ -106,6 +106,8 @@ class PersonEditCallbacks(
     /** 用户主动触发：把指定历法槽位的完整生日换算填入另一槽位。 */
     val onConvert: (io.github.xiaohaoz1.jiarenxia.core.model.CalendarType) -> Unit = {},
     val onNote: (String) -> Unit = {},
+    /** 兄弟姐妹排行输入（原文串，ViewModel 负责过滤）。 */
+    val onSiblingRank: (String) -> Unit = {},
     /** “手动填写”：优先聚焦已有空行，没有才追加。 */
     val onAddPhone: () -> Unit = {},
     /** 卡级“从联系人选择”：去重后填空行或追加。 */
@@ -159,6 +161,7 @@ fun PersonEditScreen(
             onLunarBirthday = viewModel::onLunarBirthday,
             onConvert = viewModel::onConvert,
             onNote = viewModel::onNote,
+            onSiblingRank = viewModel::onSiblingRank,
             onAddPhone = viewModel::addPhone,
             onImportContact = { c -> viewModel.addPhoneFromContact(c.name, c.number) },
             onPickPhoneForRow = { key, c -> viewModel.pickPhoneForRow(key, c.name, c.number) },
@@ -445,6 +448,28 @@ fun PersonEditContent(
                         }
                         if (genderError) FieldErrorText("请选择性别")
                     }
+                    // 兄弟姐妹排行（可不填）：只影响同代排序，不参与称谓
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(
+                            value = st.siblingRank,
+                            onValueChange = cb.onSiblingRank,
+                            label = { Text("在兄弟姐妹中排第几（可不填）") },
+                            shape = MaterialTheme.shapes.medium,
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        st.siblingRank.toIntOrNull()?.takeIf { it >= 1 }?.let {
+                            Spacer(Modifier.width(10.dp))
+                            Text(
+                                siblingRankWord(it),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
                     // 已故开关（默认在世不显示；创建“我”与编辑“我”都不显示此行）
                     if (st.mode != PersonEditMode.SELF && !st.isSelf) {
                         Row(
@@ -573,6 +598,13 @@ fun PersonEditContent(
             }
         }
     }
+}
+
+/** 排行的口语叫法：1–10 用「老大…老十」，更大用「第 N」。 */
+internal fun siblingRankWord(n: Int): String {
+    val words = listOf("老大", "老二", "老三", "老四", "老五",
+        "老六", "老七", "老八", "老九", "老十")
+    return words.getOrNull(n - 1) ?: "第 " + n
 }
 
 /** 卡片内小节标题。 */

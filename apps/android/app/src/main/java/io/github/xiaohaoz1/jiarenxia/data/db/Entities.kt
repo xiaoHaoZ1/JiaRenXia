@@ -29,6 +29,8 @@ data class PersonEntity(
     val note: String?,
     @ColumnInfo(name = "living_status") val livingStatus: LivingStatus,
     @ColumnInfo(name = "is_self") val isSelf: Boolean,
+    /** 兄弟姐妹中的排行（1=老大，未知为 null）；v16 新增。 */
+    @ColumnInfo(name = "sibling_rank") val siblingRank: Int? = null,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )

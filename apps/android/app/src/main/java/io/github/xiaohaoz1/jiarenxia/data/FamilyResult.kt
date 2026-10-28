@@ -20,6 +20,7 @@ sealed class FamilyError(val message: String) {
     data object AncestorCycle : FamilyError("这样会形成辈分循环")
     data object GenerationConflict : FamilyError("这条关系与已记录的亲子、夫妻或兄弟姐妹关系辈分冲突，请先核对")
     data object InvalidBirthday : FamilyError("生日日期不正确")
+    data object InvalidSiblingRank : FamilyError("排行需要是 1–50 之间的数字")
     data object EmptyPhoneNumber : FamilyError("手机号不能为空")
     data object DuplicatePhone : FamilyError("同一人物不能重复添加相同号码")
     data object MultiplePrimary : FamilyError("只能设置一个主号码")

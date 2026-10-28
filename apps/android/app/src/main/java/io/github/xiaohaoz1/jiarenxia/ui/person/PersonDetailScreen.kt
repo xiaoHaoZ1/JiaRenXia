@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsNone
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.FormatListNumbered
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.DropdownMenu
@@ -1055,6 +1056,13 @@ fun PersonDetailContent(
                         Icons.Rounded.Person, "性别",
                         if (person.gender == Gender.MALE) "男" else "女"
                     )
+                    // 排行（未记录不显示该行；只影响同代排序，不参与称谓）
+                    person.siblingRank?.let {
+                        IconInfoRow(
+                            Icons.Rounded.FormatListNumbered, "排行",
+                            siblingRankWord(it) + "（第 " + it + " 个）"
+                        )
+                    }
                     // 在世不标“状态”，只有已故才显示这一行
                     if (deceased) {
                         IconInfoRow(

@@ -67,12 +67,18 @@ object FamilyOrdering {
         return if (byId[mid]?.person?.gender == Gender.MALE) 0 else 1
     }
 
-    /** 子女：生日完整者在前且年长者在前，其次按录入时间。 */
+    /**
+     * 子女：完整生日（年长者在前）→ 兄弟姐妹排行（小者在前，有记录优先
+     * 于未记录）→ 录入时间。排行只在生日缺席/相同时定先后。
+     */
     private fun compareChildren(a: PersonOverview, b: PersonOverview): Int {
         val da = a.solarBirthday?.takeIf { it.isComplete }?.toLocalDateOrNull()
         val db = b.solarBirthday?.takeIf { it.isComplete }?.toLocalDateOrNull()
         if ((da != null) != (db != null)) return if (da != null) -1 else 1
         if (da != null && db != null && da != db) return da.compareTo(db)
+        val ra = a.person.siblingRank; val rb = b.person.siblingRank
+        if (ra != null && rb != null && ra != rb) return ra - rb
+        if ((ra != null) != (rb != null)) return if (ra != null) -1 else 1
         return (a.person.createdAt - b.person.createdAt).let {
             if (it < 0) -1 else if (it > 0) 1 else 0
         }

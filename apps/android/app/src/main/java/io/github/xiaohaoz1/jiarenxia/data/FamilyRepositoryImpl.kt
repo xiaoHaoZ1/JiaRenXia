@@ -292,6 +292,7 @@ class FamilyRepositoryImpl @Inject constructor(
                     gender = draft.gender,
                     note = draft.note.cleanNote(),
                     livingStatus = draft.livingStatus,
+                    siblingRank = draft.siblingRank,
                     updatedAt = now
                 )
             )
@@ -855,6 +856,7 @@ class FamilyRepositoryImpl @Inject constructor(
     /** 表单校验，返回第一个错误；null 表示通过。 */
     private fun validateDraft(draft: PersonDraft): FamilyError? {
         if (draft.name.isBlank()) return FamilyError.NameRequired
+        draft.siblingRank?.let { if (it !in 1..50) return FamilyError.InvalidSiblingRank }
         validateBirthdays(draft.birthdays)?.let { return it }
         val keys = HashSet<String>()
         var primaryCount = 0
@@ -907,6 +909,7 @@ class FamilyRepositoryImpl @Inject constructor(
                 note = draft.note.cleanNote(),
                 livingStatus = draft.livingStatus,
                 isSelf = isSelf,
+                siblingRank = draft.siblingRank,
                 createdAt = now,
                 updatedAt = now
             )

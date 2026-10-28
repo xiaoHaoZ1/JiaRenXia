@@ -16,6 +16,9 @@ enum class LivingStatus { ALIVE, DECEASED }
  * @param note 备注
  * @param livingStatus 在世状态
  * @param isSelf 是否为“我”本人
+ * @param siblingRank 在兄弟姐妹中的排行（1=老大），未知为 null；
+ *   只排序不参与称谓推导，同一个数字在不同家庭语境含义不同，
+ *   消费方只在同一同胞组内比较。
  * @param createdAt 创建时间戳
  * @param updatedAt 更新时间戳
  */
@@ -27,6 +30,7 @@ data class Person(
     val note: String? = null,
     val livingStatus: LivingStatus = LivingStatus.ALIVE,
     val isSelf: Boolean = false,
+    val siblingRank: Int? = null,
     val createdAt: Long = 0,
     val updatedAt: Long = 0
 )

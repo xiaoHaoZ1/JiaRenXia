@@ -402,3 +402,13 @@ val MIGRATION_14_15 = object : Migration(14, 15) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_tap_person_map_local_person_id` ON `tap_person_map` (`local_person_id`)")
     }
 }
+
+/**
+ * v15 → v16：persons 新增 sibling_rank（兄弟姐妹排行，1=老大，NULL 未记录）。
+ * 可空整数列，只影响同代排序显示，不参与称谓推导。
+ */
+val MIGRATION_15_16 = object : Migration(15, 16) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `persons` ADD COLUMN `sibling_rank` INTEGER")
+    }
+}

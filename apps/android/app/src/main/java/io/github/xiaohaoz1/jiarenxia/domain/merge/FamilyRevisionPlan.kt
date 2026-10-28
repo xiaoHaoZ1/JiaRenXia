@@ -117,7 +117,7 @@ object FamilyRevisionPlan {
         val privateRefs: Boolean = false
     ) : Item
 
-    /** 人物标量字段差异（姓名/性别/在世状态/备注/照片）。 */
+    /** 人物标量字段差异（姓名/性别/在世状态/备注/照片/排行）。 */
     data class FieldItem(
         override val key: String,
         override val personId: String,
@@ -308,6 +308,9 @@ object FamilyRevisionPlan {
             field(items, pending, lp.id, lp.name, "avatar", "照片",
                 avatarText(bp?.avatarHash), avatarText(rp.avatarHash),
                 avatarText(lp.avatarHash), blocked = false)
+            field(items, pending, lp.id, lp.name, "siblingRank", "排行",
+                rankText(bp?.siblingRank), rankText(rp.siblingRank),
+                rankText(lp.siblingRank), blocked = false)
         }
 
         // ---------- 3. 电话条目 ----------
@@ -657,7 +660,8 @@ object FamilyRevisionPlan {
         /** 字段整组改写为目标值（只含共享字段）。 */
         data class SetPerson(
             val personId: String, val name: String, val gender: String,
-            val living: String, val note: String?, val avatarHash: String?
+            val living: String, val note: String?, val avatarHash: String?,
+            val siblingRank: Int?
         ) : Op
         data class PutPhone(val personId: String, val phone: Phone) : Op
         data class DelPhone(val personId: String, val number: String) : Op
@@ -778,6 +782,7 @@ object FamilyRevisionPlan {
             val r = remapped.personMap[pid] ?: continue
             var name = l.name; var gender = l.gender; var living = l.living
             var note = l.note; var avatar = l.avatarHash
+            var rank = l.siblingRank
             var touched = false
             for (f in fields) {
                 if (f.blocked) continue
@@ -793,9 +798,11 @@ object FamilyRevisionPlan {
                     "living" -> living = r.living
                     "note" -> note = r.note
                     "avatar" -> avatar = r.avatarHash
+                    "siblingRank" -> rank = r.siblingRank
                 }
             }
-            if (touched) ops += Op.SetPerson(pid, name, gender, living, note, avatar)
+            if (touched) ops += Op.SetPerson(pid, name, gender, living, note,
+                avatar, rank)
         }
 
         // 电话 / 日期
@@ -881,6 +888,9 @@ object FamilyRevisionPlan {
     /** 照片展示值：区分 无/有(哈希变化算“换了照片”)。 */
     private fun avatarText(h: String?) =
         if (h == null) "无照片" else "照片·" + h.take(6)
+
+    /** 排行展示值：未记录显示“（无）”（与备注缺省文案一致）。 */
+    private fun rankText(r: Int?) = r?.let { "第 $it" } ?: "（无）"
 
     private fun relKindText(t: String) = when (t) {
         RelationshipType.PARENT.name -> "父母"

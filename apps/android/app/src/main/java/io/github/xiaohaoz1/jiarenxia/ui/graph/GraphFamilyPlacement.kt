@@ -59,6 +59,7 @@ internal object GraphFamilyPlacement {
                 ?: a.compareTo(b)
         }
         fun link(b: GraphStructure.Block) = b.memberIds.minWith(personOrder)
+        fun rankOf(id: String) = overview.byId[id]?.person?.siblingRank
         fun width(b: GraphStructure.Block) = b.memberIds.sumOf {
             (widths[it] ?: GraphGeom.CARD_MIN_W).toDouble()
         }.toFloat() + GraphGeom.MEMBER_GAP * (b.memberIds.size - 1)
@@ -91,6 +92,18 @@ internal object GraphFamilyPlacement {
         for (r in graph.relationships) if (r.type == RelationshipType.SIBLING)
             unite(r.sourcePersonId, r.targetPersonId)
         val siblingGroups = generations.keys.groupBy(::root).values.filter { it.size > 1 }
+
+        // 同胞组内排行：两边都有名次且不同时按名次（1=老大在左）。
+        // 只在同一组（同 root）内生效，不跨支系混排。
+        fun kinOrder(a: GraphStructure.Block, b: GraphStructure.Block): Int {
+            for (ma in a.memberIds) for (mb in b.memberIds) {
+                if (ma != mb && root(ma) == root(mb)) {
+                    val ra = rankOf(ma); val rb = rankOf(mb)
+                    if (ra != null && rb != null && ra != rb) return ra - rb
+                }
+            }
+            return personOrder.compare(link(a), link(b))
+        }
 
         // 每个同胞组以离主家庭最近的一人为接口：男成员接左侧原生家庭，
         // 女成员接右侧原生家庭。父亲和母亲的夫妻块因此成为两组之间的接口。
@@ -129,8 +142,15 @@ internal object GraphFamilyPlacement {
             }
             val birthday = PartialDate.compareSeniority(
                 overview.byId[person]?.solarBirthday, overview.byId[ref]?.solarBirthday)
+            // 排行作第三信号：生日与成对记录都缺时，名次定同代长幼层
+            val rank = rankOf(person)?.let { rp ->
+                rankOf(ref)?.let { rr ->
+                    if (rp < rr) RelativeAgeOrder.OLDER
+                    else if (rp > rr) RelativeAgeOrder.YOUNGER else null
+                }
+            }
             val order = if (direct?.type == RelationshipType.COUSIN) declared ?: birthday
-                else birthday ?: declared
+                else birthday ?: declared ?: rank
             return when (order) {
                 RelativeAgeOrder.OLDER -> -1
                 RelativeAgeOrder.YOUNGER -> 1
@@ -179,7 +199,7 @@ internal object GraphFamilyPlacement {
             val comparator = compareBy<GraphStructure.Block> {
                 if (it.generation == 0) sideByBlock.getValue(it.id).ordinal else 0
             }.thenBy { origin(it) }
-                .thenComparator { a, b -> personOrder.compare(link(a), link(b)) }
+                .thenComparator { a, b -> kinOrder(a, b) }
             while (remaining.isNotEmpty()) {
                 val ready = remaining.values.filter { b ->
                     precedes.none { (a, c) -> c == b.id && a in remaining }

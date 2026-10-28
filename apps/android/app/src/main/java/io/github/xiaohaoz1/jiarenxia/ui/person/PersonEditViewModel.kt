@@ -132,6 +132,8 @@ data class PersonEditUiState(
     /** 冲突提示已展示过一次（再次点保存放行）。 */
     val conflictAcked: Boolean = false,
     val phones: List<PhoneRowState> = emptyList(),
+    /** 兄弟姐妹排行输入原文（纯数字串，空=未记录）。 */
+    val siblingRank: String = "",
     val note: String = "",
     val avatarPath: String? = null,       // 已保存头像相对路径
     val avatarUri: Uri? = null,           // 新选取的头像
@@ -253,6 +255,7 @@ class PersonEditViewModel @Inject constructor(
                         p.label, p.status, p.isPrimary, p.note)
                 },
                 note = detail.person.note ?: "",
+                siblingRank = detail.person.siblingRank?.toString() ?: "",
                 avatarPath = detail.person.avatarPath,
                 anchorTitle = overview?.byId?.get(id)?.displayTitle ?: "",
                 isSelf = detail.person.isSelf
@@ -391,6 +394,11 @@ class PersonEditViewModel @Inject constructor(
     }
 
     fun onNote(v: String) = mark { copy(note = v) }
+
+    /** 排行输入：只留数字、最多两位；空串表示未记录（合法范围 1–50 由数据层校验）。 */
+    fun onSiblingRank(v: String) = mark {
+        copy(siblingRank = v.filter(Char::isDigit).take(2))
+    }
     fun onAvatar(uri: Uri) = mark { copy(avatarUri = uri, avatarRemoved = false) }
     fun onRemoveAvatar() = mark { copy(avatarUri = null, avatarRemoved = true, avatarPath = null) }
     /** 血缘细分确认全部失效（换关联人/换称谓时调用，不沿用旧确认）。 */
@@ -842,6 +850,8 @@ class PersonEditViewModel @Inject constructor(
                 name = st.name,
                 gender = st.gender!!,
                 note = st.note.ifBlank { null },
+                // 空串=未记录；非法值（0/51+）由数据层 InvalidSiblingRank 拒绝
+                siblingRank = st.siblingRank.ifBlank { null }?.toIntOrNull(),
                 // “我”固定在世：创建/编辑“我”都不提供已故选项
                 livingStatus = if (st.mode == PersonEditMode.SELF || st.isSelf) LivingStatus.ALIVE
                 else if (st.deceased) LivingStatus.DECEASED else LivingStatus.ALIVE,
@@ -946,7 +956,7 @@ class PersonEditViewModel @Inject constructor(
                 solarBirthday = BirthdayFormState(),
                 lunarBirthday = BirthdayFormState(), birthdayConflict = false,
                 conflictAcked = false,
-                phones = emptyList(), note = "",
+                phones = emptyList(), note = "", siblingRank = "",
                 avatarPath = null, avatarUri = null, avatarRemoved = false,
                 // 称呼文本属上一位：清空后由 refreshLineage 按当前称谓重取默认
                 titleOnlyText = "", titleTouched = false,
