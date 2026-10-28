@@ -30,8 +30,8 @@ export const SITE = {
 export const APK_BETA = {
   /** 安装包的 versionName，含 -debug 后缀 */
   version: "2.1.2-debug",
-  sizeBytes: 25_360_096,
-  sha256: "cc781df07050cc53054a3edac28cb25d2dffc368bfea025861d4f5b368072a6a",
+  sizeBytes: 25_854_366,
+  sha256: "8206fb98f8974b83ad32e8dd0ed28bef952a1a988c5a93fc19c1c14f6c156840",
   file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.1.2.apk`,
 };
 
