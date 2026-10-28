@@ -68,7 +68,9 @@ export default function Download() {
         )}
       </div>
       <p className="muted">
-        家人侠和守护侠的源代码以 GPL-3.0 协议公开，见 <a href={SITE.sourceUrl} target="_blank" rel="noopener">GitHub</a>。
+        家人侠和守护侠的源代码以 GPL-3.0 协议公开：
+        <a href={SITE.sourceUrl} target="_blank" rel="noopener">家人侠</a>、
+        <a href={SITE.guardianSourceUrl} target="_blank" rel="noopener">守护侠</a>。
       </p>
       <p className="muted">
         守护功能由独立应用「守护侠」提供（测试版，可在<Link to="/extensions">「小侠家族」</Link>页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先用「测试模式」走一遍流程，确认能响能拨，再放心交给它。

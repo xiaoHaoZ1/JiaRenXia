@@ -8,6 +8,8 @@ export const SITE = {
   contactEmail: "2107290326@qq.com",
   /** 公开源码仓库（GPL-3.0）。 */
   sourceUrl: "https://github.com/xiaoHaoZ1/JiaRenXia",
+  /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
+  guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
   apkVersion: "2.1.4",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
