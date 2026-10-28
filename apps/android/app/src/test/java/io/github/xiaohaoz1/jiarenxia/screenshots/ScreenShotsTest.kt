@@ -8,10 +8,14 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.printToLog
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.xiaohaoz1.jiarenxia.core.kinship.FamilyGraph
@@ -956,6 +960,42 @@ class ScreenShotsTest {
         assertNoTexts("家庭关系图", "查看总览", "回到我", "展开家人")
         assertTexts("恢复竖屏")
         assertDescs("返回", "添加家人", "更多")
+    }
+
+    /** 语义缩放：捏合缩小到文字不可读 → 卡片塌成圆点，结构优先于文字。 */
+    @Test
+    fun graphDots() {
+        composeRule.setContent {
+            JiaRenXiaTheme {
+                androidx.compose.material3.Surface(
+                    color = androidx.compose.material3.MaterialTheme
+                        .colorScheme.background) {
+                    val ov = Demo.demoOverview()
+                    val gens = KinshipEngine().generations(
+                        ov.graph, ov.self.person.id)
+                    GraphContent(
+                        model = GraphLayout.build(
+                            ov, gens, sizer = GraphTextMeasure.sizer),
+                        byId = ov.byId, selfId = ov.self.person.id,
+                        onBack = {}, onOpenPerson = {},
+                        branch = GraphBranch.ALL,
+                        availableBranches = GraphBranches.available(ov),
+                        connectedTotal = gens.size,
+                        onSelectBranch = {}, onLocate = {})
+                }
+            }
+        }
+        // 双指从两侧向中间捏合：比例 0.3 → scale<0.5 → 圆点模式
+        composeRule.onNodeWithTag("graphCanvas").performTouchInput {
+            pinch(
+                center + Offset(-600f, 0f), center + Offset(-200f, 0f),
+                center + Offset(600f, 0f), center + Offset(200f, 0f))
+        }
+        composeRule.waitForIdle()
+        // 卡片上的姓名文字不再渲染 = 已进入圆点模式
+        composeRule.onNodeWithText("杨磊").assertDoesNotExist()
+        composeRule.onRoot().captureRoboImage(
+            File("build/outputs/roborazzi/b_graph_dots.png").absolutePath)
     }
 
     // ---------- 阶段B：图谱可见层（收起/展开/全展开/双方视角） ----------
