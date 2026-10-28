@@ -430,10 +430,7 @@ fun GraphContent(
                 actions = {
                     // 查找收进 ⋮ 菜单，顶栏让位给横屏开关
                     if (onToggleLandscape != null) {
-                        IconButton(onClick = onToggleLandscape) {
-                            Icon(Icons.Rounded.ScreenRotation,
-                                contentDescription = "横屏查看")
-                        }
+                        RotationButton("横屏看图", onToggleLandscape)
                     }
                     IconButton(onClick = onAddFamily) {
                         Icon(Icons.Rounded.PersonAdd, contentDescription = "添加家人")
@@ -1037,10 +1034,7 @@ fun GraphContent(
                                 }
                             } else Spacer(Modifier.weight(1f))
                             if (onToggleLandscape != null) {
-                                IconButton(onClick = onToggleLandscape) {
-                                    Icon(Icons.Rounded.ScreenRotation,
-                                        contentDescription = "恢复竖屏")
-                                }
+                                RotationButton("恢复竖屏", onToggleLandscape)
                             }
                             IconButton(onClick = onAddFamily) {
                                 Icon(Icons.Rounded.PersonAdd,
@@ -1495,6 +1489,17 @@ private fun GraphMenuButton(
                 leadingIcon = { Icon(Icons.Rounded.Backup, null) },
                 onClick = { close(); onBackup() })
         }
+    }
+}
+
+/** 横屏/竖屏切换：图标+文字，单放图标老年人看不出是干嘛的。 */
+@Composable
+private fun RotationButton(label: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Icon(Icons.Rounded.ScreenRotation, contentDescription = null,
+            modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(label)
     }
 }
 
