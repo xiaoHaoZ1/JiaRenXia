@@ -95,7 +95,7 @@ class FamilyGraphScreenShotsTest : RepoTestBase() {
     @Test fun spouseMother() = shot(GraphBranch.SPOUSE_MOTHER)
     @Test fun dark() = shot(GraphBranch.FATHER, dark = true)
     @Test fun large() = shot(GraphBranch.ALL, large = true)
-    // 横屏：分支 chip 应收成单行横滑、缩放/总览悬浮在画布下缘而不是底栏
+    // 横屏：分支 chip 收成单行横滑、操作收进悬浮条菜单，整屏都是画布
     @Config(qualifiers = "w915dp-h412dp-land-xxhdpi")
     @Test fun landscape() = shot(GraphBranch.FATHER, suffix = "_land")
 }

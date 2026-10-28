@@ -932,13 +932,14 @@ class ScreenShotsTest {
             onSelectBranch = {}, onLocate = {}
         )
     }.also {
-        // 画布上方不再有整排分支 FilterChip；顶部保留查找/更多，底栏三按钮
-        assertTexts("查找", "已定位 · ", "回到我", "展开家人", "查看总览")
-        assertDescs("更多")
+        // 画布上方不再有整排分支 FilterChip；查找收进“更多”菜单，
+        // 顶栏只留添加家人/更多，底栏胶囊按钮
+        assertTexts("已定位 · ", "回到我", "展开家人", "查看总览")
+        assertDescs("添加家人", "更多")
     }
 
     @Test
-    @Config(qualifiers = "w915dp-h412dp-xxhdpi")
+    @Config(qualifiers = "w915dp-h412dp-land-xxhdpi")
     fun graphLandscape() = shot("graph_landscape") {
         val ov = Demo.demoOverview()
         val gens = KinshipEngine().generations(ov.graph, ov.self.person.id)
@@ -946,14 +947,14 @@ class ScreenShotsTest {
             model = GraphLayout.build(ov, gens, sizer = GraphTextMeasure.sizer),
             byId = ov.byId, selfId = ov.self.person.id,
             onBack = {}, onOpenPerson = {},
-            landscape = true, onToggleLandscape = {},
+            onToggleLandscape = {},
             connectedTotal = gens.size
         )
     }.also {
         // 横屏全屏：无标题栏、信息行与操作按钮（缩放回中全靠手势），
-        // 只剩画布上缘一条悬浮条（返回+查找/添加/菜单），总览收进菜单
+        // 只剩画布上缘一条悬浮条（返回+分支+竖屏/添加/菜单），总览收进菜单
         assertNoTexts("家庭关系图", "查看总览", "回到我", "展开家人")
-        assertDescs("返回", "查找", "添加家人", "更多")
+        assertDescs("返回", "恢复竖屏", "添加家人", "更多")
     }
 
     // ---------- 阶段B：图谱可见层（收起/展开/全展开/双方视角） ----------
