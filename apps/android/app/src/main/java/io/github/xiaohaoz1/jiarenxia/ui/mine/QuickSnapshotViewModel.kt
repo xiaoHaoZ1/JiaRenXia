@@ -163,44 +163,6 @@ class QuickSnapshotViewModel @Inject constructor(
         }
     }
 
-    // ---------- 找回“上次接收前”资料（协作 §5.8） ----------
-
-    /** “上次接收前副本”信息（null = 没有可找回的副本）。 */
-    val prereceive = MutableStateFlow<QuickSnapshotStore.Snapshot?>(null)
-
-    /** “找回接收前副本”待确认弹窗。 */
-    val prereceiveAsk = MutableStateFlow(false)
-
-    fun refreshPrereceive() {
-        viewModelScope.launch { prereceive.value = store.prereceiveInfo() }
-    }
-
-    fun askPrereceiveRestore() { prereceiveAsk.value = true }
-    fun dismissPrereceive() { prereceiveAsk.value = false }
-
-    /** 确认后整库恢复接收前副本（恢复后指针即失效，入口消失）。 */
-    fun confirmPrereceiveRestore() {
-        if (busy.value) return
-        prereceiveAsk.value = false
-        busy.value = true
-        viewModelScope.launch {
-            when (val r = store.restorePrereceive()) {
-                is QuickSnapshotStore.RestoreResult.Ok -> {
-                    message.value = "已找回接收前的资料（" + r.persons + " 位家人）"
-                    outcome.value = if (r.hasSelf)
-                        RestoreOutcome.RESTORED_WITH_SELF
-                    else RestoreOutcome.RESTORED_WITHOUT_SELF
-                }
-                QuickSnapshotStore.RestoreResult.NotFromThisDevice ->
-                    message.value = "这份副本不是本机保存的"
-                QuickSnapshotStore.RestoreResult.Failed ->
-                    message.value = "找回失败，请重试"
-            }
-            prereceive.value = store.prereceiveInfo()
-            busy.value = false
-        }
-    }
-
     // ---------- 版本号连点 ----------
 
     private var tapCount = 0

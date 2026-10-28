@@ -101,8 +101,6 @@ fun taskEdit(
     const val SHARE_IMPORT = "share/import?uri={uri}"
     /** 分享选人页（FAMILY_AFFAIRS 9）：branch 为预设分支名（GraphBranch）。 */
     const val SHARE_SCOPE = "share/scope?branch={branch}"
-    /** 协作接收审查页（FAMILY_AFFAIRS §5）：包经 AppEvents.pendingCollab 或待办草稿进入。 */
-    const val SHARE_COLLAB = "share/collab"
     /** 碰一碰：kind = HELLO 用途（0 结为夫妻 / 1 互加亲人），由入口带入。 */
     const val TAP = "tap?kind={kind}"
     fun tap(kind: Int) = "tap?kind=" + kind
@@ -288,11 +286,6 @@ fun AppNavHost(
                         launchSingleTop = true
                     }
                 },
-                onCollabDetected = {
-                    navController.navigate(Routes.SHARE_COLLAB) {
-                        launchSingleTop = true
-                    }
-                },
                 onRestored = { hasSelf ->
                     navController.navigate(
                         if (hasSelf) Routes.MAIN else Routes.ONBOARD_SELF
@@ -430,11 +423,6 @@ fun AppNavHost(
                     navController.navigate(Routes.MAIN) {
                         popUpTo(0) { inclusive = true }
                     }
-                },
-                onCollabDetected = {
-                    navController.navigate(Routes.SHARE_COLLAB) {
-                        launchSingleTop = true
-                    }
                 }
             )
         }
@@ -554,11 +542,6 @@ fun AppNavHost(
                         launchSingleTop = true
                     }
                 },
-                onCollabDetected = {
-                    navController.navigate(Routes.SHARE_COLLAB) {
-                        launchSingleTop = true
-                    }
-                },
                 onHeartPreview = { left ->
                     navController.navigate(Routes.tapHeart(left))
                 }
@@ -614,23 +597,6 @@ fun AppNavHost(
                 },
                 onNeedsSelf = {
                     navController.navigate(Routes.ONBOARD_SELF) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                onCollabDetected = {
-                    navController.navigate(Routes.SHARE_COLLAB) {
-                        launchSingleTop = true
-                    }
-                }
-            )
-        }
-
-        // 协作接收审查页：确认版/补充包的差异核对、身份裁决、应用
-        composable(Routes.SHARE_COLLAB) {
-            io.github.xiaohaoz1.jiarenxia.ui.share.CollabReviewScreen(
-                onBack = { navController.popBackStack() },
-                onDone = {
-                    navController.navigate(Routes.MAIN) {
                         popUpTo(0) { inclusive = true }
                     }
                 }

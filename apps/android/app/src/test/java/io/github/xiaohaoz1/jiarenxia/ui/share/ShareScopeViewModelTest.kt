@@ -61,7 +61,6 @@ class ShareScopeViewModelTest : RepoTestBase() {
             observeOverview = ObserveFamilyOverview(
                 repo, KinshipEngine()
             ),
-            repository = repo,
             backup = backup,
             savedStateHandle = SavedStateHandle(mapOf("branch" to branch.name))
         )
@@ -202,26 +201,6 @@ class ShareScopeViewModelTest : RepoTestBase() {
 
         vm.shareSent()
         assertEquals(ShareScopeStep.Picking, vm.ui.value.step)
-    }
-
-    @Test
-    fun 仅本机保留的人不预选但可手勾() = runTest {
-        seed()
-        // 把“赵老师”标为仅本机保留
-        val zhao = ids.getValue("赵老师")
-        db.familyLocalOnlyDao().upsert(
-            io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity(
-                personId = zhao, canonicalId = null,
-                note = "测试", createdAt = 1L))
-        newVm()
-        waitLoaded()
-        // 预选里没有仅本机的人（其余人都在）
-        assertFalse(zhao in vm.ui.value.selected)
-        assertEquals(ids.values.toSet() - zhao, vm.ui.value.selected)
-        assertEquals(setOf(zhao), vm.ui.value.localOnlyIds)
-        // 手动勾选 = 知情选择，仍可分享
-        vm.toggle(zhao)
-        assertTrue(zhao in vm.ui.value.selected)
     }
 
     @Test

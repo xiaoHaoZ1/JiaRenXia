@@ -129,7 +129,7 @@ gradlew.bat :app:assembleRelease
 
 ## 家人共享
 
-- 共享文件 = 备份格式（purpose="share" + sharedBy），导出走 BackupManager.exportShare、导入走 importShare（选“我是谁”→ is_self，设置保留接收方）。只含家人档案（人物/手机号/关系/生日/提醒偏好/头像）；事项/人情/保单与备注一律不写、不提供勾选。“分享给家人”与关系图共用同一个选人页（`ui/share/ShareScope*`，默认全选、可用 `personIds` 做部分分享；“仅本机保留”人物不预选、列表标注、可手动勾选）。
+- 共享文件 = 备份格式（purpose="share" + sharedBy），导出走 BackupManager.exportShare、导入走 importShare（选“我是谁”→ is_self，设置保留接收方）。只含家人档案（人物/手机号/关系/生日/提醒偏好/头像）；事项/人情/保单与备注一律不写、不提供勾选。“分享给家人”与关系图共用同一个选人页（`ui/share/ShareScope*`，默认全选、可用 `personIds` 做部分分享）。
 - 恢复流程（我的页“从备份恢复”与欢迎页“用已有资料开始”）共用 ui/restore/RestoreFlow，按 purpose 分流；BackupManager.restore 只收 purpose="backup" 的 plan。
 - 已有数据默认合并（domain/merge/FamilyMerge，预览重算见 ui/share/MergePreview.kt）；对方→本机对应关系存 person_alias（DB v10，不进备份/共享）。
 - 接收 intent-filter：ACTION_VIEW(content) / ACTION_SEND，mimeType 固定 application/octet-stream，不要注册通配 MIME。

@@ -95,8 +95,6 @@ data class ShareScopeUiState(
     val items: List<PersonPickItem> = emptyList(),
     /** 已勾选的人物 id；“我”恒在集合内。 */
     val selected: Set<String> = emptySet(),
-    /** “仅本机保留”的人物：不进入任何预选，列表里标注，可手动勾选。 */
-    val localOnlyIds: Set<String> = emptySet(),
     val selfId: String? = null,
     val selfName: String = "",
     val step: ShareScopeStep = ShareScopeStep.Picking,
@@ -115,7 +113,6 @@ class ShareScopeViewModel @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext
     private val context: android.content.Context,
     observeOverview: ObserveFamilyOverview,
-    repository: io.github.xiaohaoz1.jiarenxia.data.FamilyRepository,
     private val backup: BackupManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -133,19 +130,10 @@ class ShareScopeViewModel @Inject constructor(
     private var overview: FamilyOverview? = null
     private var relPairs: List<Pair<String, String>> = emptyList()
 
-    /** 最近一次“仅本机保留”名单（预选排除、列表标注）。 */
-    private var localOnly: Set<String> = emptySet()
-
     /** 仅在提交后短暂持有的共享密码；用完即清空（同备份流程）。 */
     private var pendingPassword: CharArray? = null
 
     init {
-        viewModelScope.launch {
-            repository.observeLocalOnlyIds().collect { ids ->
-                localOnly = ids
-                _ui.update { it.copy(localOnlyIds = ids) }
-            }
-        }
         viewModelScope.launch {
             observeOverview().collect { ov ->
                 overview = ov
@@ -161,7 +149,7 @@ class ShareScopeViewModel @Inject constructor(
                         // 首次出现总览按路由分支预选；之后保留勾选
                         // （剔除已被删的人物），“我”恒选中
                         val selected =
-                            if (st.selfId == null) ShareScope.preset(ov, st.branch) - localOnly
+                            if (st.selfId == null) ShareScope.preset(ov, st.branch)
                             else st.selected.filter { it in ov.byId }.toSet()
                         st.copy(
                             loading = false,
@@ -177,13 +165,13 @@ class ShareScopeViewModel @Inject constructor(
         }
     }
 
-    /** 点选分支筛选：按该分支重新预选（不含“仅本机保留”的人）。 */
+    /** 点选分支筛选：按该分支重新预选。 */
     fun selectBranch(branch: GraphBranch) {
         val ov = overview ?: return
         _ui.update {
             it.copy(
                 branch = branch,
-                selected = ShareScope.preset(ov, branch) - localOnly
+                selected = ShareScope.preset(ov, branch)
             )
         }
     }
@@ -232,7 +220,7 @@ class ShareScopeViewModel @Inject constructor(
     }
 
     /**
-     * 密码确定后生成共享文件：勾选了全部非“仅本机保留”人物时文件名
+     * 密码确定后生成共享文件：勾选了全部人物时文件名
      * 不带“部分”，否则带“部分”标记；内容只含所选人物。
      */
     fun submitPassword(pw: CharArray) {
@@ -249,7 +237,7 @@ class ShareScopeViewModel @Inject constructor(
                     "yyyyMMdd", java.util.Locale.US).format(java.util.Date())
                 val shareAll =
                     st.selected.containsAll(
-                        st.items.map { it.personId }.toSet() - st.localOnlyIds)
+                        st.items.map { it.personId }.toSet())
                 val file = File(
                     dir, "家人侠-家人共享-" + st.selfName +
                         (if (shareAll) "-" else "-部分-") + stamp + ".jrxb")
@@ -468,7 +456,6 @@ fun ShareScopeContent(
                 ) { i ->
                     val item = filtered[i]
                     val isSelf = item.personId == state.selfId
-                    val localOnly = item.personId in state.localOnlyIds
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -487,9 +474,7 @@ fun ShareScopeContent(
                             enabled = !isSelf
                         )
                         Spacer(Modifier.width(8.dp))
-                        Text(
-                            item.label +
-                                if (localOnly) "（仅本机保留）" else "")
+                        Text(item.label)
                     }
                 }
             }

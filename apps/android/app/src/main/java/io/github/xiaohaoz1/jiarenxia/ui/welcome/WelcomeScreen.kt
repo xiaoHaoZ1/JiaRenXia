@@ -69,8 +69,6 @@ fun WelcomeScreen(
     onShareImport: () -> Unit,
     /** 恢复完成：hasSelf → 主界面；否则 → 创建“我”。 */
     onRestored: (hasSelf: Boolean) -> Unit,
-    /** 识别到协作包 → 协作接收页（bytes/密码经 appEvents.pendingCollab 传递）。 */
-    onCollabDetected: () -> Unit = {},
     viewModel: WelcomeViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -88,13 +86,6 @@ fun WelcomeScreen(
         if (shareDetected) {
             restore.shareDetected.value = false
             onShareImport()
-        }
-    }
-    val collabDetected by restore.collabDetected.collectAsStateWithLifecycle()
-    LaunchedEffect(collabDetected) {
-        if (collabDetected) {
-            restore.collabDetected.value = false
-            onCollabDetected()
         }
     }
     val outcome by restore.outcome.collectAsStateWithLifecycle()

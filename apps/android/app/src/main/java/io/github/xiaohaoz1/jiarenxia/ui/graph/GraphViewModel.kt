@@ -77,7 +77,6 @@ class GraphViewModel @Inject constructor(
     backup: io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager,
     private val settings: io.github.xiaohaoz1.jiarenxia.data.settings
         .SettingsRepository,
-    private val repository: io.github.xiaohaoz1.jiarenxia.data.FamilyRepository,
     @dagger.hilt.android.qualifiers.ApplicationContext
     private val context: android.content.Context,
     savedStateHandle: SavedStateHandle
@@ -188,18 +187,14 @@ class GraphViewModel @Inject constructor(
                     CameraCmd(sl, cs, ct, cr)
                 }
             ) { a, b -> a to b },
-            combine(
-                combine(_expanded, _expandAll, settings.edgeLabelsEnabled) { e, a, l ->
-                    Triple(e, a, l)
-                },
-                repository.observeLocalOnlyIds()
-            ) { t, lo -> t to lo }
-        ) { (first, second), (triple, localOnly) ->
+            combine(_expanded, _expandAll, settings.edgeLabelsEnabled) { e, a, l ->
+                Triple(e, a, l)
+            }
+        ) { (first, second), triple ->
             val (overview, branch, focusedId) = first
             val (scopeLabel, cameraSeq, cameraTarget, cameraRestore) = second
             val (expanded, expandAll, edgeLabels) = triple
-            buildState(overview, branch, focusedId, expanded, expandAll,
-                localOnly).copy(
+            buildState(overview, branch, focusedId, expanded, expandAll).copy(
                 showEdgeLabels = edgeLabels,
                 scopeLabel = scopeLabel,
                 cameraSeq = cameraSeq,
@@ -217,27 +212,10 @@ class GraphViewModel @Inject constructor(
 
     private fun buildState(
         overview: FamilyOverview?, branch: GraphBranch, focusedId: String?,
-        expanded: Set<GraphVisibility.Expand>, expandAll: Boolean,
-        localOnlyIds: Set<String> = emptySet()
+        expanded: Set<GraphVisibility.Expand>, expandAll: Boolean
     ): GraphUiState {
         if (overview == null) return GraphUiState(loading = false)
-        // “仅本机保留”人物不进入默认关系图（协作 §5.7）：
-        // 人物与全部相关边一并隐藏；普通部分分享仍可明确选这些人
-        val source = if (localOnlyIds.isEmpty()) overview else overview.copy(
-            graph = overview.graph.copy(
-                persons = overview.graph.persons
-                    .filter { it.id !in localOnlyIds },
-                relationships = overview.graph.relationships.filter {
-                    it.sourcePersonId !in localOnlyIds &&
-                        it.targetPersonId !in localOnlyIds },
-                birthdays = overview.graph.birthdays - localOnlyIds,
-                birthdayValues = overview.graph.birthdayValues - localOnlyIds
-            ),
-            byId = overview.byId - localOnlyIds,
-            core = overview.core.filter { it.person.id !in localOnlyIds },
-            others = overview.others.filter { it.person.id !in localOnlyIds }
-        )
-        val ov = GraphFamilyTitles.resolve(source)
+        val ov = GraphFamilyTitles.resolve(overview)
         val allGens = engine.generations(ov.graph, ov.self.person.id)
         // 范围锚点与称谓观察者分离：overview 始终由本人推导，不重算“父亲视角”的称谓。
         val activeBranch = if (focusedId != null && focusedId !in

@@ -62,55 +62,6 @@ data class BackupSettings(
     val licenseCode: String? = null
 )
 
-/** 版本链一环：某次确认版的版本号/快照哈希/父版哈希。 */
-data class ChainLink(
-    val revision: Int,
-    val hash: String,
-    val parentHash: String?
-)
-
-/**
- * 协作元数据（purpose="share" 且带 collaboration 对象 → schemaVersion=12）。
- *
- * mode="confirmed"：汇总者发布的确认版（完整名册）。
- * mode="contribution"：成员发回的补充（自带基准快照与 id 映射）。
- */
-data class CollabMeta(
-    val mode: String,
-    val seriesId: String,
-    /** 汇总者人物的名册规范 id。 */
-    val coordinatorPersonId: String,
-    /** 逻辑包标识：同 packageId 不允许内容不同。 */
-    val packageId: String,
-    /** confirmed：目标版本号；contribution：固定 0。 */
-    val revision: Int,
-    val parentRevision: Int?,
-    val parentHash: String?,
-    /** confirmed：该版快照哈希。 */
-    val snapshotHash: String?,
-    /** 已发布版本链（含本版），供连续性/跳版本校验。 */
-    val revisionChain: List<ChainLink>,
-    /** contribution：发送方基准（确认版）版本号/哈希/完整快照。 */
-    val baseRevision: Int?,
-    val baseHash: String?,
-    val baseSnapshot: String?,
-    /** contribution：名册规范 id → 发送方本机 id（区分“已绑定”与“新人物”）。 */
-    val idMap: Map<String, String>,
-    /** 范围声明：协作包固定 "full"（完整名册），部分分享不写协作元数据。 */
-    val scope: String,
-    /** contribution：发送方姓名（“来自 X 的补充”标题用；confirmed 为 null）。 */
-    val sender: String? = null
-)
-
-/** 个人备份内的协作状态段（schemaVersion 12；v11 备份没有该段）。 */
-data class CollabStateDto(
-    val state: io.github.xiaohaoz1.jiarenxia.data.db.FamilyCollabStateEntity,
-    val publications: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyPublicationEntity>,
-    val localOnly: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity>,
-    /** 已处理包记录（APPLIED；待处理草稿与加密副本不进备份）。 */
-    val appliedPackages: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyReceiveDraftEntity>
-)
-
 /** 解密并校验后的恢复计划：可直接 apply。 */
 data class RestorePlan(
     val summary: BackupSummary,
@@ -143,12 +94,6 @@ data class RestorePlan(
      * 回环资料不会产生重复人物，也不需再次确认候选。
      */
     val personOrigins: Map<String, String> = emptyMap(),
-    /** 协作元数据（purpose="share" 的协作包才有；普通共享/备份为 null）。 */
-    val collaboration: CollabMeta? = null,
-    /** 协作包人物 id → 头像内容哈希（person.avatarHash 字段）。 */
-    val avatarHashes: Map<String, String> = emptyMap(),
-    /** 个人备份的协作状态（schemaVersion 12；低版本为 null）。 */
-    val collabState: CollabStateDto? = null
 )
 
 /**
@@ -162,15 +107,13 @@ object BackupJson {
     // v9：生日类型拆分为 BIRTHDAY_SOLAR / BIRTHDAY_LUNAR（双生日）
     // v10：重要日期新增 LICENSE_ANNIVERSARY / DATING_ANNIVERSARY（领证/恋爱纪念日）
     // v11：提醒时间拆分为生日 / 事项 / 联系各自独立（新增两个时刻字段）
-    // v12：协作包元数据（collaboration 对象）与个人备份内的协作状态段。
-    //   旧 App（只认 ≤11）打开协作包/含协作状态的备份会按“版本过新”拒绝。
+    // v12：曾为协作元数据段（家庭协作已下线）；仍接受该版本文件
+    //   按普通分享/备份解析，collaboration/collabState 字段读取时忽略。
     const val SCHEMA_VERSION = 11
     const val COLLAB_SCHEMA_VERSION = 12
     /** 解析上限：比本地写出版本高的文件拒绝（更高版本的旧 App 兼容策略）。 */
     const val MAX_SUPPORTED_VERSION = COLLAB_SCHEMA_VERSION
     private const val MAX_UNCOMPRESSED = 200L * 1024 * 1024
-    /** 协作元数据（含嵌入基准快照）大小上限。 */
-    private const val MAX_COLLAB_META = 8L * 1024 * 1024
     private val AVATAR_NAME = Regex("[A-Za-z0-9_.-]+")
 
     // ---------- 写出 ----------
@@ -196,15 +139,8 @@ object BackupJson {
         sharedBy: String? = null,
         /** 人物来源标注（仅碰一碰资料包）：本机人物 id → 当初收到它时的来源 id。 */
         personOrigins: Map<String, String> = emptyMap(),
-        /** 协作包元数据（purpose="share" 且非空 → schemaVersion=12）。 */
-        collaboration: CollabMeta? = null,
-        /** 协作包：人物 id → 头像内容 sha256（写进 person.avatarHash）。 */
-        avatarHashes: Map<String, String> = emptyMap(),
-        /** 个人备份的协作状态（非空 → schemaVersion=12）。 */
-        collabState: CollabStateDto? = null
     ): ByteArray {
-        val schemaVersion = if (collaboration != null || collabState != null)
-            COLLAB_SCHEMA_VERSION else SCHEMA_VERSION
+        val schemaVersion = SCHEMA_VERSION
         val json = JSONObject()
         json.put("format", FORMAT)
         json.put("formatVersion", FORMAT_VERSION)
@@ -213,45 +149,11 @@ object BackupJson {
         json.put("appVersion", appVersion)
         json.put("purpose", purpose)
         sharedBy?.let { json.put("sharedBy", it) }
-        collaboration?.let { m ->
-            json.put("collaboration", JSONObject().apply {
-                put("mode", m.mode)
-                put("seriesId", m.seriesId)
-                put("coordinatorPersonId", m.coordinatorPersonId)
-                put("packageId", m.packageId)
-                put("revision", m.revision)
-                put("parentRevision", m.parentRevision ?: JSONObject.NULL)
-                put("parentHash", m.parentHash ?: JSONObject.NULL)
-                put("snapshotHash", m.snapshotHash ?: JSONObject.NULL)
-                put("revisionChain", JSONArray().apply {
-                    m.revisionChain.forEach { c ->
-                        put(JSONObject().apply {
-                            put("revision", c.revision)
-                            put("hash", c.hash)
-                            put("parentHash", c.parentHash ?: JSONObject.NULL)
-                        })
-                    }
-                })
-                put("baseRevision", m.baseRevision ?: JSONObject.NULL)
-                put("baseHash", m.baseHash ?: JSONObject.NULL)
-                put("baseSnapshot", m.baseSnapshot ?: JSONObject.NULL)
-                put("idMap", JSONObject().apply {
-                    m.idMap.forEach { (k, v) -> put(k, v) }
-                })
-                put("scope", m.scope)
-                m.sender?.let { put("sender", it) }
-            })
-        }
-        collabState?.let { s ->
-            json.put("collabState", collabStateJson(s))
-        }
-
         json.put("persons", JSONArray().apply {
             persons.forEach { p ->
                 put(JSONObject().apply {
                     put("id", p.id); put("name", p.name); put("gender", p.gender.name)
                     personOrigins[p.id]?.let { put("oid", it) }
-                    avatarHashes[p.id]?.let { put("avatarHash", it) }
                     p.avatarPath?.let { put("avatarFile", it.removePrefix("avatars/")) }
                     p.note?.let { put("note", it) }
                     put("livingStatus", p.livingStatus.name)
@@ -380,58 +282,6 @@ object BackupJson {
         return out.toByteArray()
     }
 
-    /** 协作状态段 → JSON（个人备份 schemaVersion 12）。 */
-    private fun collabStateJson(s: CollabStateDto): JSONObject = JSONObject().apply {
-        val st = s.state
-        put("state", JSONObject().apply {
-            put("seriesId", st.seriesId)
-            put("role", st.role)
-            put("coordinatorPersonId", st.coordinatorPersonId)
-            put("acceptedRevision", st.acceptedRevision)
-            put("acceptedHash", st.acceptedHash)
-            put("baseSnapshotJson", JSONObject(st.baseSnapshotJson))
-            put("idMap", JSONObject(st.idMapJson))
-            put("removedIds", JSONArray(st.removedIdsJson))
-            put("updatedAt", st.updatedAt)
-        })
-        put("publications", JSONArray().apply {
-            s.publications.forEach { p ->
-                put(JSONObject().apply {
-                    put("revision", p.revision)
-                    put("packageId", p.packageId)
-                    put("snapshotHash", p.snapshotHash)
-                    put("parentRevision", p.parentRevision)
-                    put("parentHash", p.parentHash ?: JSONObject.NULL)
-                    put("createdAt", p.createdAt)
-                })
-            }
-        })
-        put("localOnly", JSONArray().apply {
-            s.localOnly.forEach { l ->
-                put(JSONObject().apply {
-                    put("personId", l.personId)
-                    put("canonicalId", l.canonicalId ?: JSONObject.NULL)
-                    put("note", l.note ?: JSONObject.NULL)
-                    put("createdAt", l.createdAt)
-                })
-            }
-        })
-        put("appliedPackages", JSONArray().apply {
-            s.appliedPackages.forEach { d ->
-                put(JSONObject().apply {
-                    put("packageId", d.packageId)
-                    put("contentHash", d.contentHash)
-                    put("mode", d.mode)
-                    put("seriesId", d.seriesId)
-                    put("revision", d.revision)
-                    put("baseRevision", d.baseRevision ?: JSONObject.NULL)
-                    put("baseHash", d.baseHash ?: JSONObject.NULL)
-                    put("updatedAt", d.updatedAt)
-                })
-            }
-        })
-    }
-
     // ---------- 解析 ----------
 
     /** 解压 ZIP：防护路径穿越与 zip-bomb，忽略多余条目。 */
@@ -502,7 +352,6 @@ object BackupJson {
         // 防止伪造 oid 绕过“同一人候选”确认而直接并入已有人物
         val isTap = root.optString("purpose") == "tap"
         val personOrigins = LinkedHashMap<String, String>()
-        val avatarHashes = LinkedHashMap<String, String>()
         val persons = root.optJSONArray("persons")?.let { arr ->
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
@@ -510,8 +359,6 @@ object BackupJson {
                     o.optString("oid", "").takeIf { it.isNotEmpty() }
                         ?.let { personOrigins[o.getString("id")] = it }
                 }
-                o.optString("avatarHash", "").takeIf { it.isNotEmpty() }
-                    ?.let { avatarHashes[o.getString("id")] = it }
                 PersonEntity(
                     id = o.getString("id"),
                     name = o.getString("name"),
@@ -810,158 +657,6 @@ object BackupJson {
             )
         }
 
-        // ---------- 协作元数据（v12） ----------
-        val collaboration = root.optJSONObject("collaboration")?.let { o ->
-            val raw = o.toString()
-            if (raw.length > MAX_COLLAB_META) fail("collab meta too large")
-            val mode = o.optString("mode", "")
-            if (mode != "confirmed" && mode != "contribution") fail("collab mode")
-            CollabMeta(
-                mode = mode,
-                seriesId = o.getString("seriesId"),
-                coordinatorPersonId = o.getString("coordinatorPersonId"),
-                packageId = o.getString("packageId"),
-                revision = o.optInt("revision", 0),
-                parentRevision = if (o.isNull("parentRevision")) null
-                    else o.getInt("parentRevision"),
-                parentHash = if (o.isNull("parentHash")) null
-                    else o.getString("parentHash"),
-                snapshotHash = if (o.isNull("snapshotHash")) null
-                    else o.getString("snapshotHash"),
-                revisionChain = o.optJSONArray("revisionChain")?.let { arr ->
-                    (0 until arr.length()).map { i ->
-                        val c = arr.getJSONObject(i)
-                        ChainLink(
-                            revision = c.getInt("revision"),
-                            hash = c.getString("hash"),
-                            parentHash = if (c.isNull("parentHash")) null
-                                else c.getString("parentHash")
-                        )
-                    }
-                } ?: emptyList(),
-                baseRevision = if (o.isNull("baseRevision")) null
-                    else o.getInt("baseRevision"),
-                baseHash = if (o.isNull("baseHash")) null else o.getString("baseHash"),
-                baseSnapshot = if (o.isNull("baseSnapshot")) null
-                    else o.getString("baseSnapshot"),
-                idMap = o.optJSONObject("idMap")?.let { m ->
-                    m.keys().asSequence().associateWith { m.getString(it) }
-                } ?: emptyMap(),
-                scope = o.optString("scope", ""),
-                sender = if (o.isNull("sender")) null else o.getString("sender")
-            )
-        }
-        // 协作包必须是完整名册范围
-        if (collaboration != null && collaboration.scope != "full") {
-            fail("collab scope")
-        }
-        // confirmed 包的版本链校验（审查 R6）：末环等于自身
-        // revision/snapshotHash；全链自 v1 开始序号连续、父摘要逐环
-        // 衔接；顶层 parentRevision/parentHash 与末环一致。缺环、错
-        // 父摘要、乱序/重复序号、顶层矛盾都拒绝。
-        if (collaboration?.mode == "confirmed") {
-            val m = collaboration
-            val chain = m.revisionChain
-            val last = chain.lastOrNull()
-            if (m.revision < 1 || m.snapshotHash == null ||
-                last == null || last.revision != m.revision ||
-                last.hash != m.snapshotHash ||
-                m.parentRevision != m.revision - 1 ||
-                m.parentHash != last.parentHash) {
-                fail("collab chain")
-            }
-            if (chain.first().revision != 1 || chain.first().parentHash != null) {
-                fail("collab chain")
-            }
-            for (i in 1 until chain.size) {
-                if (chain[i].revision != chain[i - 1].revision + 1 ||
-                    chain[i].parentHash != chain[i - 1].hash) {
-                    fail("collab chain")
-                }
-            }
-        }
-        // 协作包的头像内容哈希与文件内容一致性（防伪造引用）
-        if (collaboration != null) {
-            avatarHashes.forEach { (pid, h) ->
-                val file = persons.firstOrNull { it.id == pid }
-                    ?.avatarPath?.removePrefix("avatars/")
-                val bytes = file?.let { files["avatars/$it"] }
-                val actual = bytes?.let {
-                    io.github.xiaohaoz1.jiarenxia.domain.merge.FamilySnapshot
-                        .sha256Hex(it)
-                }
-                if (actual != h) fail("avatar hash")
-            }
-        }
-
-        // ---------- 个人备份的协作状态（v12） ----------
-        val collabState = root.optJSONObject("collabState")?.let { o ->
-            val so = o.getJSONObject("state")
-            io.github.xiaohaoz1.jiarenxia.data.db.FamilyCollabStateEntity(
-                id = 1,
-                seriesId = so.getString("seriesId"),
-                role = so.getString("role"),
-                coordinatorPersonId = so.getString("coordinatorPersonId"),
-                acceptedRevision = so.getInt("acceptedRevision"),
-                acceptedHash = so.getString("acceptedHash"),
-                baseSnapshotJson = so.getJSONObject("baseSnapshotJson").toString(),
-                idMapJson = so.getJSONObject("idMap").toString(),
-                removedIdsJson = so.getJSONArray("removedIds").toString(),
-                updatedAt = so.getLong("updatedAt")
-            ).let { state ->
-                val pubs = o.optJSONArray("publications")?.let { arr ->
-                    (0 until arr.length()).map { i ->
-                        val p = arr.getJSONObject(i)
-                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyPublicationEntity(
-                            revision = p.getInt("revision"),
-                            packageId = p.getString("packageId"),
-                            snapshotHash = p.getString("snapshotHash"),
-                            parentRevision = p.getInt("parentRevision"),
-                            parentHash = if (p.isNull("parentHash")) null
-                                else p.getString("parentHash"),
-                            createdAt = p.getLong("createdAt")
-                        )
-                    }
-                } ?: emptyList()
-                val lo = o.optJSONArray("localOnly")?.let { arr ->
-                    (0 until arr.length()).map { i ->
-                        val l = arr.getJSONObject(i)
-                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity(
-                            personId = l.getString("personId"),
-                            canonicalId = if (l.isNull("canonicalId")) null
-                                else l.getString("canonicalId"),
-                            note = if (l.isNull("note")) null else l.getString("note"),
-                            createdAt = l.getLong("createdAt")
-                        )
-                    }
-                } ?: emptyList()
-                val applied = o.optJSONArray("appliedPackages")?.let { arr ->
-                    (0 until arr.length()).map { i ->
-                        val d = arr.getJSONObject(i)
-                        io.github.xiaohaoz1.jiarenxia.data.db.FamilyReceiveDraftEntity(
-                            packageId = d.getString("packageId"),
-                            contentHash = d.getString("contentHash"),
-                            mode = d.getString("mode"),
-                            seriesId = d.getString("seriesId"),
-                            revision = d.getInt("revision"),
-                            rosterHash = "",
-                            baseRevision = if (d.isNull("baseRevision")) null
-                                else d.getInt("baseRevision"),
-                            baseHash = if (d.isNull("baseHash")) null
-                                else d.getString("baseHash"),
-                            decisionsJson = "{}",
-                            filePath = "",
-                            status = "APPLIED",
-                            planCacheJson = null,
-                            createdAt = d.getLong("updatedAt"),
-                            updatedAt = d.getLong("updatedAt")
-                        )
-                    }
-                } ?: emptyList()
-                CollabStateDto(state, pubs, lo, applied)
-            }
-        }
-
         val summary = BackupSummary(
             createdAt = if (root.has("createdAt")) root.getLong("createdAt") else null,
             appVersion = root.optString("appVersion", null)?.takeIf { it.isNotEmpty() },
@@ -990,10 +685,7 @@ object BackupJson {
             purpose = root.optString("purpose", "backup"),
             sharedBy = if (root.isNull("sharedBy")) null
                 else root.optString("sharedBy", null),
-            personOrigins = personOrigins,
-            collaboration = collaboration,
-            avatarHashes = avatarHashes,
-            collabState = collabState
+            personOrigins = personOrigins
         )
     }
 

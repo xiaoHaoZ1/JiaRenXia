@@ -140,9 +140,7 @@ data class ShareImportUiState(
     /** 合并底部是否提供“整体替换…”（只有从选人进入时才显示）。 */
     val mergeCanReplace: Boolean = false,
     /** 本次合并将新增保存的对应关系条数（纯认人时也有写入意义）。 */
-    val mergeNewAliases: Int = 0,
-    /** 识别出协作包（collaboration 元数据）→ 转协作接收页。 */
-    val collabGo: Boolean = false
+    val mergeNewAliases: Int = 0
 ) {
     enum class Stage { PASSWORD, CONFIRM, MERGE }
 }
@@ -203,7 +201,7 @@ class ShareImportViewModel @Inject constructor(
         refreshMerge()
     }
 
-    /** 输入密码解密。协作包（share + collaboration）不入共享导入，转协作接收页。 */
+    /** 输入密码解密。旧协作包也按普通分享处理（collaboration 元数据解析时忽略）。 */
     fun open(password: CharArray) {
         val u = uri ?: return
         viewModelScope.launch {
@@ -219,12 +217,6 @@ class ShareImportViewModel @Inject constructor(
                     when {
                         plan.purpose != "share" ->
                             _ui.update { it.copy(error = "这是备份文件，请到“从备份恢复”导入") }
-                        plan.collaboration != null -> {
-                            appEvents.pendingCollab =
-                                io.github.xiaohaoz1.jiarenxia.data.PendingCollab(
-                                    raw, password.copyOf())
-                            _ui.update { it.copy(collabGo = true) }
-                        }
                         else -> present(plan)
                     }
                 }
@@ -771,14 +763,9 @@ class ShareImportViewModel @Inject constructor(
 @Composable
 fun ShareImportScreen(
     onDone: (String) -> Unit,
-    /** 识别出协作包 → 协作接收页（bytes/密码经 appEvents.pendingCollab 传递）。 */
-    onCollabDetected: () -> Unit = {},
     viewModel: ShareImportViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
-    LaunchedEffect(st.collabGo) {
-        if (st.collabGo) onCollabDetected()
-    }
     ShareImportContent(st = st, onOpen = viewModel::open,
         onSelect = viewModel::select, onConfirm = viewModel::confirmImport,
         onEnterMerge = viewModel::enterMerge,

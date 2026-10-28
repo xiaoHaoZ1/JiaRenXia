@@ -501,7 +501,11 @@
 - **确认合并**：`BackupManager.importFamilyMerge(plan, plan.avatars, inTx = { aliasDao.upsertAll(mapping 中 remote≠local 行) })`，成功 Toast“已合并：新增 N 位家人”回主界面；失败 snackbar。
 - **截图**：`merge_preview`。
 
-## 17. 家庭协作（确认版与反复补充）
+## 17. 家庭协作（确认版与反复补充）——已下线
+
+**已下线（数据库 v17，`MIGRATION_16_17` 删四表）。** 代码连同 `data/collab/`、`domain/merge/FamilySnapshot.kt`、`FamilyRevisionPlan.kt`、`ui/share/CollabScreens.kt`、协作四表实体/DAO、保护副本（prereceive）与「仅本机保留」一并删除，需要恢复时从 Git 历史取回。下线理由：协作假设"汇总者发包、家人各自在手机上收包/补资料/回发"的多轮分布式编辑流程，真实家庭中信息走对话而不是文件交换——资料最终都汇到管事的人手里敲进去再分享，该流程无人使用，反而让每次数据模型改动都要多穿一层协作管线。兼容策略：旧协作包仍按备份格式解析（`collaboration` 元数据忽略），按普通家人分享导入合并；`family_local_only` 一并删除（其唯一实际来源是协作的远端删除保留路径），分享选人页不再有不预选名单。
+
+以下为下线前的设计，仅作留档。
 
 设计要点（原引用的 `docs/handoffs/2026-10-13-family-usability-implementation.md` 第 5 节从未入库，按落地实现回写）：
 

@@ -37,13 +37,9 @@ import androidx.room.RoomDatabase
         SpousePairingEntity::class,
         TapPersonMapEntity::class,
         TapDeviceEntity::class,
-        PersonAliasEntity::class,
-        FamilyCollabStateEntity::class,
-        FamilyPublicationEntity::class,
-        FamilyReceiveDraftEntity::class,
-        FamilyLocalOnlyEntity::class
+        PersonAliasEntity::class
     ],
-    version = 16,
+    version = 17,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -60,10 +56,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun contactPlanDao(): ContactPlanDao
     abstract fun tapPairingDao(): TapPairingDao
     abstract fun personAliasDao(): PersonAliasDao
-    abstract fun familyCollabDao(): FamilyCollabDao
-    abstract fun familyPublicationDao(): FamilyPublicationDao
-    abstract fun familyReceiveDraftDao(): FamilyReceiveDraftDao
-    abstract fun familyLocalOnlyDao(): FamilyLocalOnlyDao
 }
 
 /**
@@ -91,11 +83,5 @@ internal suspend fun AppDatabase.clearTables() {
     tapPairingDao().deletePairing()
     // 家人共享的对方→本机对应关系随资料清掉（本机人物都没了）
     personAliasDao().deleteAll()
-    // 协作表：绑定/发布索引/草稿/仅本机标记全部随资料清掉
-    // （恢复旧备份=重建协作绑定，不走旧绑定；接收草稿随之作废）
-    familyReceiveDraftDao().deleteAll()
-    familyPublicationDao().deleteAll()
-    familyCollabDao().deleteAll()
-    familyLocalOnlyDao().deleteAll()
     personDao().deleteAll()
 }

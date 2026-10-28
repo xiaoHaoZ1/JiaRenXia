@@ -57,8 +57,6 @@ class BackupManager @Inject constructor(
             }
             val (persons2, phones, rels, dates, prefs, offsets, titles, tasks, taskOffsets,
                 contactLogs, contactPlans) = persons
-            // 协作状态（有绑定才写 → 该备份 schemaVersion=12，v11 备份无此段）
-            val collabState = db.withTransaction { collabStateDto() }
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -89,8 +87,7 @@ class BackupManager @Inject constructor(
                 ),
                 avatars = avatarMap,
                 createdAt = System.currentTimeMillis(),
-                appVersion = BuildConfig.VERSION_NAME,
-                collabState = collabState
+                appVersion = BuildConfig.VERSION_NAME
             )
             output.use { it.write(BackupCrypto.encrypt(zip, password, iterations)) }
             BackupSummary(
@@ -132,11 +129,8 @@ class BackupManager @Inject constructor(
         val snap = db.withTransaction { snapshotTables() }
         val (allPersons, allPhones, allRels, allDates, allPrefs, allOffsets, _,
             _, _, _, _) = snap
-        // “仅本机保留”人物默认不进分享：personIds=null（整份）时排除；
-        // 部分分享里用户可以明确勾选它们，属于知情选择
-        val localOnly = db.familyLocalOnlyDao().getIds().toSet()
         val keep = personIds
-            ?: allPersons.mapTo(HashSet()) { it.id } - localOnly
+            ?: allPersons.mapTo(HashSet()) { it.id }
         val persons = allPersons.filter { it.id in keep }
             .map { it.copy(note = null) }
         val phones = allPhones.filter { it.personId in keep }
@@ -244,17 +238,7 @@ class BackupManager @Inject constructor(
             db.withTransaction {
                 db.clearTables()
                 insertPlanTables(plan, includePrivate = true, personOf = { it })
-                // 协作状态随备份写回（v12 备份才带此段；无则保持已清空状态）
-                plan.collabState?.let { cs ->
-                    db.familyCollabDao().upsert(cs.state)
-                    cs.publications.forEach {
-                        db.familyPublicationDao().insert(it)
-                    }
-                    cs.localOnly.forEach { db.familyLocalOnlyDao().upsert(it) }
-                    cs.appliedPackages.forEach {
-                        db.familyReceiveDraftDao().upsert(it)
-                    }
-                }
+                // v12 备份里的协作状态段随功能下线一并忽略
             }
             // 3. 提交后换头像目录
             swapAvatarDir()
@@ -290,11 +274,6 @@ class BackupManager @Inject constructor(
         settings.clearReminderRunState()
         // 5. 撤掉旧通知（提醒调度由数据流自动重建）
         runCatching { NotificationManagerCompat.from(context).cancelAll() }
-        // 6. 整库恢复后旧协作副本/接收草稿失效：清“接收前副本”指针与接收暂存目录
-        File(context.filesDir, "quick_snapshots").listFiles { f ->
-            f.name.startsWith("prereceive")
-        }?.forEach { it.delete() }
-        File(context.filesDir, "collab_incoming").deleteRecursively()
     }
 
     /**
@@ -437,9 +416,7 @@ class BackupManager @Inject constructor(
     ): ByteArray = withContext(Dispatchers.IO) {
         val snap = db.withTransaction { snapshotTables() }
         val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _) = snap
-        // “仅本机保留”人物默认不进碰一碰（圈选人明确包含时才会带上）
-        val localOnly = db.familyLocalOnlyDao().getIds().toSet()
-        val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id } - localOnly
+        val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id }
         require(allPersons.firstOrNull { it.isSelf }?.id in keep) {
             "碰一碰资料包必须包含“我”"
         }
@@ -607,18 +584,6 @@ class BackupManager @Inject constructor(
     /** Deflate 解压（接收端校验前）。 */
     fun inflatePayload(b: ByteArray): ByteArray =
         java.util.zip.InflaterInputStream(b.inputStream()).readBytes()
-
-    /** 协作状态段构建（单读事务内调用；无绑定返回 null）。 */
-    private suspend fun collabStateDto(): CollabStateDto? {
-        val state = db.familyCollabDao().get() ?: return null
-        return CollabStateDto(
-            state = state,
-            publications = db.familyPublicationDao().getAll(),
-            localOnly = db.familyLocalOnlyDao().getAll(),
-            appliedPackages = db.familyReceiveDraftDao().getAll()
-                .filter { it.status == "APPLIED" }
-        )
-    }
 
     /** 读取上限：超过直接判定为“文件过大”（FAMILY_AFFAIRS 9 接收加固）。 */
     private val maxFileBytes = 64L * 1024 * 1024

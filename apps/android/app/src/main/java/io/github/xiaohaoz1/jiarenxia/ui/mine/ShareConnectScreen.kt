@@ -60,11 +60,7 @@ fun ShareConnectScreen(
     /** 碰一碰：kind = TapProtocol.KIND_*。 */
     onTap: (Byte) -> Unit,
     onNeedsSelf: () -> Unit = {},
-    /** 识别出协作包 → 协作接收页。 */
-    onCollabDetected: () -> Unit = {},
-    viewModel: MineViewModel = hiltViewModel(),
-    collabViewModel: io.github.xiaohaoz1.jiarenxia.ui.share
-        .CollabViewModel = hiltViewModel()
+    viewModel: MineViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -78,31 +74,6 @@ fun ShareConnectScreen(
         if (shareDetected) {
             viewModel.restore.shareDetected.value = false
             onShareImport()
-        }
-    }
-    // 协作包 → 协作接收页
-    val collabDetected by viewModel.restore.collabDetected
-        .collectAsStateWithLifecycle()
-    LaunchedEffect(collabDetected) {
-        if (collabDetected) {
-            viewModel.restore.collabDetected.value = false
-            onCollabDetected()
-        }
-    }
-    // 协作状态/仅本机名单（每次进入页时刷新）
-    LaunchedEffect(Unit) { collabViewModel.refresh() }
-    val collabStatus by collabViewModel.status.collectAsStateWithLifecycle()
-    val collabPendingDiff by collabViewModel.pendingDiff
-        .collectAsStateWithLifecycle()
-    val collabLocalOnly by collabViewModel.localOnlyPersons
-        .collectAsStateWithLifecycle()
-    val collabSendStep by collabViewModel.sendStep.collectAsStateWithLifecycle()
-    var localOnlyOpen by remember { mutableStateOf(false) }
-    val collabMessage by collabViewModel.message.collectAsStateWithLifecycle()
-    LaunchedEffect(collabMessage) {
-        collabMessage?.let {
-            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-            collabViewModel.onMessageShown()
         }
     }
     val restoreOutcome by viewModel.restore.outcome.collectAsStateWithLifecycle()
@@ -129,60 +100,8 @@ fun ShareConnectScreen(
         onShare = onShareScope,
         onReceive = { receiveLauncher.launch(arrayOf("*/*")) },
         onTap = onTap,
-        onWeddingWordsClick = { showWeddingWords = true },
-        collabStatus = collabStatus,
-        collabPendingDiff = collabPendingDiff,
-        onPublish = collabViewModel::publish,
-        onContribute = collabViewModel::contribute,
-        onResumeDraft = onCollabDetected,
-        localOnlyCount = collabLocalOnly.size,
-        onLocalOnlyClick = { localOnlyOpen = true }
+        onWeddingWordsClick = { showWeddingWords = true }
     )
-
-    // ---------- 协作发送流程（密码→生成→ACTION_SEND） ----------
-    io.github.xiaohaoz1.jiarenxia.ui.share.CollabSendFlow(
-        sendStep = collabSendStep,
-        onSubmitPassword = collabViewModel::submitSendPassword,
-        onDismiss = collabViewModel::dismissSend,
-        onSent = collabViewModel::sendSent
-    )
-
-    // ---------- 仅本机保留名单 ----------
-    if (localOnlyOpen) {
-        AlertDialog(
-            onDismissRequest = { localOnlyOpen = false },
-            title = { Text("仅本机保留（" + collabLocalOnly.size + "）") },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    if (collabLocalOnly.isEmpty()) {
-                        Text("没有仅本机保留的家人")
-                    }
-                    collabLocalOnly.forEach { (person, lo) ->
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(person.name,
-                                    style = MaterialTheme.typography.bodyLarge)
-                                Text(lo.note ?: "仅本机保留",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme
-                                        .onSurfaceVariant)
-                            }
-                            TextButton(onClick = {
-                                collabViewModel.unmark(person.id)
-                            }) { Text("恢复共享") }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { localOnlyOpen = false }) { Text("关闭") }
-            }
-        )
-    }
 
     if (showWeddingWords) {
         WeddingWordsDialog(
@@ -210,16 +129,7 @@ fun ShareConnectContent(
     onShare: () -> Unit = {},
     onReceive: () -> Unit = {},
     onTap: (Byte) -> Unit = {},
-    onWeddingWordsClick: () -> Unit = {},
-    collabStatus: io.github.xiaohaoz1.jiarenxia.data.collab
-        .FamilyCollaborationService.Status? = null,
-    /** 本机相对基准的差异项数（成员“发回补充”副文案）。 */
-    collabPendingDiff: Int = 0,
-    onPublish: () -> Unit = {},
-    onContribute: () -> Unit = {},
-    onResumeDraft: () -> Unit = {},
-    localOnlyCount: Int = 0,
-    onLocalOnlyClick: () -> Unit = {}
+    onWeddingWordsClick: () -> Unit = {}
 ) {
     SettingsScaffold("共享与连接", onBack) {
         SettingsHint("和家人一起，把关系补完整。")
@@ -239,60 +149,6 @@ fun ShareConnectContent(
             )
         }
         SettingsHint("共享文件带密码，请通过电话等方式单独告诉对方。")
-
-        // ---------- 家庭协作（版本化长期补充，FAMILY_AFFAIRS §5） ----------
-        SettingsGroup("家庭协作（持续补充版本）") {
-            SettingsNavRow(
-                icon = Icons.Rounded.Publish,
-                title = "发布确认版",
-                subtitle = if (collabStatus?.role == "member")
-                    "本机是成员，确认版由汇总者发布"
-                else "汇总者整理后发出" +
-                    (collabStatus?.revision?.takeIf { it > 0 }
-                        ?.let { "，当前第 " + it + " 版" } ?: "") +
-                    "，可反复补充",
-                onClick = onPublish
-            )
-            RowDivider()
-            SettingsNavRow(
-                icon = Icons.AutoMirrored.Rounded.ReplyAll,
-                title = "发回补充",
-                subtitle = if (collabStatus?.role == "member")
-                    "把本机的补充和纠正发给汇总者 · " +
-                        (if (collabPendingDiff > 0)
-                            "尚有 " + collabPendingDiff + " 项与基准不同"
-                        else "没有新的补充")
-                else "加入协作后，成员用这里发回补充",
-                onClick = onContribute
-            )
-            RowDivider()
-            SettingsNavRow(
-                icon = Icons.Rounded.CheckCircle,
-                title = "继续未完成的接收",
-                subtitle = if (collabStatus?.pendingDraftPackageId != null)
-                    "有一份协作包待核对"
-                else "暂无待处理的协作包",
-                badge = if (collabStatus?.pendingDraftPackageId != null)
-                    "待办" else null,
-                onClick = onResumeDraft
-            )
-            RowDivider()
-            SettingsNavRow(
-                icon = Icons.Rounded.PersonAddAlt1,
-                title = "仅本机保留",
-                subtitle = "不参与共享和协作的家人",
-                value = if (localOnlyCount > 0) "" + localOnlyCount + " 人"
-                    else null,
-                onClick = onLocalOnlyClick
-            )
-        }
-        SettingsHint(
-            if (collabStatus?.bound == true)
-                "已加入家庭协作系列，当前第 " + collabStatus.revision + " 版" +
-                    (if (collabStatus.role == "coordinator") "（你是汇总者）"
-                    else "（你是成员）")
-            else "还没有加入协作：汇总者先「发布确认版」，家人收到后即可反复补充。"
-        )
 
         SettingsGroup("碰一碰 · 实验功能") {
             SettingsNavRow(

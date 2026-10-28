@@ -47,9 +47,6 @@ class RestoreFlow(
     /** 识别出共享文件（或“我不是 X”）→ 界面导航到共享导入页后置回 false。 */
     val shareDetected = MutableStateFlow(false)
 
-    /** 识别出协作包（purpose=share 且带 collaboration）→ 导航到协作接收页。 */
-    val collabDetected = MutableStateFlow(false)
-
     /** 恢复完成：有“我” → 主界面；无“我” → 创建“我”。 */
     val outcome = MutableStateFlow<RestoreOutcome?>(null)
 
@@ -93,19 +90,11 @@ class RestoreFlow(
                                         overwrites = hasLocalData()
                                     )
                                 }
-                                "share" -> if (plan.collaboration != null) {
-                                    // 协作包：加密原文与密码所有权随交接转移给
-                                    // 协作接收页（应用时要重解密暂存文件）
-                                    appEvents.pendingCollab =
-                                        io.github.xiaohaoz1.jiarenxia.data
-                                            .PendingCollab(raw, pwCopy)
-                                    pendingPassword = null
-                                    pendingPlan = null; pendingUri = null
-                                    _step.value = RestoreStep.Idle
-                                    collabDetected.value = true
-                                } else {
+                                "share" -> {
                                     // 共享文件里分享者带 is_self：按备份整库恢复会把
-                                    // 接收方的“我”换成分享者，转去共享导入页选“我是谁”
+                                    // 接收方的“我”换成分享者，转去共享导入页选“我是谁”。
+                                    // 协作已下线：旧协作包同走分享导入（collaboration
+                                    // 元数据在解析时忽略，名册内容按普通分享合并）。
                                     appEvents.pendingSharePlan = plan
                                     clearPending()
                                     _step.value = RestoreStep.Idle

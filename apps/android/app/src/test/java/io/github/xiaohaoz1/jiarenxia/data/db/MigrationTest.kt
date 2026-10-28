@@ -15,6 +15,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_12_13
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_13_14
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_14_15
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_15_16
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_16_17
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -167,7 +168,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -188,7 +189,7 @@ class MigrationTest {
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17
             )
             .allowMainThreadQueries()
             .build()
@@ -327,7 +328,7 @@ class MigrationTest {
         createV6Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -362,7 +363,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16
+                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17
             )
             .allowMainThreadQueries()
             .build()
@@ -425,7 +426,7 @@ class MigrationTest {
         createV7Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -491,7 +492,7 @@ class MigrationTest {
 
         // Room 以 v9 打开：执行 MIGRATION_8_9 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -563,7 +564,7 @@ class MigrationTest {
 
         // Room 以 v10 打开：执行 MIGRATION_9_10 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -622,7 +623,7 @@ class MigrationTest {
 
         // Room 以 v11 打开：执行 MIGRATION_10_11 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -674,46 +675,70 @@ class MigrationTest {
         dbFile.delete()
         createV11Database(context, dbFile)
 
-        // Room 以 v13 打开：执行 MIGRATION_11_12 + 12_13 并校验全部表
-        val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
-            .allowMainThreadQueries()
-            .build()
+        // 打开同一文件执行 MIGRATION_11_12；协作实体/DAO 已于 v17
+        // 随功能下线移除，故不走 Room 校验、直接用裸 SQL 断言
+        val w = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(12) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(
+                        db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        if (old == 11 && new == 12) MIGRATION_11_12.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
 
         // 旧数据原样保留；协作四表已建且为空
-        assertEquals(3, db.personDao().getAll().size)
-        assertNull(db.familyCollabDao().get())
-        assertTrue(db.familyPublicationDao().getAll().isEmpty())
-        assertTrue(db.familyReceiveDraftDao().getAll().isEmpty())
-        assertTrue(db.familyLocalOnlyDao().getAll().isEmpty())
+        w.query("SELECT COUNT(*) FROM `persons`")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(3, c.getInt(0)) }
+        listOf(
+            "family_collaboration_state", "family_publications",
+            "family_receive_drafts", "family_local_only"
+        ).forEach { t ->
+            w.query(
+                "SELECT name FROM sqlite_master " +
+                    "WHERE type='table' AND name='" + t + "'"
+            ).use { c -> assertTrue(t, c.moveToFirst()) }
+            w.query("SELECT COUNT(*) FROM `" + t + "`")
+                .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        }
 
         // 协作状态可写可读
-        db.familyCollabDao().upsert(
-            FamilyCollabStateEntity(
-                id = 1, seriesId = "s1", role = "coordinator",
-                coordinatorPersonId = "me", acceptedRevision = 1,
-                acceptedHash = "h1", baseSnapshotJson = "{}",
-                idMapJson = "{}", removedIdsJson = "[]", updatedAt = 1))
-        assertEquals("s1", db.familyCollabDao().get()!!.seriesId)
+        w.execSQL(
+            "INSERT INTO `family_collaboration_state` (`id`,`series_id`," +
+                "`role`,`coordinator_person_id`,`accepted_revision`," +
+                "`accepted_hash`,`base_snapshot_json`,`id_map_json`," +
+                "`removed_ids_json`,`updated_at`) VALUES " +
+                "(1,'s1','coordinator','me',1,'h1','{}','{}','[]',1)")
+        w.query("SELECT `series_id` FROM `family_collaboration_state` WHERE `id`=1")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals("s1", c.getString(0)) }
         // 仅本机标记随人物删除级联
-        db.familyLocalOnlyDao().upsert(
-            FamilyLocalOnlyEntity("p1", "c1", "有保单", 1))
-        assertEquals(1, db.familyLocalOnlyDao().getIds().size)
-        db.personDao().deleteById("p1")
-        assertTrue(db.familyLocalOnlyDao().getIds().isEmpty())
+        w.execSQL(
+            "INSERT INTO `family_local_only` (`person_id`,`canonical_id`," +
+                "`note`,`created_at`) VALUES ('p1','c1','有保单',1)")
+        w.query("SELECT COUNT(*) FROM `family_local_only`")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        w.execSQL("DELETE FROM `persons` WHERE `id`='p1'")
+        w.query("SELECT COUNT(*) FROM `family_local_only`")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
         // 草稿 PENDING → APPLIED
-        db.familyReceiveDraftDao().upsert(
-            FamilyReceiveDraftEntity(
-                packageId = "pkg1", contentHash = "ch1", mode = "confirmed",
-                seriesId = "s1", revision = 1, rosterHash = "rh",
-                baseRevision = null, baseHash = null,
-                decisionsJson = "{}", filePath = "/tmp/x",
-                status = "PENDING", planCacheJson = null,
-                createdAt = 1, updatedAt = 1))
-        db.familyReceiveDraftDao().upsert(
-            db.familyReceiveDraftDao().get("pkg1")!!.copy(status = "APPLIED"))
-        assertEquals("APPLIED", db.familyReceiveDraftDao().get("pkg1")!!.status)
-        db.close()
+        w.execSQL(
+            "INSERT INTO `family_receive_drafts` (`package_id`,`content_hash`," +
+                "`mode`,`series_id`,`revision`,`roster_hash`,`base_revision`," +
+                "`base_hash`,`decisions_json`,`file_path`,`status`," +
+                "`plan_cache_json`,`created_at`,`updated_at`) VALUES " +
+                "('pkg1','ch1','confirmed','s1',1,'rh',NULL,NULL,'{}'," +
+                "'/tmp/x','PENDING',NULL,1,1)")
+        w.execSQL(
+            "UPDATE `family_receive_drafts` SET `status`='APPLIED' " +
+                "WHERE `package_id`='pkg1'")
+        w.query("SELECT `status` FROM `family_receive_drafts` WHERE `package_id`='pkg1'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals("APPLIED", c.getString(0)) }
+        w.close()
         dbFile.delete()
     }
 
@@ -798,7 +823,7 @@ class MigrationTest {
         createV12Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
+            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17)
             .allowMainThreadQueries()
             .build()
 
@@ -897,6 +922,75 @@ class MigrationTest {
         db.query("SELECT `name` FROM `persons` WHERE `id`='p1'").use { c ->
             assertTrue(c.moveToFirst()); assertEquals("爸爸", c.getString(0))
         }
+        dbFile.delete()
+    }
+
+    /**
+     * v12 → v17（协作下线）：经 12_13…16_17 全链迁移后协作四表被删、
+     * 其余资料保留；v17 起这些表的实体/DAO 已不存在，用裸 SQL 断言。
+     */
+    @Test
+    fun `v16到v17删协作四表`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-1217.db")
+        dbFile.delete()
+        createV12Database(context, dbFile)
+
+        // v12 文件里先写两行协作数据，验证迁移连数据带表一起删
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(12) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {}
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, o: Int, n: Int) {}
+                }).build()
+        ).writableDatabase.let { d ->
+            d.execSQL(
+                "INSERT INTO `family_collaboration_state` (`id`,`series_id`," +
+                    "`role`,`coordinator_person_id`,`accepted_revision`," +
+                    "`accepted_hash`,`base_snapshot_json`,`id_map_json`," +
+                    "`removed_ids_json`,`updated_at`) VALUES " +
+                    "(1,'s1','coordinator','me',1,'h1','{}','{}','[]',1)")
+            d.execSQL(
+                "INSERT INTO `family_local_only` (`person_id`,`canonical_id`," +
+                    "`note`,`created_at`) VALUES ('p1','c1','有保单',1)")
+            d.close()
+        }
+
+        val w = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(17) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {}
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(
+                        db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_12_13.migrate(db)
+                        MIGRATION_13_14.migrate(db)
+                        MIGRATION_14_15.migrate(db)
+                        MIGRATION_15_16.migrate(db)
+                        MIGRATION_16_17.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 协作四表不复存在（连数据一起删）
+        listOf(
+            "family_collaboration_state", "family_publications",
+            "family_receive_drafts", "family_local_only"
+        ).forEach { t ->
+            w.query(
+                "SELECT name FROM sqlite_master " +
+                    "WHERE type='table' AND name='" + t + "'"
+            ).use { c -> assertFalse(t, c.moveToFirst()) }
+        }
+        // 其余资料保留：3 位家人、排行新列存在
+        w.query("SELECT COUNT(*) FROM `persons`")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(3, c.getInt(0)) }
+        w.query("SELECT `sibling_rank` FROM `persons` LIMIT 1")
+            .use { c -> assertTrue(c.moveToFirst()) }
+        w.close()
         dbFile.delete()
     }
 }
