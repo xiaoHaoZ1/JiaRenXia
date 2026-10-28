@@ -47,7 +47,7 @@
 ## 真机核对项（连上手机时）
 
 - 微信「用其他应用打开」实际传来的 MIME 类型；若不是 octet-stream，在 MainActivity 补 intent-filter（AGENTS.md 家人共享节）。
-- 碰一碰双机 NFC 核对：小米 HCE category other 路由、`dumpsys nfc` 列服务、OPPO ColorOS 15 内置 eSE / 默认门禁卡边界、彩排模式不写数据。
+- 碰一碰双机 NFC 核对：~~小米 HCE / OPPO eSE 边界~~（2026-10-27 实测：红米 K70 至尊版 ↔ OPPO Find X8，Find X8 不能作卡片端——与 FAMILY_AFFAIRS §10 已记的 ColorOS 15 eSE 路由一致——读取端正常，「交换连接方式」后配对成功）。剩余：彩排模式不写数据的真机核对、其他 ColorOS 机型是否同样受限。
 
 ## 已明确不做
 
