@@ -36,7 +36,7 @@
             </intent-filter>
             <!-- 家人共享接收（FAMILY_AFFAIRS 9）：content 的 .jrxb。
                  不注册 */*，避免出现在所有文件的“打开方式”里；
-                 微信实际传来的 MIME 需真机核对（见 AGENTS.md）。 -->
+                 2026-10-28 已在红米 K70 至尊版核对微信转发可正常进入接收流程。 -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

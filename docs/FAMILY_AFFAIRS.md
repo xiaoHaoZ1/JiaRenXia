@@ -357,7 +357,7 @@
 
 - 共享文件与备份同格式（加密 ZIP + backup.json + avatars）：根对象 purpose="share"、sharedBy=分享者 personId；必含人物/手机号/关系/生日/提醒偏好/头像；事项/人情/保单与备注一律不写入（2026-10 起不再有勾选）；不带 settings、customTitles。
 - 发起：家庭页 → 共享与连接 → 分享给家人 → 选人页（ui/share/ShareScopeScreen，关系图“分享这些家人”进同一页并预选当前分支）→ 勾选 → 两次密码 → BackupManager.exportShare 写 cacheDir/share/家人侠-家人共享-{姓名}[-部分]-{yyyyMMdd}.jrxb（勾选了全部非“仅本机”人物时不带“部分”；每次分享前清空该目录）→ FileProvider（authority ${applicationId}.share-provider 即 com.jiarenxia.app.share-provider，见 res/xml/file_paths.xml）→ ACTION_SEND chooser。
-- 接收：MainActivity 注册 ACTION_VIEW(content + application/octet-stream) 与 ACTION_SEND(application/octet-stream)；不注册通配 MIME。微信实际传来的 MIME 需真机核对（AGENTS.md 有核对项）。Uri 经 pendingShareUri → AppNavHost 消费（引导页不消费，新装无“我”例外），路由 share/import?uri=。
+- 接收：MainActivity 注册 ACTION_VIEW(content + application/octet-stream) 与 ACTION_SEND(application/octet-stream)；不注册通配 MIME。2026-10-28 已在红米 K70 至尊版真机核对：微信可正常把 `.jrxb` 文件转发到家人侠并进入接收流程，现有 intent-filter 可用。Uri 经 pendingShareUri → AppNavHost 消费（引导页不消费，新装无“我”例外），路由 share/import?uri=。
 - 恢复流程识别：从备份恢复选到 purpose=share 的文件时，plan 经 AppEvents.pendingSharePlan 传给导入页，跳过输密码步骤。
 - 导入页（ui/share/ShareImportScreen.kt）：密码 → 摘要（“来自 X 的家人共享：N 位家人，含…”）→ 选“我是谁”（每行 姓名（分享者的 XX），称谓用 KinshipEngine 以 sharedBy 为观察者算）→ 有旧数据先确认“替换”。写入走 BackupManager.importShare：所选 is_self=true 其余 false、不恢复设置与自定义称呼、事务+头像临时目录与备份一致。
 
