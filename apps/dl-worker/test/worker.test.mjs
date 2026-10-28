@@ -25,6 +25,10 @@ test("parseSrc", () => {
   assert.equal(parseSrc("web"), "web");
   assert.equal(parseSrc("update"), "update");
   assert.equal(parseSrc("legacy"), "legacy");
+  assert.equal(parseSrc("xhs-call"), "xhs-call");
+  assert.equal(parseSrc("xhs-kinship"), "xhs-kinship");
+  assert.equal(parseSrc("bili-story"), "bili-story");
+  assert.equal(parseSrc("wx-video"), "wx-video");
   assert.equal(parseSrc("weixin"), "direct");
   assert.equal(parseSrc(""), "direct");
   assert.equal(parseSrc(null), "direct");

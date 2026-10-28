@@ -1,10 +1,19 @@
 // 下载页：纯静态。安装包走下载服务 dl.jiarenxia.com（R2 + 版本命名）。
 // 走外部地址（版本与校验值在 site.ts 同步维护）。
 
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { downloadSourceFromSearch, type WebDownloadSource } from "../downloadSource";
 import { APK_BETA, SITE } from "../site";
 
 export default function Download() {
+  // 预渲染与首次 hydration 都保持 web，挂载后再读取查询参数，避免服务端与浏览器
+  // 首屏属性不一致。来源码不写 Cookie，也不在浏览器持久化。
+  const [downloadSource, setDownloadSource] = useState<WebDownloadSource>("web");
+  useEffect(() => {
+    setDownloadSource(downloadSourceFromSearch(window.location.search));
+  }, []);
+
   return (
     <>
       <h1>下载</h1>
@@ -21,7 +30,7 @@ export default function Download() {
             </ul>
             <a
               className="btn btn-primary btn-big"
-              href={SITE.apkDownloadUrl + "?src=web"}
+              href={SITE.apkDownloadUrl + `?src=${downloadSource}`}
               download
             >
               下载安装包
@@ -57,7 +66,7 @@ export default function Download() {
             </ul>
             <a
               className="btn btn-soft btn-big"
-              href={APK_BETA.file + "?src=web"}
+              href={APK_BETA.file + `?src=${downloadSource}`}
               download
             >
               下载测试版

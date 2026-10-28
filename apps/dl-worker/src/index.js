@@ -17,9 +17,22 @@ function cacheControl(key) {
     : "no-cache";
 }
 
-/** src 参数白名单：web=官网按钮、update=应用内更新、legacy=旧站点根路径跳转。 */
+/**
+ * src 参数白名单：基础来源 + 四条首轮宣传内容。
+ * 只把来源码随「日期 + 文件 + 次数」汇总，不读取或保存用户、设备、IP、UA。
+ */
+const DOWNLOAD_SOURCES = new Set([
+  "web",
+  "update",
+  "legacy",
+  "xhs-call",
+  "xhs-kinship",
+  "bili-story",
+  "wx-video",
+]);
+
 export function parseSrc(v) {
-  return v === "web" || v === "update" || v === "legacy" ? v : "direct";
+  return DOWNLOAD_SOURCES.has(v) ? v : "direct";
 }
 
 /** 计数条件：完整 GET 200，或从字节 0 起步的 206 分段。 */
