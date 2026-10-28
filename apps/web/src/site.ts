@@ -75,26 +75,6 @@ export const EXTENSIONS = [
     minAndroid: "8.0",
   },
   {
-    id: "chishenme",
-    name: "吃什么",
-    icon: "wheel",
-    stage: "测试版",
-    description:
-      "一日三餐不知道吃什么，就交给转盘。在家做、出去吃都能转——烤鱼自助烤肉店也行，" +
-      "转盘可以自己加、自己改，午晚夜宵到点提醒，还能把结果一键发给微信好友。",
-    version: "0.4.1",
-    /** 发布日期与本版亮点（展示在卡片上） */
-    released: "2026-10-11",
-    whatsNew: "大转盘占满屏，整餐逐个转（像老虎机）；动画改成摩擦式减速更顺滑",
-    sizeBytes: 1_750_921,
-    sha256: "6c7614d01355e208488091f2a5b8928d40a2ef4c87318fe03d52ce720179cc35",
-    /** 安装包地址：下载服务按版本命名 */
-    file: `${DOWNLOAD_BASE}/chishenme-0.4.1.apk`,
-    minAndroid: "8.0",
-    /** 可选的安装提示（如实说明签名变更等需要用户知道的事） */
-    note: "0.1.2 起换用正式签名：手机若已装更早的测试包，请先卸载再安装（卸载会清掉已改的菜）。",
-  },
-  {
     id: "fantongxia",
     name: "饭桶侠",
     icon: "wheel",
