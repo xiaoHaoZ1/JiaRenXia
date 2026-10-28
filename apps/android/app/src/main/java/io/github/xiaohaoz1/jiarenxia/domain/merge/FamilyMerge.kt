@@ -218,6 +218,7 @@ object FamilyMerge {
                 id = req.newId(), name = rp.name, gender = rp.gender,
                 avatarPath = null, note = null,
                 livingStatus = rp.livingStatus, isSelf = false,
+                siblingRank = rp.siblingRank,
                 createdAt = req.now, updatedAt = req.now)
             val spec = ra.role.toRelationshipSpec(np.id, lp.id)
             val rel = SpouseMerge.normalizeRel(
@@ -369,6 +370,18 @@ object FamilyMerge {
                 if (key in req.takeRemote) {
                     personUpdates[lid] = (personUpdates[lid] ?: lp)
                         .copy(livingStatus = rp.livingStatus)
+                }
+            }
+            if (lp.siblingRank != rp.siblingRank) {
+                val key = ConflictKey(lid, "siblingRank")
+                conflicts += FieldConflict(
+                    key = key, personName = lp.name, fieldLabel = "排行",
+                    localValue = rankWord(lp.siblingRank),
+                    remoteValue = rankWord(rp.siblingRank),
+                    takeRemote = key in req.takeRemote)
+                if (key in req.takeRemote) {
+                    personUpdates[lid] = (personUpdates[lid] ?: lp)
+                        .copy(siblingRank = rp.siblingRank)
                 }
             }
         }
@@ -660,6 +673,8 @@ object FamilyMerge {
 
     private fun livingWord(s: LivingStatus) =
         if (s == LivingStatus.DECEASED) "已故" else "在世"
+
+    private fun rankWord(r: Int?) = r?.let { "第 $it" } ?: "未记录"
 
     private fun dateLabel(t: ImportantDateType) = when (t) {
         ImportantDateType.BIRTHDAY_SOLAR -> "阳历生日"

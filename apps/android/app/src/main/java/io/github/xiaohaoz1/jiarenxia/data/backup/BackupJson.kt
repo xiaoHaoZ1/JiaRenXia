@@ -255,6 +255,7 @@ object BackupJson {
                     p.avatarPath?.let { put("avatarFile", it.removePrefix("avatars/")) }
                     p.note?.let { put("note", it) }
                     put("livingStatus", p.livingStatus.name)
+                    p.siblingRank?.let { put("siblingRank", it) }
                     put("isSelf", p.isSelf)
                     put("createdAt", p.createdAt); put("updatedAt", p.updatedAt)
                 })
@@ -523,6 +524,9 @@ object BackupJson {
                         o.optString("livingStatus", null), "livingStatus"
                     ),
                     isSelf = o.optBoolean("isSelf", false),
+                    // 旧备份无该键；非法值一律视为未记录
+                    siblingRank = o.optInt("siblingRank", 0)
+                        .takeIf { it >= 1 },
                     createdAt = o.getLong("createdAt"),
                     updatedAt = o.getLong("updatedAt")
                 )

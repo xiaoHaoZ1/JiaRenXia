@@ -24,9 +24,11 @@ class FamilyOrderingTest {
         path: List<PathStep> = emptyList(),
         birthday: PartialDate? = null,
         kind: KinshipKind = KinshipKind.DERIVED,
-        createdAt: Long = 0
+        createdAt: Long = 0,
+        rank: Int? = null
     ) = PersonOverview(
-        person = Person(id = id, name = name, gender = gender, createdAt = createdAt),
+        person = Person(id = id, name = name, gender = gender,
+            siblingRank = rank, createdAt = createdAt),
         result = KinshipResult(
             observerId = "me", targetId = id, relationshipPath = path,
             structuralDescription = "s", standardTitle = null,
@@ -86,6 +88,27 @@ class FamilyOrderingTest {
         val sorted = FamilyOrdering.core(listOf(noBd, noYear, younger, older), emptyMap())
         // 生日完整者在前且年长者在前；不完整/无生日按录入时间
         assertEquals(listOf("c1", "c2", "c3", "c4"), sorted.map { it.person.id })
+    }
+
+    @Test
+    fun 子女缺生日按排行() {
+        // 不知道生日的场景：老大老二老三按 siblingRank 大→小排；
+        // 有生日仍优先生日；排行相同或未记录落到录入时间
+        val third = ov("c3", name = "安安", path = listOf(step(RelationshipType.CHILD, "c3")),
+            rank = 3, createdAt = 1)
+        val first = ov("c1", name = "伟伟", path = listOf(step(RelationshipType.CHILD, "c1")),
+            rank = 1, createdAt = 3)
+        val second = ov("c2", name = "明明", path = listOf(step(RelationshipType.CHILD, "c2")),
+            rank = 2, createdAt = 2)
+        val withBd = ov("c0", path = listOf(step(RelationshipType.CHILD, "c0")),
+            birthday = PartialDate(2020, 1, 1), rank = 9)
+        val noRank = ov("c9", path = listOf(step(RelationshipType.CHILD, "c9")),
+            createdAt = 9)
+        val sorted = FamilyOrdering.core(
+            listOf(third, second, first, withBd, noRank), emptyMap())
+        // 生日优先于排行；无生日者按排行 1→2→3；未记排行排最后
+        assertEquals(listOf("c0", "c1", "c2", "c3", "c9"),
+            sorted.map { it.person.id })
     }
 
     @Test

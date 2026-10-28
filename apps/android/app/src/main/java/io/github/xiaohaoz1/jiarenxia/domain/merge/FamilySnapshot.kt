@@ -65,6 +65,8 @@ object FamilySnapshot {
         val note: String?,
         /** 头像内容 sha256 十六进制；无头像为 null。 */
         val avatarHash: String?,
+        /** 兄弟姐妹排行（1=老大），未记录为 null。 */
+        val siblingRank: Int?,
         val phones: List<Phone>,
         val dates: List<DateEntry>
     )
@@ -134,6 +136,7 @@ object FamilySnapshot {
                 living = p.livingStatus.name,
                 note = p.note?.trim()?.ifBlank { null },
                 avatarHash = avatarHashOf(p),
+                siblingRank = p.siblingRank,
                 phones = phonesByPerson[p.id].orEmpty()
                     // 同一规范化号码只留一条（库 UNIQUE 按原始串，极端脏数据防御）
                     .groupBy { normalizePhone(it.number) }
@@ -213,6 +216,9 @@ object FamilySnapshot {
             append(",\"living\":").append(j(p.living))
             append(",\"note\":").append(j(p.note))
             append(",\"avatarHash\":").append(j(p.avatarHash))
+            // siblingRank 只在非 null 时输出：全员未记录时规范串与
+            // 旧版一致，跨版本协作的基准快照哈希保持兼容。
+            p.siblingRank?.let { append(",\"siblingRank\":").append(it) }
             append(",\"phones\":[")
             p.phones.forEachIndexed { k, ph ->
                 if (k > 0) append(',')
@@ -270,6 +276,7 @@ object FamilySnapshot {
                     put("living", p.living)
                     put("note", p.note ?: JSONObject.NULL)
                     put("avatarHash", p.avatarHash ?: JSONObject.NULL)
+                    p.siblingRank?.let { put("siblingRank", it) }
                     put("phones", JSONArray().apply {
                         p.phones.forEach { ph ->
                             put(JSONObject().apply {
@@ -317,6 +324,9 @@ object FamilySnapshot {
                     note = if (o.isNull("note")) null else o.getString("note"),
                     avatarHash = if (o.isNull("avatarHash")) null
                         else o.getString("avatarHash"),
+                    // 旧版快照没有该键：缺省/非法值视为未记录
+                    siblingRank = o.optInt("siblingRank", 0)
+                        .takeIf { it >= 1 },
                     phones = o.getJSONArray("phones").let { pa ->
                         (0 until pa.length()).map { j ->
                             val ph = pa.getJSONObject(j)

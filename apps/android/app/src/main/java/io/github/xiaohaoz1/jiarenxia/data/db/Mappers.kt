@@ -9,8 +9,8 @@ import io.github.xiaohaoz1.jiarenxia.core.model.ReminderPreference
 
 /** Room 实体与领域模型之间的映射（snake_case 列 ↔ camelCase 字段）。 */
 
-fun PersonEntity.toModel() = Person(id, name, gender, avatarPath, note, livingStatus, isSelf, createdAt, updatedAt)
-fun Person.toEntity() = PersonEntity(id, name, gender, avatarPath, note, livingStatus, isSelf, createdAt, updatedAt)
+fun PersonEntity.toModel() = Person(id, name, gender, avatarPath, note, livingStatus, isSelf, siblingRank, createdAt, updatedAt)
+fun Person.toEntity() = PersonEntity(id, name, gender, avatarPath, note, livingStatus, isSelf, siblingRank, createdAt, updatedAt)
 
 fun PhoneNumberEntity.toModel() = PhoneNumber(id, personId, number, label, status, isPrimary, note, createdAt, updatedAt)
 fun PhoneNumber.toEntity() = PhoneNumberEntity(id, personId, number, label, status, isPrimary, note, createdAt, updatedAt)

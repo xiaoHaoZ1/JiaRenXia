@@ -33,6 +33,8 @@ data class PersonDraft(
     val gender: Gender,
     val note: String? = null,
     val livingStatus: LivingStatus = LivingStatus.ALIVE,
+    /** 兄弟姐妹中的排行（1=老大）；null 表示未记录。 */
+    val siblingRank: Int? = null,
     val birthdays: io.github.xiaohaoz1.jiarenxia.core.model.PersonBirthdays =
         io.github.xiaohaoz1.jiarenxia.core.model.PersonBirthdays(),
     val phones: List<PhoneDraft> = emptyList()

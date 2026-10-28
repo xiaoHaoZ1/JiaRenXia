@@ -36,6 +36,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_11_12
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_12_13
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_13_14
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_14_15
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_15_16
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepositoryImpl
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderScheduler
@@ -54,7 +55,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "jiarenxia.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16)
             .build()
 
     @Provides fun providePersonDao(db: AppDatabase) = db.personDao()

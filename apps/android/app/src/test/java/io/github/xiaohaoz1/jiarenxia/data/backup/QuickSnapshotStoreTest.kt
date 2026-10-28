@@ -54,7 +54,7 @@ class QuickSnapshotStoreTest : RepoTestBase() {
         val self = createSelf("杨明")
         db.personDao().insert(
             PersonEntity("p-child", "安安", Gender.FEMALE, null, null,
-                LivingStatus.ALIVE, false, 0, 0)
+                LivingStatus.ALIVE, false, null, 0, 0)
         )
         db.relationshipDao().insert(rel(self, "p-child", RelationshipType.PARENT))
         db.importantDateDao().insert(

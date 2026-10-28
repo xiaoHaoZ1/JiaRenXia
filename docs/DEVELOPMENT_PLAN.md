@@ -523,6 +523,33 @@
 - `HeartShow` 祝词超两字按长度缩字号；无障碍描述跟随“左词+
   右词”拼读。
 
+### 2.18 兄弟姐妹排行（siblingRank，V2.x）
+
+- 动机：只知道“第几个孩子”而不知道生日时（如伯祖父的几个
+  儿子），关系图应能按排行排序；成对长幼（relativeAgeOrder）
+  只能两两表达，录入繁琐。
+- 模型：`Person.siblingRank: Int?`（决策①定为挂人物，不挂亲子
+  关系——半同胞异排行属边角，确定性降级兜得住）。1=最长，
+  null=未记录；数据层校验 1–50（`InvalidSiblingRank`）。排行
+  只在同一同胞组内比较，不跨分支。
+- 排序信号优先级（决策②）：完整生日 > 成对 SIBLING/COUSIN
+  长幼记录 > 排行 > 共同参照人传递推断 > 兜底（姓名拼音/id）。
+  与称谓引擎保持同一套信号——排行被成对记录压过时，图与称谓
+  不自相矛盾。
+- 录入（决策③）：编辑页基本信息区数字输入框“在兄弟姐妹中排
+  第几”，旁显“老大/老二/老三…”（`siblingRankWord`），可空。
+- 首期范围（决策④全含）：编辑页 + 详情页展示（“老三（第 3
+  个）”）+ 关系图两套布局（GraphFamilyPlacement 同组决胜、
+  GraphFamilyLayout 生日→排行→姓名键）+ 家庭页子女分组排序
+  （FamilyOrdering）。
+- 影响面：`:core:model` Person + `PersonEntity.sibling_rank`
+  （MIGRATION_15_16，Room v16）+ PersonDraft/Repository 校验；
+  BackupJson 可选键（缺省不写、读作 null，旧备份兼容）；
+  FamilySnapshot/FamilyRevisionPlan/FamilyMerge 冲突键
+  `siblingRank`（标签“排行”，取值渲染“第 n/未记录”）；
+  ShareImport 合成人物 null。
+- 不做：称谓引擎不读排行；填排行不级联生成 SIBLING 记录。
+
 ## 3. 开发阶段
 
 每个阶段完成并验证后单独提交（提交说明使用中文）。

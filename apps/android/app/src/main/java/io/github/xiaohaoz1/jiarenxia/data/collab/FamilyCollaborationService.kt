@@ -856,6 +856,7 @@ class FamilyCollaborationService @Inject constructor(
                             gender = enumOr(Gender::class.java, op.person.gender),
                             livingStatus = enumOr(
                                 LivingStatus::class.java, op.person.living),
+                            siblingRank = op.person.siblingRank,
                             note = op.person.note, avatarPath = path,
                             updatedAt = now)
                         // 仅本机期间本机条目没进名册比较：电话/日期以收到的
@@ -878,7 +879,8 @@ class FamilyCollaborationService @Inject constructor(
                             note = op.person.note,
                             livingStatus = enumOr(
                                 LivingStatus::class.java, op.person.living),
-                            isSelf = false, createdAt = now, updatedAt = now)
+                            isSelf = false, siblingRank = op.person.siblingRank,
+                            createdAt = now, updatedAt = now)
                     }
                 }
                 is FamilyRevisionPlan.Op.RemovePerson -> {
@@ -908,6 +910,7 @@ class FamilyCollaborationService @Inject constructor(
                             Gender::class.java, op.gender),
                         livingStatus = enumOr(
                             LivingStatus::class.java, op.living),
+                        siblingRank = op.siblingRank,
                         note = op.note, avatarPath = path, updatedAt = now)
                 }
                 is FamilyRevisionPlan.Op.PutPhone -> upsertPhones +=
@@ -1534,7 +1537,8 @@ class FamilyCollaborationService @Inject constructor(
                 avatarPath = p.avatarHash?.let { "avatars/" + avatarFileName(it) },
                 note = p.note,
                 livingStatus = enumOr(LivingStatus::class.java, p.living),
-                isSelf = false, createdAt = now, updatedAt = now)
+                isSelf = false, siblingRank = p.siblingRank,
+                createdAt = now, updatedAt = now)
         }
         val phones = snap.persons.flatMap { p ->
             p.phones.map { ph ->
