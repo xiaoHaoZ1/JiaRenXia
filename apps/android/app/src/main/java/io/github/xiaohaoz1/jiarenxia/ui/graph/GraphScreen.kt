@@ -790,13 +790,9 @@ fun GraphContent(
                             val spouseColor =
                                 io.github.xiaohaoz1.jiarenxia.ui.theme
                                     .LocalJrxColors.current.spouseSide
-                            // 语义缩放：缩到文字不可读（<0.5）时卡片塌成圆点、
-                            // 各类文字标签隐藏，结构优先于文字
-                            val dotMode = scale < 0.5f
                             // 各边关系词落点（布局单位，绘制时换算为内容 px）
-                            val edgeLabelPts = remember(
-                                routing, showEdgeLabels, dotMode) {
-                                if (!showEdgeLabels || dotMode) emptyList()
+                            val edgeLabelPts = remember(routing, showEdgeLabels) {
+                                if (!showEdgeLabels) emptyList()
                                 else GraphEdgeLabels.compute(routing)
                             }
                             val labelBg =
@@ -892,9 +888,8 @@ fun GraphContent(
                                         labelPaint)
                                 }
                             }
-                            // 家庭分组标签（“我的父母”等）：实测矩形内居中绘制；
-                            // 圆点缩放下同样不可读，一并隐藏
-                            if (!dotMode) model.groupLabels.forEach { l ->
+                            // 家庭分组标签（“我的父母”等）：实测矩形内居中绘制
+                            model.groupLabels.forEach { l ->
                                 Text(
                                     l.text,
                                     fontSize = 12.sp,
@@ -909,7 +904,7 @@ fun GraphContent(
                                 )
                             }
                             // “同辈 · 接上行”折行标记：贴该行最左 block 左缘
-                            if (!dotMode) model.laneMarks.forEach { m ->
+                            model.laneMarks.forEach { m ->
                                 Surface(
                                     color = MaterialTheme.colorScheme
                                         .surfaceContainerHigh,
@@ -939,7 +934,6 @@ fun GraphContent(
                                     picked = n.personId == overviewPick,
                                     w = n.w, h = n.h,
                                     fontBoost = fontBoost,
-                                    compact = dotMode,
                                     onClick = {
                                         if (overview) {
                                             overview = false
@@ -1540,34 +1534,10 @@ private fun GraphNodeItem(
     focused: Boolean = false,
     picked: Boolean = false,
     /** 大字号：卡片随共享几何同比放大。 */
-    fontBoost: Float = 1f,
-    /** 远缩圆点模式：整块布局矩形内只画居中头像球，保持可点可访问。 */
-    compact: Boolean = false
+    fontBoost: Float = 1f
 ) {
     val p = overview.person
     val deceased = p.livingStatus == LivingStatus.DECEASED
-    if (compact) {
-        // 圆点仍占原卡片矩形：连线落点不变；点圆点在总览里回到阅读定位
-        Box(
-            modifier = modifier
-                .size((w * fontBoost).dp, (h * fontBoost).dp)
-                .semantics(mergeDescendants = true) {}
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            PersonAvatar(
-                p.avatarPath, p.name, 56.dp * fontBoost,
-                ring = when {
-                    focused -> MaterialTheme.colorScheme.tertiary
-                    picked || isSelf -> MaterialTheme.colorScheme.primary
-                    else -> null
-                },
-                deceased = deceased,
-                modifier = Modifier.alpha(if (deceased) 0.6f else 1f)
-            )
-        }
-        return
-    }
     Card(
         // 合并语义：节点读成一条“姓名 + 称谓”
         modifier = modifier
