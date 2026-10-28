@@ -5,7 +5,6 @@ import io.github.xiaohaoz1.jiarenxia.core.kinship.FamilyGraph
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationRole
 import io.github.xiaohaoz1.jiarenxia.core.model.RelativeAgeOrder
-import io.github.xiaohaoz1.jiarenxia.data.collab.CollabApply
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -189,30 +188,6 @@ interface FamilyRepository {
      * null/空白 → 删除；否则 trim 后 1–12 字符，目标必须存在且非“我”。
      */
     suspend fun setCustomTitle(targetId: String, title: String?): FamilyResult<Unit>
-
-    /** 观察“仅本机保留”人物 id 集（协作改版：不进名册快照/确认版/默认关系图）。 */
-    fun observeLocalOnlyIds(): Flow<Set<String>>
-
-    /** 观察“仅本机保留”完整行（含保留原因备注；家庭页标记用）。 */
-    fun observeLocalOnly(): Flow<List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity>>
-
-    /**
-     * 本机名册的规范快照 + 内容哈希 + id 映射（协作改版）：
-     * 排除“仅本机保留”人物；人物/条目 id 经协作映射换算到规范空间；
-     * 头像按文件内容哈希。协作服务做三方比较、发布前打包都用它。
-     */
-    suspend fun canonicalRosterSnapshot(): io.github.xiaohaoz1.jiarenxia.data.collab.CollabRoster
-
-    /**
-     * 离线协作应用（FAMILY_AFFAIRS §5.4，唯一写入口）：
-     * 单事务内——复核本机名册哈希（[CollabApply.expectedRosterHash]，防接收
-     * 期间本机改动）、复核草稿 PENDING 状态、按序写入人物/条目/关系、
-     * 被移除人物的私人外键复核（有引用则落“仅本机保留”而非物理删除）、
-     * 写回协作状态/发布索引/草稿记录。
-     * 任一步失败整体回滚。头像文件由调用方在事务外处理（先写新文件、
-     * 提交后清旧文件）。
-     */
-    suspend fun applyFamilyRevision(apply: CollabApply): FamilyResult<Unit>
 
     suspend fun clearAllData()
 }

@@ -412,3 +412,17 @@ val MIGRATION_15_16 = object : Migration(15, 16) {
         db.execSQL("ALTER TABLE `persons` ADD COLUMN `sibling_rank` INTEGER")
     }
 }
+
+/**
+ * v16 → v17：家庭协作下线（见 FAMILY_AFFAIRS §17）。
+ * 删除协作状态/发布索引/接收草稿/仅本机标记四张表；协作包按
+ * 普通分享文件导入（接收端已按分享流程处理）。
+ */
+val MIGRATION_16_17 = object : Migration(16, 17) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("DROP TABLE IF EXISTS `family_receive_drafts`")
+        db.execSQL("DROP TABLE IF EXISTS `family_publications`")
+        db.execSQL("DROP TABLE IF EXISTS `family_collaboration_state`")
+        db.execSQL("DROP TABLE IF EXISTS `family_local_only`")
+    }
+}

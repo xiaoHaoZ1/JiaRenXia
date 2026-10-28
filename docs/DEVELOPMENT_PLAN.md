@@ -550,6 +550,33 @@
   ShareImport 合成人物 null。
 - 不做：称谓引擎不读排行；填排行不级联生成 SIBLING 记录。
 
+### 2.19 家庭协作下线（V2.x）
+
+- 动机：协作假设"汇总者发包、家人各自在手机上收包/补资料/
+  回发"的多轮分布式编辑流程；真实家庭中信息走对话而不走
+  文件交换，资料最终都汇到管事的人手里敲进去再分享——流程
+  无人使用，而它是全 App 复杂度最高的模块（三方合并、版本
+  链、保护副本、仅本机标记），每次数据模型改动都要多穿一
+  层协作管线。
+- 下线范围：`data/collab/`、`domain/merge/FamilySnapshot.kt`
+  与 `FamilyRevisionPlan.kt`、`ui/share/CollabScreens.kt`、
+  共享与连接页协作整组、接收审查路由与 `pendingCollab`、
+  QuickSnapshotStore prereceive 保护副本、数据管理页"找回
+  上次接收前的资料"入口、协作错误类型与 collab_incoming
+  暂存清理。
+- 数据库：v17 `MIGRATION_16_17` DROP 协作四表（
+  family_collaboration_state / family_publications /
+  family_receive_drafts / family_local_only）；实体与 DAO
+  一并删除；`clearTables` 清单不再含协作表。
+- 「仅本机保留」一并删：它脱离协作仅剩"手动标记不被分享"
+  一条路，用户判定用不上；分享选人页、默认关系图、家庭页
+  标记、整份分享/碰一碰默认排除全部撤除。
+- 兼容：备份 JSON 上限仍为 schemaVersion 12，旧协作包按普通
+  分享解析导入（`collaboration`/`collabState` 字段读取时忽
+  略）；个人备份不再写/读协作状态。
+- 保留：FamilyMerge（分享合并引擎）、person_alias、普通
+  备份/分享/碰一碰、QuickSnapshotStore 手动存档。
+
 ## 3. 开发阶段
 
 每个阶段完成并验证后单独提交（提交说明使用中文）。

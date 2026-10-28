@@ -24,19 +24,9 @@ class AppEvents @Inject constructor() {
     /** 待导入的家人共享（从恢复流程识别到 purpose=share 时塞入）。 */
     var pendingSharePlan: io.github.xiaohaoz1.jiarenxia.data.backup.RestorePlan? = null
 
-    /**
-     * 待处理的协作包（识别到 collaboration 元数据时塞入）：
-     * 加密原文 + 本次解密密码（协作接收页复核/应用时还要重新解密暂存文件，
-     * 密码随交接转移所有权，消费方负责清空）。
-     */
-    var pendingCollab: PendingCollab? = null
-
     /** 拨打家人电话后待提示的“联系上了吗”（10 分钟窗口，联系提醒）。 */
     var pendingContactPrompt: ContactPrompt? = null
 }
-
-/** 协作包交接负载：加密文件原文 + 本次的解密密码。 */
-data class PendingCollab(val bytes: ByteArray, val password: CharArray)
 
 /** “刚才联系上了吗”提示的负载。 */
 data class ContactPrompt(

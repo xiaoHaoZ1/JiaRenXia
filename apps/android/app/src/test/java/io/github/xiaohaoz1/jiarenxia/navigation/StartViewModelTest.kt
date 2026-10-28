@@ -95,18 +95,6 @@ private class FakeRepo(private val self: Person?) : FamilyRepository {
 
     override suspend fun setAvatar(p: String, s: Uri) = FamilyResult.Success(Unit)
     override suspend fun removeAvatar(p: String) = FamilyResult.Success(Unit)
-    override fun observeLocalOnlyIds() =
-        kotlinx.coroutines.flow.flowOf(emptySet<String>())
-    override fun observeLocalOnly() = kotlinx.coroutines.flow.flowOf(
-        emptyList<io.github.xiaohaoz1.jiarenxia.data.db.FamilyLocalOnlyEntity>())
-    override suspend fun canonicalRosterSnapshot() =
-        io.github.xiaohaoz1.jiarenxia.data.collab.CollabRoster(
-            snap = io.github.xiaohaoz1.jiarenxia.domain.merge.FamilySnapshot.Snap(
-                emptyList(), emptyList()),
-            hash = "", canonicalToLocal = emptyMap(), localOnlyIds = emptySet())
-    override suspend fun applyFamilyRevision(
-        apply: io.github.xiaohaoz1.jiarenxia.data.collab.CollabApply
-    ) = FamilyResult.Success(Unit)
     override suspend fun clearAllData() {}
 }
 

@@ -20,9 +20,7 @@ data class FamilyUiState(
     val defaultNumbers: Map<String, String> = emptyMap(),
     val today: LocalDate = LocalDate.now(),
     /** personId → 已 N 天未联系（仅逾期者，联系提醒）。 */
-    val contactOverdue: Map<String, Int> = emptyMap(),
-    /** personId → 保留原因（“仅本机保留”人物；协作 §5.7 家庭页标记）。 */
-    val localOnly: Map<String, String> = emptyMap()
+    val contactOverdue: Map<String, Int> = emptyMap()
 )
 
 /** 家庭页 ViewModel：订阅家庭整体视图与默认号码表。 */
@@ -41,9 +39,8 @@ class FamilyViewModel @Inject constructor(
                 observeOverview(), repository.observeDefaultNumbers()
             ) { ov, nums -> ov to nums },
             contactRepository.observePlanList(),
-            contactRepository.observeAllLogs(),
-            repository.observeLocalOnly()
-        ) { (ov, nums), plans, logs, loRows ->
+            contactRepository.observeAllLogs()
+        ) { (ov, nums), plans, logs ->
             val today = LocalDate.now()
             val logsByPerson = logs.groupBy { it.personId }
             val overdue = plans.mapNotNull { plan ->
@@ -59,9 +56,7 @@ class FamilyViewModel @Inject constructor(
                         plan.intervalDays) else null
             }.toMap()
             FamilyUiState(
-                ov, nums, today, contactOverdue = overdue,
-                localOnly = loRows.mapNotNull { r ->
-                    r.personId to (r.note ?: "有私人记录") }.toMap())
+                ov, nums, today, contactOverdue = overdue)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FamilyUiState())
 
     /** 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。 */

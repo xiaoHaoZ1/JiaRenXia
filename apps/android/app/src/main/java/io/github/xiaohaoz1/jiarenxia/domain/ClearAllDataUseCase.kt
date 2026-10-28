@@ -38,8 +38,6 @@ class ClearAllDataUseCase @Inject constructor(
         settings.clear()
         pairingStore.clear()
         scheduler.cancelAll()
-        // 协作接收暂存的加密文件随资料一起清（与 BackupManager.restore 一致）
-        java.io.File(context.filesDir, "collab_incoming").deleteRecursively()
         if (!keepSnapshots) snapshots.clear()
         NotificationManagerCompat.from(context).cancelAll()
     }

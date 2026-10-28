@@ -40,12 +40,4 @@ sealed class FamilyError(val message: String) {
     data object InvalidTaskAmount : FamilyError("金额不正确")
     data object InvalidTaskNote : FamilyError("备注最多 200 个字")
     data object TaskNotFound : FamilyError("事项不存在")
-    /** 协作：接收期间本机名册有改动（哈希复核失败），需重新生成计划。 */
-    data object CollabStale : FamilyError("接收期间本机资料有改动，请重新核对后再接收")
-    /** 协作：草稿状态不符（已处理/被替换）。 */
-    data object CollabDraftStale : FamilyError("这份接收草稿已处理或已失效")
-    /** 协作：决议后的关系仍与本机约束冲突。 */
-    data object CollabRelConflict : FamilyError("收到的关系与本机已有关系冲突，请重新核对")
-    /** 协作：移除“我”被阻止。 */
-    data object CollabSelfBlocked : FamilyError("不能把“我”从家庭名册移除")
 }

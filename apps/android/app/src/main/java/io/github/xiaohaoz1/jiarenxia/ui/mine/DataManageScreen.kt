@@ -53,8 +53,6 @@ fun DataManageScreen(
     onNeedsSelf: () -> Unit,
     /** 恢复时识别出的是家人共享文件 → 转共享导入页。 */
     onShareImport: () -> Unit,
-    /** 恢复时识别出的是协作包 → 转协作接收页。 */
-    onCollabDetected: () -> Unit = {},
     onHeartPreview: (Boolean) -> Unit = {},
     viewModel: MineViewModel = hiltViewModel(),
     snapshotVm: QuickSnapshotViewModel = hiltViewModel()
@@ -98,15 +96,6 @@ fun DataManageScreen(
             onShareImport()
         }
     }
-    // 协作包 → 协作接收页
-    val collabDetected by viewModel.restore.collabDetected
-        .collectAsStateWithLifecycle()
-    LaunchedEffect(collabDetected) {
-        if (collabDetected) {
-            viewModel.restore.collabDetected.value = false
-            onCollabDetected()
-        }
-    }
     LaunchedEffect(st.cleared) { if (st.cleared) onDataCleared() }
     LaunchedEffect(st.message) {
         st.message?.let {
@@ -145,11 +134,6 @@ fun DataManageScreen(
         }
     }
 
-    // ---------- 找回“上次接收前”资料（协作 §5.8） ----------
-    val prereceive by snapshotVm.prereceive.collectAsStateWithLifecycle()
-    val prereceiveAsk by snapshotVm.prereceiveAsk.collectAsStateWithLifecycle()
-    LaunchedEffect(Unit) { snapshotVm.refreshPrereceive() }
-
     DataManageContent(
         lastBackupAt = st.lastBackupAt,
         testToolsVisible = BuildConfig.DEBUG || testToolsEnabled,
@@ -165,32 +149,8 @@ fun DataManageScreen(
             viewModel.debugCheckReminders()
             Toast.makeText(context, "已触发一次检查", Toast.LENGTH_SHORT).show()
         },
-        onHeartPreview = onHeartPreview,
-        prereceive = prereceive,
-        onPrereceive = snapshotVm::askPrereceiveRestore
+        onHeartPreview = onHeartPreview
     )
-
-    // 找回“上次接收前”资料：明确确认（副本只有一份，恢复即失效）
-    if (prereceiveAsk) {
-        AlertDialog(
-            onDismissRequest = snapshotVm::dismissPrereceive,
-            title = { Text("找回上次接收前的资料？") },
-            text = {
-                Text("恢复整个接收前副本，之后的修改会被替换。" +
-                    "这份副本找回后即失效。")
-            },
-            confirmButton = {
-                TextButton(onClick = snapshotVm::confirmPrereceiveRestore) {
-                    Text("恢复", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = snapshotVm::dismissPrereceive) {
-                    Text("取消")
-                }
-            }
-        )
-    }
 
     // 清空：两段确认（弹窗 → 手动输入「清空」）
     if (showClear1) {
@@ -293,11 +253,7 @@ fun DataManageContent(
     onClearKeepSnapshots: () -> Unit = {},
     onImportDemo: () -> Unit = {},
     onDebugCheck: () -> Unit = {},
-    onHeartPreview: (Boolean) -> Unit = {},
-    /** “上次接收前副本”信息（null = 无可找回副本，入口隐藏）。 */
-    prereceive: io.github.xiaohaoz1.jiarenxia.data.backup
-        .QuickSnapshotStore.Snapshot? = null,
-    onPrereceive: () -> Unit = {}
+    onHeartPreview: (Boolean) -> Unit = {}
 ) {
     SettingsScaffold("数据管理", onBack) {
         SettingsGroup("备份与恢复") {
@@ -314,16 +270,6 @@ fun DataManageContent(
                 subtitle = "打开以前保存的备份文件",
                 onClick = onRestore
             )
-            if (prereceive != null) {
-                RowDivider()
-                SettingsNavRow(
-                    icon = Icons.Rounded.History,
-                    title = "找回上次接收前的资料",
-                    subtitle = "接收协作包前的完整副本 · " +
-                        prereceive.persons + " 位家人",
-                    onClick = onPrereceive
-                )
-            }
         }
         SettingsHint(
             "备份是给自己留一份副本，文件由你自己保管。" +

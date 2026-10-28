@@ -361,7 +361,6 @@ fun FamilyContent(
                 items(members, key = { it.person.id }) { o ->
                     MemberRow(
                         o = o,
-                        localOnlyNote = st.localOnly[o.person.id],
                         onClick = { onOpenPerson(o.person.id) },
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
@@ -623,9 +622,7 @@ private fun CoreMemberCell(
 private fun MemberRow(
     o: PersonOverview,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    /** 非空 → 标“仅本机保留 · {原因}”（协作 §5.7：不进共享名册）。 */
-    localOnlyNote: String? = null
+    modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth()
@@ -659,17 +656,6 @@ private fun MemberRow(
                 "待补充",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        // 协作：标“仅本机保留 · 原因”（不进共享名册/确认版/默认关系图）
-        if (localOnlyNote != null) {
-            Spacer(Modifier.width(6.dp))
-            Text(
-                "仅本机保留 · $localOnlyNote",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.tertiary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
             )
         }
         Icon(
