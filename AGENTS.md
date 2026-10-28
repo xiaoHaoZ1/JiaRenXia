@@ -133,7 +133,7 @@ gradlew.bat :app:assembleRelease
 - 恢复流程（我的页“从备份恢复”与欢迎页“用已有资料开始”）共用 ui/restore/RestoreFlow，按 purpose 分流；BackupManager.restore 只收 purpose="backup" 的 plan。
 - 已有数据默认合并（domain/merge/FamilyMerge，预览重算见 ui/share/MergePreview.kt）；对方→本机对应关系存 person_alias（DB v10，不进备份/共享）。
 - 接收 intent-filter：ACTION_VIEW(content) / ACTION_SEND，mimeType 固定 application/octet-stream，不要注册通配 MIME。
-- 真机核对项：微信“用其他应用打开”实际传来的 MIME 类型；若不是 octet-stream，按实际值在 MainActivity 补一个 filter。
+- 微信接收已于 2026-10-28 在红米 K70 至尊版真机核对：可从微信正常转发 `.jrxb` 文件到家人侠并进入接收流程；现有 `application/octet-stream` intent-filter 可用，无需注册通配 MIME。
 - 从分享面板选家人侠自己，可以在没有微信的情况下测接收流程。
 - 碰一碰真机核对需要两部带 NFC 的手机；确认小米 HCE 在 category other 下能正常路由。单机可核对：无 NFC / NFC 关闭提示、男女等待页、读卡模式与 HCE 启停、半颗心动画（我的→调试→预览半颗心 左/右）、共享导入的“和我结为夫妻”。另外 `adb shell dumpsys nfc` 应能列出 `com.jiarenxia.app/io.github.xiaohaoz1.jiarenxia.nfc.TapHostService`（AID F04A52580001）；查不到说明 manifest 没注册该服务，碰一碰会完全无反应（0.8.1 的 bug）。小米手机绑了交通卡时，感应到读卡器会弹出小米钱包（logcat `NfcService: sendFieldOnEvent` → com.miui.tsmclient）；排查 HCE 断连看 `HostEmulationManager`，交易中出现 “Unbinding from service …TapHostService” 说明服务被解绑。协议为 HELLO v4（配对/时钟/多条目纪念日/祝词尾部 + 1 字节用途：0=结为夫妻、1=互加亲人），两部手机须同版本；真机反复测试用彩排模式（结为夫妻不写入数据）。OPPO（ColorOS 15）安全芯片为内置 eSE 且钱包有默认门禁卡时当不了卡片端（NCI 只有 RF_FIELD_INFO、没有 RF_INTF_ACTIVATED，当前 AID 为门禁卡 A0000003964D344D1061707056434D01），让它读卡、对方当卡片即可。
 - FileProvider authority ${applicationId}.share-provider（安装后为 com.jiarenxia.app.share-provider），路径 res/xml/file_paths.xml（cacheDir/share）。

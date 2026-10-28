@@ -309,7 +309,7 @@ fun ShareConnectContent(
                 onClick = onWeddingWordsClick
             )
         }
-        SettingsHint("需要两部带 NFC 的安卓手机，尚未完成双机实测。", center = true)
+        SettingsHint("需要两部带 NFC 的安卓手机；如果连接不上，请按提示交换连接方式。", center = true)
         Spacer(Modifier.height(16.dp))
     }
 }

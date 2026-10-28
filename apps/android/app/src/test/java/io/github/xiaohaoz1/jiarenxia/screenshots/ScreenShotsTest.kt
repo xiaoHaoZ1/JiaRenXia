@@ -1579,7 +1579,7 @@ class ScreenShotsTest {
     }.also {
         assertTexts(
             "分享给家人", "接收家人分享", "结为夫妻", "祝福语",
-            "碰一碰 · 实验功能", "尚未完成双机实测"
+            "碰一碰 · 实验功能", "如果连接不上，请按提示交换连接方式"
         )
     }
 
@@ -1588,7 +1588,7 @@ class ScreenShotsTest {
     fun shareConnectDark() = shot("share_connect_dark", dark = true) {
         io.github.xiaohaoz1.jiarenxia.ui.mine.ShareConnectContent(onBack = {})
     }.also {
-        assertTexts("碰一碰 · 实验功能", "尚未完成双机实测", "结为夫妻", "祝福语")
+        assertTexts("碰一碰 · 实验功能", "如果连接不上，请按提示交换连接方式", "结为夫妻", "祝福语")
     }
 
     @Test
@@ -1596,7 +1596,7 @@ class ScreenShotsTest {
     fun shareConnectLarge() = shotLarge("share_connect") {
         io.github.xiaohaoz1.jiarenxia.ui.mine.ShareConnectContent(onBack = {})
     }.also {
-        assertTexts("碰一碰 · 实验功能", "尚未完成双机实测", "结为夫妻", "祝福语")
+        assertTexts("碰一碰 · 实验功能", "如果连接不上，请按提示交换连接方式", "结为夫妻", "祝福语")
     }
 
     @Test
