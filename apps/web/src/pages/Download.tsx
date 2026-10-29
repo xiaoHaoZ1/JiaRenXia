@@ -73,7 +73,7 @@ export default function Download() {
         <a href={SITE.guardianSourceUrl} target="_blank" rel="noopener">守护侠</a>。
       </p>
       <p className="muted">
-        守护功能由独立应用「守护侠」提供（测试版，可在<Link to="/extensions">「小侠家族」</Link>页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先用「测试模式」走一遍流程，确认能响能拨，再放心交给它。
+        守护功能由独立应用「守护侠」提供（测试版，可在<Link to="/extensions">「小侠家族」</Link>页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先做一次「实机演练」走一遍流程，确认能响能拨，再放心交给它。
       </p>
       <p className="muted">家人侠完全免费：所有功能，包括导出表格和高清关系图，不收取任何费用。</p>
     </>

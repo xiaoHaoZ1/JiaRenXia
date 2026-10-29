@@ -48,15 +48,15 @@ export const EXTENSIONS = [
     description:
       "装在长辈手机上：锁屏后太久没人用手机，先响铃请 TA 确认；没人应答就自动打给紧急联系人，" +
       "还能每天发一条平安短信。不联网、不注册，设置只存在这台手机里。",
-    version: "1.0.2",
-    released: "2026-10-23",
-    whatsNew: "首页只保留一个设置入口",
-    sizeBytes: 1_597_039,
-    sha256: "5d9a56ecdb687008c81eb240b61ee3ff79328db368074b766b576d0daa25142b",
+    version: "1.1.0",
+    released: "2026-10-29",
+    whatsNew: "首页四步设置向导 + 实机演练；可设 1–3 位紧急联系人，报警先群发短信再依次拨号",
+    sizeBytes: 1_670_331,
+    sha256: "92c075ac67dbac7e8bd0ea18e12c5aa8637877435e39696f2568016dbe874cea",
     /** 安装包地址：下载服务按版本命名 */
-    file: `${DOWNLOAD_BASE}/shouhuxia-1.0.2.apk`,
+    file: `${DOWNLOAD_BASE}/shouhuxia-1.1.0.apk`,
     minAndroid: "8.0",
-    note: "测试版：装好后请先打开「测试模式」走一遍，确认能响铃、能拨通，再开启守护。目前仍在真机测试，暂不建议作为唯一的安全保障。",
+    note: "测试版：装好后请先按首页向导做一次「实机演练」，确认能响铃、能发短信、能拨通，再开启守护。目前仍在真机测试，暂不建议作为唯一的安全保障。",
   },
   {
     id: "pengyouxia",
