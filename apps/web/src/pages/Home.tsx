@@ -4,10 +4,11 @@
 import { Link } from "react-router";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
+import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { SITE } from "../site";
 import homeShot from "../assets/shots/home.png";
-import graphShot from "../assets/shots/graph.png";
+import zhudiFamilyWide from "../assets/shots/zhudi-family-wide.jpg";
 import heroFam1200 from "../assets/photos/hero-family-1200.webp";
 import heroFam760 from "../assets/photos/hero-family-760.webp";
 import dinner1536 from "../assets/photos/dinner-1536.webp";
@@ -204,20 +205,37 @@ function Scenes() {
 }
 
 const FAMILY_POINTS: [IconName, string, string][] = [
-  ["tree", "关系图", "可以只看父系、母系或配偶一支，也能导出图片发到家里群。"],
+  ["tree", "真实的一家人", "不是临时输入关系链；录入一次，父母两边和配偶两边都留在图里。"],
   ["title", "称谓", "信息不够不乱猜；家里叫法不同，可以自己改。"],
   ["share", "分享给家人", "把家人档案发过去，对方选“我是谁”，称谓换成他的叫法。"],
 ];
 
 function Family() {
+  const graphScrollRef = useRef<HTMLDivElement>(null);
+
+  const centerGraph = () => {
+    const viewport = graphScrollRef.current;
+    if (!viewport || viewport.scrollWidth <= viewport.clientWidth) return;
+
+    // 窄屏首次显示时对准“我”，避免用户先看到关系图左侧的大块留白。
+    viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) * 0.57;
+  };
+
+  useEffect(() => {
+    centerGraph();
+  }, []);
+
   return (
     <section className="home-family" aria-labelledby="family-h">
       <div className="family-copy">
-        <span className="kicker"><Icon name="tree" size={16} />一家人</span>
-        <h2 id="family-h"><Phrases text="一家人，都在这张图里" /></h2>
-        <p className="family-lead">
-          <Phrases text="谁是谁、该怎么叫，打开就知道。全家按辈分排开，称谓自动算好；分享给家里人，换成他自己的叫法。" />
-        </p>
+        <div className="family-intro">
+          <span className="kicker"><Icon name="tree" size={16} />一家人</span>
+          <h2 id="family-h"><Phrases text="家里谁是谁，一张图认全" /></h2>
+          <p className="family-lead">
+            <Phrases text="父母两边、配偶两边、兄弟姐妹和孩子，按辈分排在一起。点到谁，就能看见名字、称谓和他在家里的位置。" />
+          </p>
+          <Link className="family-more" to="/help#kinship">看看称谓是怎么算的 →</Link>
+        </div>
         <ul className="feature-list">
           {FAMILY_POINTS.map(([icon, t, d]) => (
             <li key={t}>
@@ -229,12 +247,30 @@ function Family() {
             </li>
           ))}
         </ul>
-        <Link className="family-more" to="/help#kinship">看看称谓是怎么算的 →</Link>
       </div>
-      <div className="family-visual">
-        <Phone className="phone-sm" src={graphShot}
-               alt="家庭关系图截图：按辈分排开的家人，含父母、舅舅、岳父岳母、兄弟姐妹、配偶和子女" />
-      </div>
+      <figure className="family-showcase">
+        <div
+          ref={graphScrollRef}
+          className="family-shot-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="横屏家庭关系图，窄屏设备可以左右滑动查看"
+        >
+          <img
+            src={zhudiFamilyWide}
+            width={2712}
+            height={1220}
+            alt="家人侠横屏关系图示例：以朱棣为中心，按辈分展示父母、配偶、子女、姻亲和后代"
+            loading="lazy"
+            decoding="async"
+            onLoad={centerGraph}
+          />
+        </div>
+        <figcaption>
+          应用内置的明朝演示家庭，不对应真实用户资料。
+          <span>手机端可左右滑动查看完整关系图。</span>
+        </figcaption>
+      </figure>
     </section>
   );
 }
