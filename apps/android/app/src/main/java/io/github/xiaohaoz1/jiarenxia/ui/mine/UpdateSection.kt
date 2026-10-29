@@ -195,18 +195,27 @@ fun UpdateDialogs(vm: UpdateViewModel) {
 
     // 下载进度
     progress?.let { p ->
+        val total = p.totalBytes
+        val percent = if (total != null && total > 0)
+            (p.downloadedBytes.toFloat() / total).coerceIn(0f, 1f) else null
         AlertDialog(
             onDismissRequest = {},
             title = { Text("正在下载更新") },
             text = {
                 Column {
-                    LinearProgressIndicator(
-                        progress = { p },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (percent != null) {
+                        LinearProgressIndicator(
+                            progress = { percent },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "${(p * 100).toInt()}%",
+                        downloadProgressText(p),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -249,4 +258,16 @@ fun UpdateSwitchCard(
             onCheckedChange = onCheckedChange
         )
     }
+}
+
+/** 「正在下载更新」副文案：已下载/总大小（MB）+ 平均速度。 */
+private fun downloadProgressText(
+    p: io.github.xiaohaoz1.jiarenxia.data.update.UpdateDownloader.Progress
+): String {
+    fun mb(v: Long) = String.format(Locale.US, "%.1f", v / 1_000_000.0)
+    val total = p.totalBytes
+    val size = if (total != null && total > 0)
+        "已下载 " + mb(p.downloadedBytes) + " MB / 共 " + mb(total) + " MB"
+    else "已下载 " + mb(p.downloadedBytes) + " MB"
+    return size + " · " + mb(p.bytesPerSecond) + " MB/s"
 }

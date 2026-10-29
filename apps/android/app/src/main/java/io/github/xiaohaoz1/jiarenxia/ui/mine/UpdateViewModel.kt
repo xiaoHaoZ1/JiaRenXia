@@ -54,7 +54,7 @@ class UpdateViewModel @Inject constructor(
     val foundRelease = MutableStateFlow<LatestRelease?>(null)
     val checkError = MutableStateFlow<String?>(null)
     val toast = MutableStateFlow<String?>(null)
-    val downloadProgress = MutableStateFlow<Float?>(null)
+    val downloadProgress = MutableStateFlow<UpdateDownloader.Progress?>(null)
     val downloadedApk = MutableStateFlow<File?>(null)
 
     fun setEnabled(v: Boolean) {
@@ -96,7 +96,8 @@ class UpdateViewModel @Inject constructor(
 
     fun startDownload(release: LatestRelease) {
         if (downloadJob?.isActive == true) return
-        downloadProgress.value = 0f
+        downloadProgress.value = UpdateDownloader.Progress(
+            0L, release.sizeBytes.takeIf { it > 0 }, 0L)
         downloadJob = viewModelScope.launch {
             try {
                 val f = downloader.download(release) { downloadProgress.value = it }

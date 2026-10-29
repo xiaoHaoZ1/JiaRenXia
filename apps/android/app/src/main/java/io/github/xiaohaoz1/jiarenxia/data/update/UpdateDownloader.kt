@@ -26,54 +26,89 @@ class UpdateDownloader @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
+    /** 下载进度：已下载字节、总字节（未知为 null）、当前平均速度（字节/秒）。 */
+    data class Progress(
+        val downloadedBytes: Long,
+        val totalBytes: Long?,
+        val bytesPerSecond: Long,
+    )
+
     /**
      * 下载安装包并校验；成功返回本地文件，失败抛异常并清理残件。
-     * 网络类失败自动重试 [MAX_ATTEMPTS] 次（官网走隧道回源，偶发抖动是常态）；
+     * 网络类失败自动重试 [MAX_ATTEMPTS] 次（官网走隧道回源，偶发抖动是常态），
+     * 重试经 HTTP Range 从已下载处续传，进度不回退（dl Worker 支持范围请求）；
      * 校验值对不上说明包与清单不符，重试无意义、直接失败。
-     * [onProgress] 收 0f..1f 进度（主线程回调由调用方决定；重试会从 0 重新计）。
+     * [onProgress] 收整体进度（含已续传字节；主线程回调由调用方决定）。
      */
     suspend fun download(
         release: LatestRelease,
-        onProgress: (Float) -> Unit,
+        onProgress: (Progress) -> Unit,
     ): File = withContext(Dispatchers.IO) {
-        var last: Exception? = null
-        for (i in 0 until MAX_ATTEMPTS) {
-            try {
-                return@withContext attempt(release, onProgress)
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                last = e
-                if (e is UpdateException && !e.retryable) throw e
-            }
-            if (i < MAX_ATTEMPTS - 1) delay(RETRY_DELAYS_MS[i])
-        }
-        throw last ?: UpdateException("下载失败")
-    }
-
-    /** 单次下载尝试：连接→写盘→边下边算校验值。 */
-    private suspend fun attempt(
-        release: LatestRelease,
-        onProgress: (Float) -> Unit,
-    ): File {
         val dir = File(context.cacheDir, "update").apply { mkdirs() }
         // 清掉旧版本的包/残件，磁盘里只留当前这一个
         dir.listFiles()?.filter { it.name.startsWith("jrx-") }?.forEach { it.delete() }
         val target = File(dir, "jrx-${release.versionName}.apk")
         val tmp = File(dir, "${target.name}.part")
+        var last: Exception? = null
+        var got = 0L
+        for (i in 0 until MAX_ATTEMPTS) {
+            try {
+                return@withContext attempt(release, tmp, target, got) { p ->
+                    got = p.downloadedBytes
+                    onProgress(p)
+                }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                tmp.delete()
+                throw e
+            } catch (e: Exception) {
+                last = e
+                if (e is UpdateException && !e.retryable) {
+                    tmp.delete(); target.delete()
+                    throw e
+                }
+            }
+            if (i < MAX_ATTEMPTS - 1) delay(RETRY_DELAYS_MS[i])
+        }
+        tmp.delete()
+        throw last ?: UpdateException("下载失败")
+    }
+
+    /**
+     * 单次下载尝试：连接→写盘→边下边算校验值。
+     * [resumeFrom] 为此前尝试已写入 [tmp] 的字节数：非零且服务端认 Range
+     * （返回 206）时续写，否则从头覆盖。
+     */
+    private suspend fun attempt(
+        release: LatestRelease,
+        tmp: File,
+        target: File,
+        resumeFrom: Long,
+        onProgress: (Progress) -> Unit,
+    ): File {
         val conn = URL(release.url).openConnection() as HttpURLConnection
         return try {
             conn.connectTimeout = 15_000
             conn.readTimeout = 45_000
-            if (conn.responseCode != HttpURLConnection.HTTP_OK) {
-                throw UpdateException("下载失败（${conn.responseCode}）")
+            if (resumeFrom > 0 && tmp.isFile && tmp.length() == resumeFrom) {
+                conn.setRequestProperty("Range", "bytes=" + resumeFrom + "-")
             }
+            val code = conn.responseCode
+            if (code != HttpURLConnection.HTTP_OK &&
+                code != HttpURLConnection.HTTP_PARTIAL) {
+                throw UpdateException("下载失败（" + code + "）")
+            }
+            // 服务端认 Range 才续传；忽略 Range 回 200 则从头重写
+            val resuming = resumeFrom > 0 && code == HttpURLConnection.HTTP_PARTIAL
+            var got = if (resuming) resumeFrom else 0L
             val digest = MessageDigest.getInstance("SHA-256")
+            // 续传段之前的字节先喂进摘要，保证校验覆盖完整文件
+            if (resuming) digest.update(tmp.readBytes())
             val total = release.sizeBytes.takeIf { it > 0 }
-                ?: conn.contentLength.toLong().takeIf { it > 0 }
-            var got = 0L
+                ?: if (resuming) resumeFrom + conn.contentLength.toLong()
+                else conn.contentLength.toLong().takeIf { it > 0 }
+            val startedNanos = System.nanoTime()
             conn.inputStream.use { input ->
-                tmp.outputStream().use { out ->
+                java.io.FileOutputStream(tmp, resuming).use { out ->
                     val buf = ByteArray(64 * 1024)
                     while (true) {
                         coroutineContext.ensureActive()
@@ -82,9 +117,13 @@ class UpdateDownloader @Inject constructor(
                         out.write(buf, 0, n)
                         digest.update(buf, 0, n)
                         got += n
-                        if (total != null && total > 0) {
-                            onProgress((got.toFloat() / total).coerceIn(0f, 1f))
-                        }
+                        val elapsed = System.nanoTime() - startedNanos
+                        // 速度只按本次尝试实际传输的字节计，续传段不算
+                        val fresh = got - (if (resuming) resumeFrom else 0L)
+                        val bps =
+                            if (elapsed > 0) (fresh * 1_000_000_000L / elapsed)
+                            else 0L
+                        onProgress(Progress(got, total, bps))
                     }
                 }
             }
@@ -99,10 +138,8 @@ class UpdateDownloader @Inject constructor(
             }
             target
         } catch (e: UpdateException) {
-            tmp.delete(); target.delete()
             throw e
         } catch (e: Exception) {
-            tmp.delete(); target.delete()
             if (e is kotlinx.coroutines.CancellationException) throw e
             throw UpdateException("下载失败", e)
         } finally {
