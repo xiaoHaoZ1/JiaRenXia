@@ -129,8 +129,8 @@ const VIEWS: Record<ViewId, DemoView> = {
     label: "配偶父系", description: "岳父徐达一侧：徐皇后和她的弟弟、妹妹。", focus: "xuda",
     nodes: [
       { id: "xuda", x: 440, y: 85 }, { id: "xieshi", x: 560, y: 85 },
-      { id: "xuhou", x: 260, y: 260 }, { id: "xuhuizu", x: 455, y: 260 },
-      { id: "xuzengshou", x: 650, y: 260 }, { id: "xushi", x: 845, y: 260 }, { id: "zhudi", x: 260, y: 440 },
+      { id: "zhudi", x: 120, y: 260 }, { id: "xuhou", x: 260, y: 260 },
+      { id: "xuhuizu", x: 455, y: 260 }, { id: "xuzengshou", x: 650, y: 260 }, { id: "xushi", x: 845, y: 260 },
     ],
     edges: [
       { from: "xuda", to: "xieshi", kind: "spouse" },
@@ -143,8 +143,8 @@ const VIEWS: Record<ViewId, DemoView> = {
     label: "配偶母系", description: "岳母谢氏一侧：同一组儿女，换到配偶母系视角查看。", focus: "xieshi",
     nodes: [
       { id: "xuda", x: 440, y: 85 }, { id: "xieshi", x: 560, y: 85 },
-      { id: "xuhou", x: 260, y: 260 }, { id: "xuhuizu", x: 455, y: 260 },
-      { id: "xuzengshou", x: 650, y: 260 }, { id: "xushi", x: 845, y: 260 }, { id: "zhudi", x: 260, y: 440 },
+      { id: "zhudi", x: 120, y: 260 }, { id: "xuhou", x: 260, y: 260 },
+      { id: "xuhuizu", x: 455, y: 260 }, { id: "xuzengshou", x: 650, y: 260 }, { id: "xushi", x: 845, y: 260 },
     ],
     edges: [
       { from: "xuda", to: "xieshi", kind: "spouse" },
