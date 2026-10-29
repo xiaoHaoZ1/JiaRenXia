@@ -4,16 +4,15 @@
 import { Link } from "react-router";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
-import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { SITE } from "../site";
 import homeShot from "../assets/shots/home.png";
-import zhudiFamilyWide from "../assets/shots/zhudi-family-wide.jpg";
 import heroFam1200 from "../assets/photos/hero-family-1200.webp";
 import heroFam760 from "../assets/photos/hero-family-760.webp";
 import dinner1536 from "../assets/photos/dinner-1536.webp";
 import dinner900 from "../assets/photos/dinner-900.webp";
 import shouhuxiaIcon from "../assets/shouhuxia-icon.png";
+import FamilyGraphDemo from "./FamilyGraphDemo";
 import "./home.css";
 
 /** 按标点（、，；。：？）拆成短语，只在短语之间换行，避免句中断开或末尾单独剩一个字。 */
@@ -211,20 +210,6 @@ const FAMILY_POINTS: [IconName, string, string][] = [
 ];
 
 function Family() {
-  const graphScrollRef = useRef<HTMLDivElement>(null);
-
-  const centerGraph = () => {
-    const viewport = graphScrollRef.current;
-    if (!viewport || viewport.scrollWidth <= viewport.clientWidth) return;
-
-    // 窄屏首次显示时对准“我”，避免用户先看到关系图左侧的大块留白。
-    viewport.scrollLeft = (viewport.scrollWidth - viewport.clientWidth) * 0.57;
-  };
-
-  useEffect(() => {
-    centerGraph();
-  }, []);
-
   return (
     <section className="home-family" aria-labelledby="family-h">
       <div className="family-copy">
@@ -248,29 +233,7 @@ function Family() {
           ))}
         </ul>
       </div>
-      <figure className="family-showcase">
-        <div
-          ref={graphScrollRef}
-          className="family-shot-scroll"
-          tabIndex={0}
-          role="region"
-          aria-label="横屏家庭关系图，窄屏设备可以左右滑动查看"
-        >
-          <img
-            src={zhudiFamilyWide}
-            width={2712}
-            height={1220}
-            alt="家人侠横屏关系图示例：以朱棣为中心，按辈分展示父母、配偶、子女、姻亲和后代"
-            loading="lazy"
-            decoding="async"
-            onLoad={centerGraph}
-          />
-        </div>
-        <figcaption>
-          应用内置的明朝演示家庭，不对应真实用户资料。
-          <span>手机端可左右滑动查看完整关系图。</span>
-        </figcaption>
-      </figure>
+      <FamilyGraphDemo />
     </section>
   );
 }
