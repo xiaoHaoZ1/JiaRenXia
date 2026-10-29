@@ -11,17 +11,17 @@ export const SITE = {
   /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
   guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.1.5",
+  apkVersion: "2.1.6",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 54,
+  apkVersionCode: 55,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "移除「家庭协作」：反复补充的多人协作流程实际无人使用，整体下线，分享给家人与碰一碰照常使用；新增兄弟姐妹排行：编辑人物可填「在兄弟姐妹中排第几」，不知道生日时关系图与家庭页子女按老大、老二顺序排列。",
+  apkNotes: "字号随意调：外观与字号页字体大小改为 85%–160% 连续滑杆；下载更新更直观：进度弹窗显示已下载、总大小与实时网速，断线自动续传、进度不回退，重试会提示进行第几次尝试。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
-  apkSizeBytes: 3_650_047,
-  apkSha256: "238587b2deeee08dce1551076dc5923dea0709c41eb58b41c543799b4cbecbb6",
+  apkSizeBytes: 3_666_431,
+  apkSha256: "76c76d8ff5682b9c7a3351f7839ca3ce62f6e55abab0bfaa8f727eedd30860ce",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.5.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.1.6.apk`,
 };
 
 /** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
