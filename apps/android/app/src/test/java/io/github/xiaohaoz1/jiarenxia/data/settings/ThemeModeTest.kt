@@ -50,15 +50,27 @@ class ThemeModeTest {
 
     @Test
     fun 字体大小默认标准() = runBlocking {
-        assertEquals(FontScaleLevel.STANDARD, repo.fontScaleLevel.first())
+        assertEquals(1.0f, repo.fontScaleFactor.first(), 0.001f)
     }
 
     @Test
     fun 字体大小切换并持久化() = runBlocking {
-        repo.setFontScaleLevel(FontScaleLevel.EXTRA_LARGE)
-        assertEquals(FontScaleLevel.EXTRA_LARGE, repo.fontScaleLevel.first())
-        repo.setFontScaleLevel(FontScaleLevel.LARGE)
-        assertEquals(FontScaleLevel.LARGE, repo.fontScaleLevel.first())
+        repo.setFontScaleFactor(1.45f)
+        assertEquals(1.45f, repo.fontScaleFactor.first(), 0.001f)
+        repo.setFontScaleFactor(0.9f)
+        assertEquals(0.9f, repo.fontScaleFactor.first(), 0.001f)
+    }
+
+    @Test
+    fun 字体大小越界被夹在可调范围内() = runBlocking {
+        repo.setFontScaleFactor(9f)
+        assertEquals(
+            io.github.xiaohaoz1.jiarenxia.data.settings.MAX_FONT_SCALE_FACTOR,
+            repo.fontScaleFactor.first(), 0.001f)
+        repo.setFontScaleFactor(0.1f)
+        assertEquals(
+            io.github.xiaohaoz1.jiarenxia.data.settings.MIN_FONT_SCALE_FACTOR,
+            repo.fontScaleFactor.first(), 0.001f)
     }
 
     @Test

@@ -79,11 +79,9 @@ class BackupManagerTest : RepoTestBase() {
             _notif.value = requested
         }
         override val themeMode: Flow<ThemeMode> = _theme
-        override val fontScaleLevel = kotlinx.coroutines.flow.MutableStateFlow(
-            io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD
-        )
-        override suspend fun setFontScaleLevel(l: io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel) {
-            fontScaleLevel.value = l
+        override val fontScaleFactor = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+        override suspend fun setFontScaleFactor(f: Float) {
+            fontScaleFactor.value = f
         }
         override suspend fun setThemeMode(mode: ThemeMode) { _theme.value = mode }
         override val reminderMinuteOfDay = kotlinx.coroutines.flow.MutableStateFlow(540)
@@ -131,9 +129,7 @@ class BackupManagerTest : RepoTestBase() {
         repo.setSiblingAgeOrder(broRel.id, bro, RelativeAgeOrder.OLDER)
         // 自定义称呼（schemaVersion 3）：给“哥”设“老舅”，验证备份往返
         repo.setCustomTitle(bro, "老舅")
-        fakeSettings.setFontScaleLevel(
-            io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.LARGE
-        )
+        fakeSettings.setFontScaleFactor(1.15f)
         repo.createRelative(
             PersonDraft("妈", Gender.FEMALE), me, RelationRole.MOTHER
         ).ok()
@@ -402,24 +398,19 @@ class BackupManagerTest : RepoTestBase() {
         val plain = BackupCrypto.decrypt(out.toByteArray(), pw)
         val plan = BackupJson.parsePlan(plain)
         assertEquals(11, io.github.xiaohaoz1.jiarenxia.data.backup.BackupJson.SCHEMA_VERSION)
-        // 字体级别随设置往返
-        assertEquals("LARGE", plan.settings?.fontScale)
+        // 字号系数随设置往返（新格式为数值串）
+        assertEquals("1.15", plan.settings?.fontScale)
         assertEquals(1, plan.customTitles.size)
         assertEquals("老舅", plan.customTitles[0].title)
         assertEquals(me, plan.customTitles[0].observerPersonId)
         // 恢复后内容与表快照一致（sortedAll 已含 customTitles 比对）
-        fakeSettings.setFontScaleLevel(
-            io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD
-        )
+        fakeSettings.setFontScaleFactor(1.0f)
         backup.restore(plan)
         assertEquals(
             setOf("老舅"),
             db.customTitleDao().getAll().map { it.title }.toSet()
         )
-        assertEquals(
-            io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.LARGE,
-            fakeSettings.fontScaleLevel.value
-        )
+        assertEquals(1.15f, fakeSettings.fontScaleFactor.value, 0.001f)
     }
 
     /** 旧版备份里的称谓叫法字段：解析保留、恢复时忽略（该设置已移除）。 */

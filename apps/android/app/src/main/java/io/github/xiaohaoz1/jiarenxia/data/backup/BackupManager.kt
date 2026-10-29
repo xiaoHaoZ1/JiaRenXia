@@ -78,7 +78,9 @@ class BackupManager @Inject constructor(
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
                     remindersEnabled = settings.remindersEnabled.first(),
-                    fontScale = settings.fontScaleLevel.first().name,
+                    fontScale = String.format(
+                        java.util.Locale.US, "%.2f",
+                        settings.fontScaleFactor.first()),
                     reminderMinuteOfDay = settings.reminderMinuteOfDay.first(),
                     taskReminderMinuteOfDay = settings.taskReminderMinuteOfDay.first(),
                     contactReminderMinuteOfDay =
@@ -250,14 +252,14 @@ class BackupManager @Inject constructor(
         plan.settings?.let {
             settings.setThemeMode(it.themeMode)
             settings.setRemindersEnabled(it.remindersEnabled)
-            // 字体级别可选且向前兼容：缺失或未知一律回退“标准”
+            // 字号系数可选且向前兼容：新格式为数值串（"1.15"），
+            // 旧备份为档位名（LARGE 等）；缺失或未知一律回退标准
             it.fontScale?.let { v ->
-                settings.setFontScaleLevel(
-                    runCatching {
-                        io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.valueOf(v)
-                    }.getOrDefault(
-                        io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD
-                    )
+                settings.setFontScaleFactor(
+                    v.toFloatOrNull()
+                        ?: io.github.xiaohaoz1.jiarenxia.data.settings
+                            .legacyFontScaleFactor(v)
+                        ?: 1.0f
                 )
             }
             // 提醒时间同样可选：缺失或越界保留当前设置

@@ -48,7 +48,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
-import io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.ui.backup.BackupExportDialogs
 import io.github.xiaohaoz1.jiarenxia.ui.backup.BackupExportStep
@@ -107,7 +106,7 @@ fun MineScreen(
         self = st.self,
         lastBackupAt = st.lastBackupAt,
         themeMode = st.themeMode,
-        fontScaleLevel = st.fontScaleLevel,
+        fontScaleFactor = st.fontScaleFactor,
         onOpenPerson = onOpenPerson,
         onBackup = viewModel.backupExport::start,
         onDataManage = onDataManage,
@@ -147,7 +146,7 @@ fun MineContent(
     self: Person?,
     lastBackupAt: Long? = null,
     themeMode: ThemeMode = ThemeMode.LIGHT,
-    fontScaleLevel: FontScaleLevel = FontScaleLevel.STANDARD,
+    fontScaleFactor: Float = 1.0f,
     onOpenPerson: (String) -> Unit = {},
     onBackup: () -> Unit = {},
     onDataManage: () -> Unit = {},
@@ -247,7 +246,7 @@ fun MineContent(
                     SettingsNavRow(
                         icon = Icons.Rounded.TextFields,
                         title = "外观与字号",
-                        value = appearanceSummary(themeMode, fontScaleLevel),
+                        value = appearanceSummary(themeMode, fontScaleFactor),
                         onClick = onAppearance
                     )
                     RowDivider()
@@ -293,18 +292,15 @@ fun MineContent(
     }
 }
 
-/** 「外观与字号」行尾摘要，如「跟随系统 · 标准」。 */
-private fun appearanceSummary(mode: ThemeMode, level: FontScaleLevel): String {
+/** 「外观与字号」行尾摘要，如「跟随系统 · 标准」「深色 · 字号 115%」。 */
+private fun appearanceSummary(mode: ThemeMode, factor: Float): String {
     val m = when (mode) {
         ThemeMode.LIGHT -> "浅色"
         ThemeMode.DARK -> "深色"
         ThemeMode.SYSTEM -> "跟随系统"
     }
-    val l = when (level) {
-        FontScaleLevel.STANDARD -> "标准"
-        FontScaleLevel.LARGE -> "大"
-        FontScaleLevel.EXTRA_LARGE -> "特大"
-    }
+    val l = if (factor == 1.0f) "标准"
+        else "字号 " + kotlin.math.round(factor * 100).toInt() + "%"
     return m + " · " + l
 }
 

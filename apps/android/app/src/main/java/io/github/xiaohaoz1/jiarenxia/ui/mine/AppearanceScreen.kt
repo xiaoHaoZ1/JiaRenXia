@@ -9,16 +9,22 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
+import io.github.xiaohaoz1.jiarenxia.data.settings.MAX_FONT_SCALE_FACTOR
+import io.github.xiaohaoz1.jiarenxia.data.settings.MIN_FONT_SCALE_FACTOR
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
+import kotlin.math.roundToInt
 
 /** 外观与字号（我的 → 二级页）：深浅模式 + 桌面插件配色 + 应用内字体大小。 */
 @Composable
@@ -30,10 +36,10 @@ fun AppearanceScreen(
     AppearanceContent(
         themeMode = st.themeMode,
         widgetThemeMode = st.widgetThemeMode,
-        fontScaleLevel = st.fontScaleLevel,
+        fontScaleFactor = st.fontScaleFactor,
         onThemeMode = viewModel::setThemeMode,
         onWidgetThemeMode = viewModel::setWidgetThemeMode,
-        onFontScale = viewModel::setFontScaleLevel,
+        onFontScale = viewModel::setFontScaleFactor,
         onBack = onBack
     )
 }
@@ -42,10 +48,10 @@ fun AppearanceScreen(
 fun AppearanceContent(
     themeMode: ThemeMode,
     widgetThemeMode: WidgetThemeMode,
-    fontScaleLevel: FontScaleLevel,
+    fontScaleFactor: Float,
     onThemeMode: (ThemeMode) -> Unit,
     onWidgetThemeMode: (WidgetThemeMode) -> Unit,
-    onFontScale: (FontScaleLevel) -> Unit,
+    onFontScale: (Float) -> Unit,
     onBack: () -> Unit
 ) {
     SettingsScaffold("外观与字号", onBack) {
@@ -92,29 +98,31 @@ fun AppearanceContent(
         }
 
         SettingsGroup("字体大小") {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                FontScaleLevel.entries.forEachIndexed { i, l ->
-                    SegmentedButton(
-                        selected = fontScaleLevel == l,
-                        onClick = { onFontScale(l) },
-                        shape = SegmentedButtonDefaults.itemShape(i, FontScaleLevel.entries.size)
-                    ) {
-                        Text(
-                            when (l) {
-                                FontScaleLevel.STANDARD -> "标准"
-                                FontScaleLevel.LARGE -> "大"
-                                FontScaleLevel.EXTRA_LARGE -> "特大"
-                            }
-                        )
-                    }
-                }
+            // 5% 步进：拖动即时改示例与百分比，松手写设置、全 App 生效
+            var slider by remember(fontScaleFactor) {
+                mutableFloatStateOf(fontScaleFactor)
             }
+            Text(
+                "字号 " + (slider * 100).roundToInt() + "%",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Slider(
+                value = slider,
+                onValueChange = { slider = it },
+                onValueChangeFinished = { onFontScale(slider) },
+                valueRange = MIN_FONT_SCALE_FACTOR..MAX_FONT_SCALE_FACTOR,
+                steps = ((MAX_FONT_SCALE_FACTOR - MIN_FONT_SCALE_FACTOR) * 20)
+                    .roundToInt() - 1
+            )
             Spacer(Modifier.height(10.dp))
-            // 这段文字本身随设置变化，改完立刻能看出效果
             Column(Modifier.fillMaxWidth().padding(top = 2.dp)) {
-                Text("示例：妈妈的生日还有 3 天", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    "在手机系统字号之上再放大，最大约两倍。",
+                    "示例：妈妈的生日还有 3 天",
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontSize = MaterialTheme.typography.bodyLarge.fontSize * slider)
+                )
+                Text(
+                    "在手机系统字号之上再调整，85%–160%。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

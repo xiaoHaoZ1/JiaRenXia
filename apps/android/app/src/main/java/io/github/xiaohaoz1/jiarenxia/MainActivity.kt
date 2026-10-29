@@ -57,9 +57,8 @@ class MainActivity : ComponentActivity() {
     /** 外观模式（默认 LIGHT，DataStore 值到达后立即生效）。 */
     private val themeMode = MutableStateFlow(ThemeMode.LIGHT)
 
-    /** 字体大小级别（默认标准，与 themeMode 同样的 StateFlow 方式避免闪屏）。 */
-    private val fontLevel =
-        MutableStateFlow(io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD)
+    /** 应用内字号系数（默认 1.0，与 themeMode 同样的 StateFlow 方式避免闪屏）。 */
+    private val fontFactor = MutableStateFlow(1.0f)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
@@ -72,10 +71,10 @@ class MainActivity : ComponentActivity() {
         pendingTab.value = intent.getStringExtra(EXTRA_TAB)
         resolveShareIntent(intent)
         lifecycleScope.launch { settings.themeMode.collect { themeMode.value = it } }
-        lifecycleScope.launch { settings.fontScaleLevel.collect { fontLevel.value = it } }
+        lifecycleScope.launch { settings.fontScaleFactor.collect { fontFactor.value = it } }
         setContent {
             val mode by themeMode.collectAsStateWithLifecycle()
-            val level by fontLevel.collectAsStateWithLifecycle()
+            val factor by fontFactor.collectAsStateWithLifecycle()
             val dark = isJrxDarkTheme(mode)
             // 系统栏图标对比度随实际深浅切换（edge-to-edge 下状态栏/导航栏透明）
             androidx.compose.runtime.SideEffect {
@@ -86,10 +85,10 @@ class MainActivity : ComponentActivity() {
                     else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 )
             }
-            // 应用内字号：在系统 fontScale 之上乘级别系数（上限 2.0）
+            // 应用内字号：在系统 fontScale 之上乘设置系数（上限 2.0）
             CompositionLocalProvider(
                 LocalDensity provides with(LocalDensity.current) {
-                    Density(density, (fontScale * level.factor).coerceAtMost(2.0f))
+                    Density(density, (fontScale * factor).coerceAtMost(2.0f))
                 }
             ) {
             JiaRenXiaTheme(mode = mode) {

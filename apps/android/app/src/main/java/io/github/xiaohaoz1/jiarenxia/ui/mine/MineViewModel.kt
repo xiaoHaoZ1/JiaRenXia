@@ -6,7 +6,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
-import io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
 import io.github.xiaohaoz1.jiarenxia.domain.ClearAllDataUseCase
@@ -28,7 +27,8 @@ data class MineUiState(
     val themeMode: ThemeMode = ThemeMode.LIGHT,
     /** 桌面插件配色（跟随系统/浅色/深色），默认跟随系统。 */
     val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.SYSTEM,
-    val fontScaleLevel: FontScaleLevel = FontScaleLevel.STANDARD,
+    /** 应用内字号系数（相对系统字号），默认 1.0。 */
+    val fontScaleFactor: Float = 1.0f,
     val cleared: Boolean = false,
     /** 生日与纪念日提醒时刻（一天内分钟数，默认 09:00）。 */
     val reminderMinuteOfDay: Int = io.github.xiaohaoz1.jiarenxia.reminder.ReminderTiming.DEFAULT_MINUTE_OF_DAY,
@@ -87,9 +87,9 @@ class MineViewModel @Inject constructor(
 
     val ui: StateFlow<MineUiState> = combine(
         repository.observeSelf(), settings.remindersEnabled, settings.themeMode,
-        settings.fontScaleLevel, cleared
-    ) { self, enabled, mode, level, c ->
-        MineUiState(self, enabled, themeMode = mode, fontScaleLevel = level, cleared = c)
+        settings.fontScaleFactor, cleared
+    ) { self, enabled, mode, factor, c ->
+        MineUiState(self, enabled, themeMode = mode, fontScaleFactor = factor, cleared = c)
     }
         .combine(settings.taskRemindersEnabled) { st, t -> st.copy(taskRemindersEnabled = t) }
         .combine(settings.contactRemindersEnabled) { st, c ->
@@ -133,9 +133,9 @@ class MineViewModel @Inject constructor(
         viewModelScope.launch { settings.setWidgetThemeMode(mode) }
     }
 
-    /** 设置应用内字体大小级别（我的 → 外观）。 */
-    fun setFontScaleLevel(level: FontScaleLevel) {
-        viewModelScope.launch { settings.setFontScaleLevel(level) }
+    /** 设置应用内字号系数（我的 → 外观）。 */
+    fun setFontScaleFactor(factor: Float) {
+        viewModelScope.launch { settings.setFontScaleFactor(factor) }
     }
 
     /** 设置生日与纪念日提醒时间；调度由 ReminderSync 随设置变化重排。 */

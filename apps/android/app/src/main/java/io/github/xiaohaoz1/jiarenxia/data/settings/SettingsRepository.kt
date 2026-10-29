@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -76,9 +77,12 @@ interface SettingsRepository {
         kotlinx.coroutines.flow.flowOf(WidgetThemeMode.SYSTEM)
     suspend fun setWidgetThemeMode(mode: WidgetThemeMode) {}
 
-    /** 应用内字体大小级别，默认标准（叠加在系统字号之上）。 */
-    val fontScaleLevel: Flow<FontScaleLevel>
-    suspend fun setFontScaleLevel(level: FontScaleLevel)
+    /**
+     * 应用内字号系数（叠加在系统字号之上），默认 1.0，
+     * 在 [MIN_FONT_SCALE_FACTOR]–[MAX_FONT_SCALE_FACTOR] 内连续可调。
+     */
+    val fontScaleFactor: Flow<Float>
+    suspend fun setFontScaleFactor(factor: Float)
 
     /**
      * 上次成功导出备份的时刻（epoch 毫秒），从未备份过为 null。
@@ -156,9 +160,16 @@ enum class ThemeMode { LIGHT, DARK, SYSTEM }
 /** 桌面插件配色：跟随系统 / 浅色 / 深色。默认跟随系统。 */
 enum class WidgetThemeMode { SYSTEM, LIGHT, DARK }
 
-/** 应用内字体大小级别：在系统字号之上再乘以 factor。 */
-enum class FontScaleLevel(val factor: Float) {
-    STANDARD(1.0f), LARGE(1.15f), EXTRA_LARGE(1.3f)
+/** 应用内字号可调范围（相对系统字号的系数）。 */
+const val MIN_FONT_SCALE_FACTOR = 0.85f
+const val MAX_FONT_SCALE_FACTOR = 1.6f
+
+/** 旧档位名→系数：兼容旧设置值与旧备份文件（备份里字号是字符串）。 */
+fun legacyFontScaleFactor(name: String): Float? = when (name) {
+    "STANDARD" -> 1.0f
+    "LARGE" -> 1.15f
+    "EXTRA_LARGE" -> 1.3f
+    else -> null
 }
 
 @Singleton
@@ -176,7 +187,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
     private val keyWidgetThemeMode = stringPreferencesKey("widget_theme_mode")
-    private val keyFontScale = stringPreferencesKey("font_scale_level")
+    private val keyFontScaleFactor = floatPreferencesKey("font_scale_factor")
+    private val keyFontScale = stringPreferencesKey("font_scale_level") // 旧键：档位名
     private val keyContactReminders = booleanPreferencesKey("contact_reminders_enabled")
     private val keyLastBackupAt = longPreferencesKey("last_backup_at")
     private val keyTestTools = booleanPreferencesKey("test_tools_enabled")
@@ -265,15 +277,19 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[keyNotifRequested] = requested }
     }
 
-    override val fontScaleLevel: Flow<FontScaleLevel> =
+    override val fontScaleFactor: Flow<Float> =
         dataStore.data.map {
-            it[keyFontScale]?.let { v ->
-                runCatching { FontScaleLevel.valueOf(v) }.getOrNull()
-            } ?: FontScaleLevel.STANDARD
+            it[keyFontScaleFactor]
+                ?: it[keyFontScale]?.let(::legacyFontScaleFactor)
+                ?: 1.0f
         }
 
-    override suspend fun setFontScaleLevel(level: FontScaleLevel) {
-        dataStore.edit { it[keyFontScale] = level.name }
+    override suspend fun setFontScaleFactor(factor: Float) {
+        dataStore.edit {
+            it[keyFontScaleFactor] =
+                factor.coerceIn(MIN_FONT_SCALE_FACTOR, MAX_FONT_SCALE_FACTOR)
+            it.remove(keyFontScale)
+        }
     }
 
     override val themeMode: Flow<ThemeMode> =

@@ -1,6 +1,5 @@
 package io.github.xiaohaoz1.jiarenxia.data
 
-import io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import kotlinx.coroutines.flow.Flow
@@ -42,8 +41,8 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setNotificationPermissionRequested(requested: Boolean) {}
     override val themeMode: Flow<ThemeMode> = MutableStateFlow(ThemeMode.LIGHT)
     override suspend fun setThemeMode(mode: ThemeMode) {}
-    override val fontScaleLevel = MutableStateFlow(FontScaleLevel.STANDARD)
-    override suspend fun setFontScaleLevel(level: FontScaleLevel) { fontScaleLevel.value = level }
+    override val fontScaleFactor = MutableStateFlow(1.0f)
+    override suspend fun setFontScaleFactor(factor: Float) { fontScaleFactor.value = factor }
     override val lastBackupAt = MutableStateFlow<Long?>(null)
     override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
     override val testToolsEnabled = MutableStateFlow(false)

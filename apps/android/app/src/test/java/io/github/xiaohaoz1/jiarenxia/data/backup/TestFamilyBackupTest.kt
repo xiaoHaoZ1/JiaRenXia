@@ -48,12 +48,8 @@ class TestFamilyBackupTest : RepoTestBase() {
         override suspend fun setNotificationPermissionRequested(requested: Boolean) {}
         override val themeMode: Flow<ThemeMode> = MutableStateFlow(ThemeMode.LIGHT)
         override suspend fun setThemeMode(mode: ThemeMode) {}
-        override val fontScaleLevel = MutableStateFlow(
-            io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD
-        )
-        override suspend fun setFontScaleLevel(
-            l: io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel
-        ) {}
+        override val fontScaleFactor = MutableStateFlow(1.0f)
+        override suspend fun setFontScaleFactor(f: Float) {}
         override val reminderMinuteOfDay = kotlinx.coroutines.flow.MutableStateFlow(540)
         override suspend fun setReminderMinuteOfDay(minute: Int) {
             reminderMinuteOfDay.value = minute

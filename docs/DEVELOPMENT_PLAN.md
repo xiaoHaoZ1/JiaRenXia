@@ -577,6 +577,29 @@
 - 保留：FamilyMerge（分享合并引擎）、person_alias、普通
   备份/分享/碰一碰、QuickSnapshotStore 手动存档。
 
+### 2.20 字号连续可调（V2.x）
+
+- 动机：字号只有标准/大/特大三档，"外观与字号"应允许随意
+  调整。
+- 模型：`fontScaleLevel: Flow<FontScaleLevel>`（枚举档）→
+  `fontScaleFactor: Flow<Float>`（连续系数），可调范围
+  0.85–1.6（MIN/MAX_FONT_SCALE_FACTOR）；MainActivity 仍按
+  fontScale×系数、上限 2.0 注入 LocalDensity。
+- 存储迁移：新键 `font_scale_factor`（float），旧键
+  `font_scale_level`（档位名）读取时经
+  `legacyFontScaleFactor` 换算，写入即移除。
+- 界面：分段按钮改 Slider（5% 步进），拖动时百分比与示例
+  文字即时缩放，松手才写设置；「我的」摘要按系数显示
+  「标准」或「字号 N%」。
+- 备份：`settings.fontScale` 仍为字符串，新写数值串
+  "1.15"；解析先按数值、再按旧档位名回退，缺失/未知回退
+  1.0。
+- 下载更新顺带修正（同一窗口期）：进度回调由裸 Float 改为
+  Progress（已下载/总量/网速/第几次尝试），弹窗显示 MB 与
+  MB/s；重试改为 HTTP Range 断点续传（dl Worker 本就支持
+  范围请求），进度不回退；退避期间显示"连接中断，进行第
+  N 次尝试…"。
+
 ## 3. 开发阶段
 
 每个阶段完成并验证后单独提交（提交说明使用中文）。

@@ -141,11 +141,9 @@ private class FakeSettings : SettingsRepository {
     override suspend fun setNotificationPermissionRequested(requested: Boolean) { notifRequested = requested }
     private val _themeMode = MutableStateFlow(io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT)
     override val themeMode: Flow<io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode> get() = _themeMode
-    override val fontScaleLevel = kotlinx.coroutines.flow.MutableStateFlow(
-        io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel.STANDARD
-    )
-    override suspend fun setFontScaleLevel(l: io.github.xiaohaoz1.jiarenxia.data.settings.FontScaleLevel) {
-        fontScaleLevel.value = l
+    override val fontScaleFactor = kotlinx.coroutines.flow.MutableStateFlow(1.0f)
+    override suspend fun setFontScaleFactor(f: Float) {
+        fontScaleFactor.value = f
     }
     override suspend fun setThemeMode(mode: io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode) { _themeMode.value = mode }
     override val reminderMinuteOfDay = MutableStateFlow(540)
