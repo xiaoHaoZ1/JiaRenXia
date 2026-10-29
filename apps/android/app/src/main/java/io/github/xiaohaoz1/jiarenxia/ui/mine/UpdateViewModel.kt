@@ -97,7 +97,9 @@ class UpdateViewModel @Inject constructor(
     fun startDownload(release: LatestRelease) {
         if (downloadJob?.isActive == true) return
         downloadProgress.value = UpdateDownloader.Progress(
-            0L, release.sizeBytes.takeIf { it > 0 }, 0L)
+            downloadedBytes = 0L,
+            totalBytes = release.sizeBytes.takeIf { it > 0 },
+            bytesPerSecond = 0L)
         downloadJob = viewModelScope.launch {
             try {
                 val f = downloader.download(release) { downloadProgress.value = it }

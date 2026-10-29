@@ -269,5 +269,7 @@ private fun downloadProgressText(
     val size = if (total != null && total > 0)
         "已下载 " + mb(p.downloadedBytes) + " MB / 共 " + mb(total) + " MB"
     else "已下载 " + mb(p.downloadedBytes) + " MB"
-    return size + " · " + mb(p.bytesPerSecond) + " MB/s"
+    return if (p.retrying)
+        size + " · 连接中断，进行第 " + p.attempt + " 次尝试…"
+    else size + " · " + mb(p.bytesPerSecond) + " MB/s"
 }

@@ -26,11 +26,17 @@ class UpdateDownloader @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
 
-    /** 下载进度：已下载字节、总字节（未知为 null）、当前平均速度（字节/秒）。 */
+    /**
+     * 下载进度：已下载字节、总字节（未知为 null）、当前平均速度（字节/秒）。
+     * [attempt] 为进行中的尝试序号（1 起）；[retrying] 表示上次尝试失败、
+     * 正在退避等待下一次连接，此间速度无意义。
+     */
     data class Progress(
         val downloadedBytes: Long,
         val totalBytes: Long?,
         val bytesPerSecond: Long,
+        val attempt: Int = 1,
+        val retrying: Boolean = false,
     )
 
     /**
@@ -51,10 +57,12 @@ class UpdateDownloader @Inject constructor(
         val tmp = File(dir, "${target.name}.part")
         var last: Exception? = null
         var got = 0L
+        var total: Long? = null
         for (i in 0 until MAX_ATTEMPTS) {
             try {
                 return@withContext attempt(release, tmp, target, got) { p ->
                     got = p.downloadedBytes
+                    total = p.totalBytes
                     onProgress(p)
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -67,7 +75,12 @@ class UpdateDownloader @Inject constructor(
                     throw e
                 }
             }
-            if (i < MAX_ATTEMPTS - 1) delay(RETRY_DELAYS_MS[i])
+            if (i < MAX_ATTEMPTS - 1) {
+                // 退避期间也要让用户看见在重试，而不是进度条无声停住
+                onProgress(
+                    Progress(got, total, 0L, attempt = i + 2, retrying = true))
+                delay(RETRY_DELAYS_MS[i])
+            }
         }
         tmp.delete()
         throw last ?: UpdateException("下载失败")
