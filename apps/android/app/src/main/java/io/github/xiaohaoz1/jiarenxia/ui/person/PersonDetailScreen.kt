@@ -865,6 +865,7 @@ fun PersonDetailContent(
                         // 记一次联系：方式胶囊 + 备注（≤100 字）
                         var logSheet by remember { mutableStateOf(false) }
                         androidx.compose.material3.FilledTonalButton(
+                            shape = MaterialTheme.shapes.small,
                             onClick = { logSheet = true },
                             modifier = Modifier.fillMaxWidth()
                                 .padding(top = 8.dp)

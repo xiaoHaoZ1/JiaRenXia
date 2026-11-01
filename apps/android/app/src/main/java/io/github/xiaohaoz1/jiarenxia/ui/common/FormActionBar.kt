@@ -77,7 +77,7 @@ fun FormActionBar(
                 Button(
                     onClick = onPrimary,
                     enabled = primaryEnabled && !busy,
-                    shape = MaterialTheme.shapes.medium,
+                    shape = MaterialTheme.shapes.small,
                     modifier = if (secondaryText != null) Modifier.weight(1f)
                     else Modifier.fillMaxWidth()
                 ) {

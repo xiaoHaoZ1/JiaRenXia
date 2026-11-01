@@ -875,6 +875,7 @@ fun ShareImportContent(
                         )
                         Spacer(Modifier.height(10.dp))
                         Button(
+                            shape = MaterialTheme.shapes.small,
                             onClick = { onOpen(password.copyOf()) },
                             enabled = password.isNotEmpty(),
                             modifier = Modifier.fillMaxWidth()
@@ -965,6 +966,7 @@ fun ShareImportContent(
                             st.hasExisting && st.localSelfId != null
                         if (canMerge) {
                             Button(
+                                shape = MaterialTheme.shapes.small,
                                 onClick = onEnterMerge,
                                 enabled = st.selectedId != null && !st.busy,
                                 modifier = Modifier.fillMaxWidth()
@@ -978,6 +980,7 @@ fun ShareImportContent(
                             ) { Text("整体替换我的资料…") }
                         } else {
                             Button(
+                                shape = MaterialTheme.shapes.small,
                                 onClick = onConfirm,
                                 enabled = st.selectedId != null && !st.busy,
                                 modifier = Modifier.fillMaxWidth()

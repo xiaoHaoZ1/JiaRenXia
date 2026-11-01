@@ -13,11 +13,11 @@ import androidx.compose.ui.unit.dp
 
 private val LightColors = lightColorScheme(
     primary = JrxPrimaryLight,
-    onPrimary = Color.White,
+    onPrimary = JrxOnPrimaryLight,
     primaryContainer = JrxPrimaryContainerLight,
     onPrimaryContainer = JrxOnPrimaryContainerLight,
     secondary = JrxSecondaryLight,
-    onSecondary = Color.White,
+    onSecondary = JrxOnPrimaryLight,
     secondaryContainer = JrxSecondaryContainerLight,
     onSecondaryContainer = JrxOnSecondaryContainerLight,
     tertiary = JrxTertiaryLight,
@@ -27,10 +27,11 @@ private val LightColors = lightColorScheme(
     error = JrxErrorLight,
     onError = Color.White,
     errorContainer = JrxErrorContainerLight,
-    background = JrxBackgroundLight,
-    onBackground = JrxOnBackgroundLight,
-    surface = JrxBackgroundLight,
-    onSurface = JrxOnBackgroundLight,
+    onErrorContainer = JrxOnErrorContainerLight,
+    background = JrxPaperLight,
+    onBackground = JrxInkLight,
+    surface = JrxPaperLight,
+    onSurface = JrxInkLight,
     surfaceContainerLowest = JrxSurfaceContainerLowestLight,
     surfaceContainerLow = JrxSurfaceContainerLowLight,
     surfaceContainer = JrxSurfaceContainerLight,
@@ -47,22 +48,23 @@ private val DarkColors = darkColorScheme(
     primary = JrxPrimaryDark,
     onPrimary = JrxOnPrimaryDark,
     primaryContainer = JrxPrimaryContainerDark,
-    onPrimaryContainer = JrxPrimaryContainerLight,
+    onPrimaryContainer = JrxOnPrimaryContainerDark,
     secondary = JrxSecondaryDark,
     onSecondary = JrxOnSecondaryDark,
     secondaryContainer = JrxSecondaryContainerDark,
-    onSecondaryContainer = JrxSecondaryContainerLight,
+    onSecondaryContainer = JrxOnSecondaryContainerDark,
     tertiary = JrxTertiaryDark,
     onTertiary = JrxOnTertiaryDark,
     tertiaryContainer = JrxTertiaryContainerDark,
-    onTertiaryContainer = JrxTertiaryContainerLight,
+    onTertiaryContainer = JrxOnTertiaryContainerDark,
     error = JrxErrorDark,
-    onError = Color(0xFF690005),
+    onError = Color(0xFF601410),
     errorContainer = JrxErrorContainerDark,
-    background = JrxBackgroundDark,
-    onBackground = JrxOnBackgroundDark,
-    surface = JrxBackgroundDark,
-    onSurface = JrxOnBackgroundDark,
+    onErrorContainer = JrxOnErrorContainerDark,
+    background = JrxPaperDark,
+    onBackground = JrxInkDark,
+    surface = JrxPaperDark,
+    onSurface = JrxInkDark,
     surfaceContainerLowest = JrxSurfaceContainerLowestDark,
     surfaceContainerLow = JrxSurfaceContainerLowDark,
     surfaceContainer = JrxSurfaceContainerDark,
@@ -75,19 +77,30 @@ private val DarkColors = darkColorScheme(
     surfaceTint = JrxPrimaryDark
 )
 
-/** 圆角：2026-10-09 改版统一收到 14dp 一档（原 12/16/20/28 四档偏厚）。 */
+/** 圆角：「家书」改版收小为 4/6/8/12dp（原 10/14/14/20），按钮与印章都是小方角。 */
 private val AppShapes = Shapes(
-    small = RoundedCornerShape(10.dp),
-    medium = RoundedCornerShape(14.dp),
-    large = RoundedCornerShape(14.dp),
-    extraLarge = RoundedCornerShape(20.dp)
+    small = RoundedCornerShape(4.dp),
+    medium = RoundedCornerShape(6.dp),
+    large = RoundedCornerShape(8.dp),
+    extraLarge = RoundedCornerShape(12.dp)
 )
 
 /**
- * 品牌扩展色（随亮暗切换）：亲属侧别环、页头渐变、已故/语义色。
+ * 品牌扩展色（随亮暗切换）：朱砂、亲属侧别、已故/语义色。
  */
 data class JrxColors(
-    /** 父系（父亲及父系祖辈）：主色。 */
+    /** 朱砂：印章、今天、生日倒计时、逾期、核心称谓框。 */
+    val seal: Color,
+    /** 朱砂底上的字色。 */
+    val onSeal: Color,
+    /** 称谓细框描边（比 [seal] 浅一档）。 */
+    val sealLine: Color,
+    /** 朱砂浅底：关系图里“我”的卡片底色。 */
+    val sealContainer: Color,
+    /**
+     * 父系（父亲及父系祖辈）。侧别三色保持改版前的色相（父系红、母系绿、配偶侧赭），
+     * 不跟主色变成墨青：关系图版式不改，读图习惯也不改。
+     */
     val paternal: Color,
     /** 母系（母亲及母系祖辈）。 */
     val maternal: Color,
@@ -102,21 +115,29 @@ data class JrxColors(
 )
 
 val LightJrxColors = JrxColors(
-    paternal = JrxPrimaryLight,
-    maternal = JrxTertiaryLight,
+    seal = JrxSealLight,
+    onSeal = JrxOnSealLight,
+    sealLine = JrxSealLineLight,
+    sealContainer = Color(0xFFF5E1DA),
+    paternal = JrxSealLight,
+    maternal = Color(0xFF57755B),
     spouseSide = Color(0xFF9A5B2E),
-    deceased = Color(0xFF8A817D),
-    pageHeaderBackground = JrxBackgroundLight,
+    deceased = Color(0xFF8E8578),
+    pageHeaderBackground = JrxPaperLight,
     success = Color(0xFF2F6B4F),
-    warning = Color(0xFFB26A00)
+    warning = Color(0xFFA86A00)
 )
 
 val DarkJrxColors = JrxColors(
-    paternal = JrxPrimaryDark,
+    seal = JrxSealDark,
+    onSeal = JrxOnSealDark,
+    sealLine = JrxSealLineDark,
+    sealContainer = Color(0xFF3A2420),
+    paternal = JrxSealDark,
     maternal = Color(0xFFA6D2A2),
     spouseSide = Color(0xFFFFB688),
-    deceased = Color(0xFFA39B97),
-    pageHeaderBackground = JrxBackgroundDark,
+    deceased = Color(0xFF8A847A),
+    pageHeaderBackground = JrxPaperDark,
     success = Color(0xFF86C9A0),
     warning = Color(0xFFFFB95C)
 )
@@ -124,7 +145,7 @@ val DarkJrxColors = JrxColors(
 val LocalJrxColors = staticCompositionLocalOf { LightJrxColors }
 
 /**
- * 主题（明暗已判定）：温馨暖色固定配色，不使用动态取色。
+ * 主题（明暗已判定）：「家书」固定配色，不使用动态取色。
  */
 @Composable
 fun JrxTheme(

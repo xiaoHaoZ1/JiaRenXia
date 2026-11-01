@@ -87,7 +87,7 @@ internal fun MergePreviewContent(
             Spacer(Modifier.height(16.dp))
             Text("没有新内容", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(8.dp))
-            Button(onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
+            Button(shape = MaterialTheme.shapes.small, onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
                 Text("完成")
             }
             TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
@@ -210,6 +210,7 @@ internal fun MergePreviewContent(
 
         Spacer(Modifier.height(16.dp))
         Button(
+            shape = MaterialTheme.shapes.small,
             onClick = onConfirm,
             enabled = (plan.hasWrites() || newAliases > 0) && !busy,
             modifier = Modifier.fillMaxWidth()

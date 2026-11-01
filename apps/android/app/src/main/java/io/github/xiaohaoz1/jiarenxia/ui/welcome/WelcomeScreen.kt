@@ -151,6 +151,7 @@ fun WelcomeContent(
                     )
                     Spacer(Modifier.height(10.dp))
                     Button(
+                        shape = MaterialTheme.shapes.small,
                         onClick = onNewFamily,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("开始填写") }
@@ -165,6 +166,7 @@ fun WelcomeContent(
                     )
                     Spacer(Modifier.height(10.dp))
                     Button(
+                        shape = MaterialTheme.shapes.small,
                         onClick = onPickFile,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("选择文件") }

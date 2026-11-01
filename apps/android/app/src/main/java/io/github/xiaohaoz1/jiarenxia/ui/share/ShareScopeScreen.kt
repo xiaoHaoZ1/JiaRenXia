@@ -413,6 +413,7 @@ fun ShareScopeContent(
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(
+                    shape = MaterialTheme.shapes.small,
                     onClick = onNext,
                     enabled = !state.loading && state.selected.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()

@@ -42,7 +42,7 @@ internal fun AffairsHeader(
 ) {
     PageHeader {
         Column {
-            Text("家事", style = MaterialTheme.typography.headlineSmall)
+            io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitle("家事")
             Spacer(Modifier.height(4.dp))
             Text(
                 subtitle,

@@ -3,58 +3,72 @@ package io.github.xiaohaoz1.jiarenxia.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * 温馨暖色 — 浅色方案（默认）。
+ * 「家书」配色 — 浅色方案（默认），见 docs/DEVELOPMENT_PLAN.md 2.22。
  *
- * 2026-10-09 改版：保留品牌砖红 #B4473C 作为唯一强调色，其余去饱和——
- * 暖白底 + 纯白卡 + 发丝描边，对比交给描边与留白，不再用粉色块堆层次。
+ * 纸色底 + 墨色字；墨青（primary）管可点的操作，朱砂（[JrxColors.seal]）管喜事、
+ * 今天与印章，藤黄（tertiary）管纪念日。层次靠发丝线与留白，不靠白卡堆叠。
  */
-val JrxPrimaryLight = Color(0xFFB4473C)
-val JrxPrimaryContainerLight = Color(0xFFFBEAE7)
-val JrxOnPrimaryContainerLight = Color(0xFF7E2A22)
-val JrxSecondaryLight = Color(0xFF7D5A44)
-val JrxSecondaryContainerLight = Color(0xFFF6EDE4)
-val JrxOnSecondaryContainerLight = Color(0xFF53433E)
-val JrxTertiaryLight = Color(0xFF57755B)
-val JrxTertiaryContainerLight = Color(0xFFF1F6F2)
-val JrxOnTertiaryContainerLight = Color(0xFF1C3B2B)
-val JrxBackgroundLight = Color(0xFFFBF8F5)
-val JrxOnBackgroundLight = Color(0xFF1F1A17)
-/** 卡片：纯白（JrxCard 用 surfaceContainerLow）。 */
-val JrxSurfaceContainerLowestLight = Color(0xFFFFFFFF)
-val JrxSurfaceContainerLowLight = Color(0xFFFFFFFF)
-val JrxSurfaceContainerLight = Color(0xFFF7F2EE)
-val JrxSurfaceContainerHighLight = Color(0xFFF2EBE6)
-val JrxSurfaceContainerHighestLight = Color(0xFFECE4DE)
-val JrxSurfaceVariantLight = Color(0xFFF5EFEA)
-val JrxOnSurfaceVariantLight = Color(0xFF7A6E68)
-val JrxOutlineLight = Color(0xFFA69A94)
-/** 发丝描边：卡片与分隔线统一用它。 */
-val JrxOutlineVariantLight = Color(0xFFEFE7E1)
-val JrxErrorLight = Color(0xFFBA1A1A)
-val JrxErrorContainerLight = Color(0xFFFBEAE7)
+val JrxPaperLight = Color(0xFFF3EDE2)
+val JrxInkLight = Color(0xFF1F2A29)
+val JrxPrimaryLight = Color(0xFF0C4247)
+val JrxOnPrimaryLight = Color(0xFFF8F4EC)
+val JrxPrimaryContainerLight = Color(0xFFDCE7E4)
+val JrxOnPrimaryContainerLight = Color(0xFF0C4247)
+val JrxSecondaryLight = Color(0xFF6B6357)
+val JrxSecondaryContainerLight = Color(0xFFE6DDCC)
+val JrxOnSecondaryContainerLight = Color(0xFF1F2A29)
+val JrxTertiaryLight = Color(0xFF8C6A10)
+val JrxTertiaryContainerLight = Color(0xFFF1E6C8)
+val JrxOnTertiaryContainerLight = Color(0xFF4A3800)
+val JrxSurfaceContainerLowestLight = Color(0xFFFBF8F2)
+/** 卡片（JrxCard 用 surfaceContainerLow）：比纸色浅一档。 */
+val JrxSurfaceContainerLowLight = Color(0xFFF8F4EC)
+val JrxSurfaceContainerLight = Color(0xFFEEE7DA)
+/** 弹框与日期/时间选择器：与卡片同一张浅纸。 */
+val JrxSurfaceContainerHighLight = Color(0xFFF8F4EC)
+val JrxSurfaceContainerHighestLight = Color(0xFFE6DDCC)
+val JrxSurfaceVariantLight = Color(0xFFE6DDCC)
+/** 次要文字：压深一档，在纸色上保证 4.5:1。 */
+val JrxOnSurfaceVariantLight = Color(0xFF6B6357)
+val JrxOutlineLight = Color(0xFF8E8578)
+/** 发丝线：行间分隔与卡片细框统一用它。 */
+val JrxOutlineVariantLight = Color(0xFFD9CFBE)
+val JrxErrorLight = Color(0xFFB3261E)
+val JrxErrorContainerLight = Color(0xFFF6DAD5)
+val JrxOnErrorContainerLight = Color(0xFF7A1E14)
+val JrxSealLight = Color(0xFFB23E2D)
+val JrxOnSealLight = Color(0xFFF8EDE0)
+val JrxSealLineLight = Color(0xFFC9705F)
 
-/** 深色方案：暖棕底（非中性灰），与浅色同样去饱和、靠描边分层。 */
-val JrxPrimaryDark = Color(0xFFFFB4A7)
-val JrxOnPrimaryDark = Color(0xFF690F09)
-val JrxPrimaryContainerDark = Color(0xFF3A2420)
-val JrxSecondaryDark = Color(0xFFEDBFA2)
-val JrxOnSecondaryDark = Color(0xFF452A19)
-val JrxSecondaryContainerDark = Color(0xFF2E2420)
-val JrxTertiaryDark = Color(0xFFBDD3B9)
-val JrxOnTertiaryDark = Color(0xFF283C27)
-val JrxTertiaryContainerDark = Color(0xFF24322A)
-val JrxBackgroundDark = Color(0xFF17120F)
-val JrxOnBackgroundDark = Color(0xFFF1DFD9)
-val JrxSurfaceContainerLowestDark = Color(0xFF120E0C)
+/** 深色方案：墨色纸底、米白字；朱砂与墨青各调亮一档，版式与浅色一致。 */
+val JrxPaperDark = Color(0xFF191C1B)
+val JrxInkDark = Color(0xFFECE4D6)
+val JrxPrimaryDark = Color(0xFF8CC4BF)
+val JrxOnPrimaryDark = Color(0xFF0B2A2D)
+val JrxPrimaryContainerDark = Color(0xFF1F3A3C)
+val JrxOnPrimaryContainerDark = Color(0xFFCDE6E2)
+val JrxSecondaryDark = Color(0xFFA39B8D)
+val JrxOnSecondaryDark = Color(0xFF191C1B)
+val JrxSecondaryContainerDark = Color(0xFF2A2E2C)
+val JrxOnSecondaryContainerDark = Color(0xFFECE4D6)
+val JrxTertiaryDark = Color(0xFFD8B04A)
+val JrxOnTertiaryDark = Color(0xFF2E2400)
+val JrxTertiaryContainerDark = Color(0xFF3A3218)
+val JrxOnTertiaryContainerDark = Color(0xFFF1E2B5)
+val JrxSurfaceContainerLowestDark = Color(0xFF141716)
 /** 卡片（深色）。 */
-val JrxSurfaceContainerLowDark = Color(0xFF221A16)
-val JrxSurfaceContainerDark = Color(0xFF281F1B)
-val JrxSurfaceContainerHighDark = Color(0xFF322722)
-val JrxSurfaceContainerHighestDark = Color(0xFF3C302B)
-val JrxSurfaceVariantDark = Color(0xFF3A2E29)
-val JrxOnSurfaceVariantDark = Color(0xFFBCAAA3)
-val JrxOutlineDark = Color(0xFF8C7B74)
-/** 发丝描边（深色）。 */
-val JrxOutlineVariantDark = Color(0xFF342A25)
-val JrxErrorDark = Color(0xFFFFB4AB)
-val JrxErrorContainerDark = Color(0xFF3A2420)
+val JrxSurfaceContainerLowDark = Color(0xFF1E2120)
+val JrxSurfaceContainerDark = Color(0xFF232726)
+val JrxSurfaceContainerHighDark = Color(0xFF262A29)
+val JrxSurfaceContainerHighestDark = Color(0xFF2E3331)
+val JrxSurfaceVariantDark = Color(0xFF2A2E2C)
+val JrxOnSurfaceVariantDark = Color(0xFFA39B8D)
+val JrxOutlineDark = Color(0xFF6F6A61)
+/** 发丝线（深色）。 */
+val JrxOutlineVariantDark = Color(0xFF343937)
+val JrxErrorDark = Color(0xFFF2B8B5)
+val JrxErrorContainerDark = Color(0xFF4A1F1A)
+val JrxOnErrorContainerDark = Color(0xFFF6DAD5)
+val JrxSealDark = Color(0xFFE07B63)
+val JrxOnSealDark = Color(0xFF191C1B)
+val JrxSealLineDark = Color(0xFFB9614F)

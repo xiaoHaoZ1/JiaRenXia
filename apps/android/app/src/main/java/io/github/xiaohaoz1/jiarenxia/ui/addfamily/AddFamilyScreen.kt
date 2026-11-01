@@ -122,6 +122,7 @@ fun AddFamilyContent(
         bottomBar = {
             if (onboarding) {
                 Button(
+                    shape = MaterialTheme.shapes.small,
                     onClick = onDone,
                     modifier = Modifier
                         .fillMaxWidth()

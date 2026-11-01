@@ -51,7 +51,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -164,12 +163,8 @@ fun FamilyContent(
         // 1. 页头（固定，不随列表滚动）：标题 + 搜索/添加，摘要小字
         PageHeader {
             Column {
-                Text(
-                    text = "家庭",
-                    style = MaterialTheme.typography.headlineSmall,
-                    // 页面标题标记为 heading，TalkBack 可按标题导航
-                    modifier = Modifier.semantics { heading() }
-                )
+                // 页面标题（PageTitle 自带 heading 语义，TalkBack 可按标题导航）
+                io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitle("家庭")
                 if (ov != null) {
                     Text(
                         "${ov.core.size + ov.others.size} 位家人 · 核心家人 ${ov.core.size} 位",
@@ -433,22 +428,24 @@ private fun TodayBirthdayBanner(
     number: String?,
     onDial: (String) -> Unit
 ) {
-    val shape = RoundedCornerShape(14.dp)
+    val jrx = LocalJrxColors.current
+    val shape = MaterialTheme.shapes.medium
     val isSelf = o.person.isSelf
     val title = (if (isSelf) "今天是你的生日" else "今天是" + o.displayTitle + "的生日") +
         (if (others > 0) " 等 $others 人" else "")
     val sub = o.person.name + (age?.let { " · $it 岁" } ?: "")
+    // 生日是喜事：朱砂浅底 + 朱砂蛋糕；“打个电话”是操作，仍用墨青主按钮
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
             .clip(shape)
-            .background(MaterialTheme.colorScheme.primaryContainer, shape)
+            .background(jrx.sealContainer, shape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             Icons.Rounded.Cake, contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
+            tint = jrx.seal,
             modifier = Modifier.size(28.dp)
         )
         Spacer(Modifier.width(12.dp))
@@ -456,19 +453,19 @@ private fun TodayBirthdayBanner(
             Text(
                 title,
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 sub,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         if (number != null && !isSelf) {
             Spacer(Modifier.width(10.dp))
             Button(
                 onClick = { onDial(number) },
-                shape = RoundedCornerShape(999.dp),
+                shape = MaterialTheme.shapes.small,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
@@ -560,8 +557,8 @@ private fun CoreMemberCell(
     }.minByOrNull { it.second }
     val status: Pair<String, Color>? = when {
         deceased -> "已故" to jrx.deceased
-        days == 0 -> "今天" to MaterialTheme.colorScheme.primary
-        days != null -> (days.toString() + " 天后") to MaterialTheme.colorScheme.primary
+        days == 0 -> "今天" to jrx.seal
+        days != null -> (days.toString() + " 天后") to jrx.seal
         contactDays != null -> (contactDays.toString() + " 天未联系") to jrx.warning
         nextBirthday != null -> nextBirthday.let { (b, d) ->
             (LunarFormat.lunarShort(b)

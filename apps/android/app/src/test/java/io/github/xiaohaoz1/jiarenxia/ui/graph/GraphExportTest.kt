@@ -223,12 +223,12 @@ class GraphExportTest {
         assertTrue("标题贴边：firstInk=", firstInk >= 10)
     }
 
-    /** 返回该行第一个非背景像素的 x；整行背景返回 -1。 */
+    /** 返回该行第一个非背景像素的 x；整行背景返回 -1。背景为「家书」纸色 #F3EDE2（2.22）。 */
     private fun nonBgRow(bmp: android.graphics.Bitmap, y: Int): Int {
         for (x in 0 until bmp.width step 4) {
             val c = bmp.getPixel(x, y)
             if (android.graphics.Color.alpha(c) == 255 &&
-                android.graphics.Color.red(c) != 0xFA
+                android.graphics.Color.red(c) != 0xF3
             ) return x
         }
         return -1

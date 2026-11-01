@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- 启动页与桌面图标的暖色底 -->
-    <color name="splash_background">#FBF5F0</color>
+    <!-- 启动页底色：与应用纸色一致（「家书」改版 2.22），冷启动不闪旧底色；桌面图标底色不变 -->
+    <color name="splash_background">#F3EDE2</color>
     <color name="ic_launcher_background">#F9C147</color>
 </resources>

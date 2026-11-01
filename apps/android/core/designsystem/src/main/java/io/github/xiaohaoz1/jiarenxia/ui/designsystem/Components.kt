@@ -31,11 +31,15 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
 
 /**
- * 卡片：纯白 + 发丝描边 + 14dp 圆角，16dp 内边距。
+ * 卡片：浅纸色 + 发丝描边 + 6dp 圆角，16dp 内边距。
  *
- * 2026-10-09 改版：去掉阴影与实色底，层次只由描边和留白表达。
+ * 2026-10-09 改版去掉阴影与实色底；2026-11「家书」改版（2.22）卡底随纸色、圆角收小，
+ * 一级页逐步改成无卡片的行，二级页继续用它。
  */
 @Composable
 fun JrxCard(
@@ -80,9 +84,9 @@ fun SectionHeader(
         modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 区块标题标记为 heading，TalkBack 可按标题导航
+        // 区块标题标记为 heading，TalkBack 可按标题导航；「家书」改版用 20sp/700
         Text(
-            title, style = MaterialTheme.typography.titleMedium,
+            title, style = MaterialTheme.typography.titleLarge,
             modifier = Modifier.weight(1f).semantics { heading() }
         )
         if (actionLabel != null) {
@@ -91,26 +95,33 @@ fun SectionHeader(
     }
 }
 
-/** 称谓/标签小胶囊色调。 */
+/** 称谓/标签细框色调。 */
 enum class ChipTone { CORE, OTHER, MUTED }
 
-/** 小胶囊标签（称谓、状态等）。 */
+/**
+ * 细框标签（称谓、状态等）：透明底 + 1dp 描边 + 2dp 圆角。
+ * CORE 朱砂字朱砂框（核心称谓、主号码），OTHER 次要字发丝框，MUTED 淡字发丝框。
+ */
 @Composable
 fun TitleChip(text: String, tone: ChipTone = ChipTone.CORE) {
-    val (bg, fg) = when (tone) {
-        ChipTone.CORE -> MaterialTheme.colorScheme.primaryContainer to
-            MaterialTheme.colorScheme.onPrimaryContainer
-        ChipTone.OTHER -> MaterialTheme.colorScheme.secondaryContainer to
-            MaterialTheme.colorScheme.onSecondaryContainer
-        ChipTone.MUTED -> MaterialTheme.colorScheme.surfaceVariant to
+    val jrx = LocalJrxColors.current
+    val (line, fg) = when (tone) {
+        ChipTone.CORE -> jrx.sealLine to jrx.seal
+        ChipTone.OTHER -> MaterialTheme.colorScheme.outline to
             MaterialTheme.colorScheme.onSurfaceVariant
+        ChipTone.MUTED -> MaterialTheme.colorScheme.outlineVariant to
+            MaterialTheme.colorScheme.outline
     }
-    Surface(color = bg, shape = MaterialTheme.shapes.small) {
+    Surface(
+        color = Color.Transparent,
+        shape = RoundedCornerShape(2.dp),
+        border = BorderStroke(1.dp, line)
+    ) {
         Text(
             text,
             style = MaterialTheme.typography.labelMedium,
             color = fg,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
         )
     }
 }
@@ -197,7 +208,7 @@ fun EmptyState(
             textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(20.dp))
-            androidx.compose.material3.Button(onClick = onAction) { Text(actionLabel) }
+            androidx.compose.material3.Button(shape = MaterialTheme.shapes.small, onClick = onAction) { Text(actionLabel) }
         }
     }
 }

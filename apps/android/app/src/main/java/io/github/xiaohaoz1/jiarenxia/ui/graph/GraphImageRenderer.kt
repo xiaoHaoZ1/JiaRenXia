@@ -52,16 +52,19 @@ object GraphImageRenderer {
     private const val TITLE_FONT = 44f  // 顶部标题字号（1080 基准）
     private const val FOOT_FONT = 26f   // 落款字号（1080 基准）
 
-    // 近似屏幕配色（浅色主题，跟随 JrxTheme 品牌色）
-    private const val BG = 0xFFFAF6F2.toInt()
-    private const val CARD = 0xFFFFFFFF.toInt()
-    private const val CARD_SELF = 0xFFF7E4DE.toInt()
-    private const val OUTLINE = 0xFF8D8A85.toInt()
-    private const val FAINT = 0xFFA9A49C.toInt()
-    private const val SPOUSE = 0xFFB4473C.toInt()
-    private const val SELF_BORDER = 0xFFB4473C.toInt()
-    private const val TEXT = 0xFF23211F.toInt()
-    private const val TEXT_SUB = 0xFF6F6A63.toInt()
+    // 近似屏幕配色（浅色主题，跟随 JrxTheme「家书」token，2.22）：纸色底、浅纸卡片带发丝框，“我”朱砂
+    private const val BG = 0xFFF3EDE2.toInt()
+    private const val CARD = 0xFFF8F4EC.toInt()
+    private const val CARD_LINE = 0xFFD9CFBE.toInt()
+    private const val CARD_SELF = 0xFFF5E1DA.toInt()
+    private const val OUTLINE = 0xFF8E8578.toInt()
+    private const val FAINT = 0xFFA2998B.toInt()
+    private const val SPOUSE = 0xFFB23E2D.toInt()
+    private const val SELF_BORDER = 0xFFB23E2D.toInt()
+    private const val TEXT = 0xFF1F2A29.toInt()
+    private const val TEXT_SUB = 0xFF6B6357.toInt()
+    /** 卡片圆角（1080 基准）：随屏幕 6dp 小圆角收小。 */
+    private const val CARD_RADIUS = 9f
 
     private fun routingOf(model: GraphModel) = GraphEdgeRouting.route(model)
 
@@ -228,6 +231,11 @@ object GraphImageRenderer {
             style = Paint.Style.STROKE
             strokeWidth = 4f * scale
         }
+        val cardLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = CARD_LINE
+            style = Paint.Style.STROKE
+            strokeWidth = 1.5f * scale
+        }
         // 姓名/称谓画笔与 GraphTextMeasure 同管线：sans-serif-medium
         // 姓名、默认字体称谓，折行由 StaticLayout 完成（不限行数、不省略）。
         val namePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -245,10 +253,9 @@ object GraphImageRenderer {
             val cx = rect.centerX(); val cy = rect.centerY()
             cardPaint.color =
                 if (n.personId == selfId) CARD_SELF else CARD
-            c.drawRoundRect(rect, 20f * scale, 20f * scale, cardPaint)
-            if (n.personId == selfId) {
-                c.drawRoundRect(rect, 20f * scale, 20f * scale, borderPaint)
-            }
+            val r = CARD_RADIUS * scale
+            c.drawRoundRect(rect, r, r, cardPaint)
+            c.drawRoundRect(rect, r, r, if (n.personId == selfId) borderPaint else cardLinePaint)
             val alpha = if (info.deceased) 160 else 255
             namePaint.alpha = alpha; titlePaint.alpha = alpha
             // 卡内宽与卡片高度来自同一份测量（布局层 sizer）；

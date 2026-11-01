@@ -556,7 +556,7 @@ fun PersonEditContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedButton(onClick = cb.onAddPhone) {
+                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = cb.onAddPhone) {
                             Icon(Icons.Rounded.Add, contentDescription = null,
                                 modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
@@ -567,7 +567,7 @@ fun PersonEditContent(
                         val importLauncher = rememberLauncherForActivityResult(
                             io.github.xiaohaoz1.jiarenxia.ui.common.PickPhoneContact()
                         ) { picked -> picked?.let(cb.onImportContact) }
-                        OutlinedButton(onClick = {
+                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = {
                             try {
                                 importLauncher.launch(Unit)
                             } catch (e: android.content.ActivityNotFoundException) {

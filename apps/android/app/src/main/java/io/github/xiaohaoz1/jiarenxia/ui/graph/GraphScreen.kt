@@ -1538,6 +1538,7 @@ private fun GraphNodeItem(
 ) {
     val p = overview.person
     val deceased = p.livingStatus == LivingStatus.DECEASED
+    val jrx = io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors.current
     Card(
         // 合并语义：节点读成一条“姓名 + 称谓”
         modifier = modifier
@@ -1546,16 +1547,16 @@ private fun GraphNodeItem(
             .clickable(onClick = onClick)
             .alpha(if (deceased) 0.6f else 1f),
         shape = MaterialTheme.shapes.medium,
+        // 「家书」改版：“我”用朱砂（与称谓印一致）；纸色底上普通卡片加发丝细框
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelf)
-                MaterialTheme.colorScheme.primaryContainer
+            containerColor = if (isSelf) jrx.sealContainer
             else MaterialTheme.colorScheme.surfaceContainerLow
         ),
         border = when {
             focused -> BorderStroke(3.dp, MaterialTheme.colorScheme.tertiary)
             picked -> BorderStroke(2.5.dp, MaterialTheme.colorScheme.primary)
-            isSelf -> BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
-            else -> null
+            isSelf -> BorderStroke(1.5.dp, jrx.seal)
+            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         }
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -1606,7 +1607,7 @@ private fun GraphNodeItem(
             }
             if (isSelf) {
                 Surface(
-                    color = MaterialTheme.colorScheme.primary,
+                    color = jrx.seal,
                     shape = CircleShape,
                     modifier = Modifier.align(Alignment.TopEnd)
                         .padding(4.dp * fontBoost)
@@ -1614,7 +1615,7 @@ private fun GraphNodeItem(
                     Text(
                         "我",
                         fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onPrimary,
+                        color = jrx.onSeal,
                         modifier = Modifier.padding(
                             horizontal = 4.dp, vertical = 1.dp)
                     )

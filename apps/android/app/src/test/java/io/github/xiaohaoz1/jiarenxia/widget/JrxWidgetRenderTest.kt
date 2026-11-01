@@ -83,16 +83,16 @@ class JrxWidgetRenderTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val light = WidgetColors(WidgetThemeMode.LIGHT)
         val dark = WidgetColors(WidgetThemeMode.DARK)
-        // 浅色环境下：强制浅色是暖白，强制深色是深棕
+        // 浅色环境下：强制浅色是纸色，强制深色是墨色纸（「家书」改版 2.22）
         assertEquals(
-            Color(0xFFFBF8F5), light.surface.getColor(context))
+            Color(0xFFF3EDE2), light.surface.getColor(context))
         assertEquals(
-            Color(0xFF26201C), dark.surface.getColor(context))
+            Color(0xFF1E2120), dark.surface.getColor(context))
         // 强制模式下正文色也不随环境翻转
         assertEquals(
-            Color(0xFF1F1A17), light.text.getColor(context))
+            Color(0xFF1F2A29), light.text.getColor(context))
         assertEquals(
-            Color(0xFFF4EDEA), dark.text.getColor(context))
+            Color(0xFFECE4D6), dark.text.getColor(context))
     }
 
     private fun verifyAndCapture(

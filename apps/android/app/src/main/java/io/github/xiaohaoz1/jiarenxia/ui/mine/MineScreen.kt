@@ -166,10 +166,7 @@ fun MineContent(
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
             PageHeader {
-                Text(
-                    "我的", style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.semantics { heading() }
-                )
+                io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitle("我的")
             }
             Column(Modifier.padding(horizontal = 16.dp)) {
                 // 我是谁
@@ -187,7 +184,7 @@ fun MineContent(
                     ) {
                         PersonAvatar(
                             self?.avatarPath, self?.name ?: "我", 44.dp,
-                            ring = MaterialTheme.colorScheme.primary
+                            ring = io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors.current.seal
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
@@ -230,7 +227,7 @@ fun MineContent(
                         }
                         Spacer(Modifier.width(8.dp))
                         // 文案带省略号：点下去还要设密码、选保存位置，不是一键完成
-                        OutlinedButton(onClick = onBackup) { Text("备份…") }
+                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = onBackup) { Text("备份…") }
                     }
                 }
 
