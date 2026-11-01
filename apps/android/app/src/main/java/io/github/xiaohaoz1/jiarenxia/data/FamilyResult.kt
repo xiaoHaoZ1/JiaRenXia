@@ -40,4 +40,7 @@ sealed class FamilyError(val message: String) {
     data object InvalidTaskAmount : FamilyError("金额不正确")
     data object InvalidTaskNote : FamilyError("备注最多 200 个字")
     data object TaskNotFound : FamilyError("事项不存在")
+    data object FactContentRequired : FamilyError("请填写内容")
+    data object FactLabelRequired : FamilyError("请填写名称")
+    data object FactNotFound : FamilyError("这条记录已不存在")
 }

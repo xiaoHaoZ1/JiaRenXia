@@ -20,6 +20,7 @@ import androidx.room.RoomDatabase
  * v13 退出人情与保障（A6）：删 gift_events / gift_records /
  *   insurance_policies 表；family_tasks 去掉 policy_id 列与索引，
  *   其余字段（id、周期、期数、办理记录、提醒）原样保留。
+ * v18 +person_facts（「关于TA」，私密：进备份、不进共享/碰一碰/合并）。
  */
 @Database(
     entities = [
@@ -34,12 +35,13 @@ import androidx.room.RoomDatabase
         FamilyTaskOffsetEntity::class,
         ContactLogEntity::class,
         ContactPlanEntity::class,
+        PersonFactEntity::class,
         SpousePairingEntity::class,
         TapPersonMapEntity::class,
         TapDeviceEntity::class,
         PersonAliasEntity::class
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -54,6 +56,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun familyTaskOffsetDao(): FamilyTaskOffsetDao
     abstract fun contactLogDao(): ContactLogDao
     abstract fun contactPlanDao(): ContactPlanDao
+    abstract fun personFactDao(): PersonFactDao
     abstract fun tapPairingDao(): TapPairingDao
     abstract fun personAliasDao(): PersonAliasDao
 }
@@ -70,6 +73,7 @@ internal suspend fun AppDatabase.clearTables() {
     customTitleDao().deleteAll()
     contactLogDao().deleteAll()
     contactPlanDao().deleteAll()
+    personFactDao().deleteAll()
     familyTaskOffsetDao().deleteAll()
     familyTaskDao().deleteAll()
     reminderOffsetDao().deleteAll()

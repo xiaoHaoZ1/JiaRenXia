@@ -224,6 +224,21 @@ interface ContactPlanDao {
     @Query("DELETE FROM contact_plans") suspend fun deleteAll()
 }
 
+/** person_facts DAO：「关于TA」记录。 */
+@Dao
+interface PersonFactDao {
+    @Insert suspend fun insert(entity: PersonFactEntity)
+    @Insert suspend fun insertAll(entities: List<PersonFactEntity>)
+    @Update suspend fun update(entity: PersonFactEntity)
+    @Query("SELECT * FROM person_facts WHERE id = :id")
+    suspend fun getById(id: String): PersonFactEntity?
+    @Query("SELECT * FROM person_facts WHERE person_id = :personId ORDER BY created_at, id")
+    fun observeForPerson(personId: String): Flow<List<PersonFactEntity>>
+    @Query("SELECT * FROM person_facts") suspend fun getAll(): List<PersonFactEntity>
+    @Query("DELETE FROM person_facts WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM person_facts") suspend fun deleteAll()
+}
+
 /**
  * 碰一碰配对 DAO：单行配对记录 + 来源人物映射 + 设备角色偏好。
  * 挂起函数在 withTransaction 内被调用时会自动加入当前事务——

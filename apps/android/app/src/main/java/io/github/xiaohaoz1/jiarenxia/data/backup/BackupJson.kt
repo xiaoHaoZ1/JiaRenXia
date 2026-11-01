@@ -81,6 +81,8 @@ data class RestorePlan(
     /** 联系记录与联系周期（schemaVersion 8；低版本导入时为空表）。 */
     val contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity> = emptyList(),
     val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
+    /** 「关于TA」（可选键，不升 schemaVersion；旧备份缺失为空）。 */
+    val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -129,6 +131,7 @@ object BackupJson {
                 List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity>>> = emptyList(),
         contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity> = emptyList(),
         contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
+        personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -251,6 +254,18 @@ object BackupJson {
                 put(JSONObject().apply {
                     put("personId", e.personId)
                     put("intervalDays", e.intervalDays)
+                    put("createdAt", e.createdAt); put("updatedAt", e.updatedAt)
+                })
+            }
+        })
+        json.put("personFacts", JSONArray().apply {
+            personFacts.forEach { e ->
+                put(JSONObject().apply {
+                    put("id", e.id); put("personId", e.personId)
+                    put("category", e.category)
+                    e.label?.let { put("label", it) }
+                    put("content", e.content)
+                    put("recordedEpochDay", e.recordedEpochDay)
                     put("createdAt", e.createdAt); put("updatedAt", e.updatedAt)
                 })
             }
@@ -623,6 +638,29 @@ object BackupJson {
             if (it.personId !in personIds) fail("contactPlan->person")
             if (it.intervalDays !in 1..366) fail("contact interval")
         }
+        val personFacts = root.optJSONArray("personFacts")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity(
+                    id = o.getString("id"),
+                    personId = o.getString("personId"),
+                    category = o.getString("category"),
+                    label = if (o.has("label")) o.getString("label") else null,
+                    content = o.getString("content"),
+                    recordedEpochDay = o.getLong("recordedEpochDay"),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+        uniqueIds(personFacts.map { it.id }, "personFacts")
+        personFacts.forEach {
+            if (it.personId !in personIds) fail("personFact->person")
+            if (it.category.isEmpty() || it.category.length > 32) fail("fact category")
+            if (it.content.trim().isEmpty() || it.content.length > 100) fail("fact content")
+            if (it.label != null && it.label.length > 20) fail("fact label")
+            if (it.recordedEpochDay < 0) fail("fact day")
+        }
 
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
@@ -680,6 +718,7 @@ object BackupJson {
             tasks = tasks,
             contactLogs = contactLogs,
             contactPlans = contactPlans,
+            personFacts = personFacts,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

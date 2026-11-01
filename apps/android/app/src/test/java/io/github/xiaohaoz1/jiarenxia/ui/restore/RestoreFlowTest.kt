@@ -14,6 +14,7 @@ import io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager
 import io.github.xiaohaoz1.jiarenxia.data.backup.RestorePlan
 import io.github.xiaohaoz1.jiarenxia.data.backup.TestFamily
 import io.github.xiaohaoz1.jiarenxia.data.db.PersonEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity
 import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
 import java.io.File
 import java.io.FileOutputStream
@@ -122,6 +123,10 @@ class RestoreFlowTest : RepoTestBase() {
     fun 我不是X_改按共享导入() = runTest {
         val ids = TestFamily.seed(repo, db)
         val selfId = ids.getValue(TestFamily.SELF_NAME)
+        val otherId = ids.values.first { it != selfId }
+        db.personFactDao().insert(
+            PersonFactEntity("about", otherId, "HOBBY", null, "下棋", 1, 1, 1)
+        )
         val src = exportFile("rf_notme.jrxb")
         val origPlan = backup.inspect(
             java.io.FileInputStream(src), "pw123456".toCharArray()
@@ -141,6 +146,7 @@ class RestoreFlowTest : RepoTestBase() {
         // 私密内容剥离
         assertTrue(plan.tasks.isEmpty())
         assertTrue(plan.contactLogs.isEmpty() && plan.contactPlans.isEmpty())
+        assertTrue(plan.personFacts.isEmpty())
         assertTrue(plan.customTitles.isEmpty())
         assertNull(plan.settings)
         // 公共内容与文件一致

@@ -137,7 +137,7 @@ object ShareImport {
     /**
      * “我不是 X”（FAMILY_AFFAIRS 16.2）：备份改按家人共享处理。
      * 只保留与共享文件相同的内容——人物/手机号/关系/重要日期/提醒偏好/头像；
-     * 剥掉事项、联系记录与计划、自定义称呼与设置
+     * 剥掉事项、联系记录与计划、「关于TA」、自定义称呼与设置
      * （这些是对方的私密数据）。sharedBy 记为备份里的“我”。
      */
     fun fromBackup(plan: RestorePlan): RestorePlan = plan.copy(
@@ -147,6 +147,7 @@ object ShareImport {
         tasks = emptyList(),
         contactLogs = emptyList(),
         contactPlans = emptyList(),
+        personFacts = emptyList(),
         settings = null,
         summary = plan.summary.copy(tasks = 0)
     )

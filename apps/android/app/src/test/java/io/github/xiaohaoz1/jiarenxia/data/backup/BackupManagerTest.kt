@@ -16,11 +16,15 @@ import io.github.xiaohaoz1.jiarenxia.data.PersonDraft
 import io.github.xiaohaoz1.jiarenxia.data.PhoneDraft
 import io.github.xiaohaoz1.jiarenxia.data.RepoTestBase
 import io.github.xiaohaoz1.jiarenxia.data.db.PhoneNumberEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -754,4 +758,116 @@ class BackupManagerTest : RepoTestBase() {
         assertTrue(plan.contactLogs.isEmpty())
         assertTrue(plan.contactPlans.isEmpty())
     }
+
+    @Test
+    fun 关于TA随备份往返() = runTest {
+        seed()
+        val momId = db.personDao().getAll().first { it.name == "妈" }.id
+        val before = listOf(
+            PersonFactEntity("f1", momId, "SIZE", "鞋码", "37", 20_000, 1, 2),
+            PersonFactEntity("f2", momId, "HOBBY", null, "广场舞", 20_001, 3, 4)
+        )
+        db.personFactDao().insertAll(before)
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        repo.clearAllData()
+        assertTrue(db.personFactDao().getAll().isEmpty())
+
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw).getOrThrow()
+        backup.restore(plan)
+        assertEquals(before, db.personFactDao().getAll())
+    }
+
+    @Test
+    fun 共享导出不带关于TA() = runTest {
+        val me = seed()
+        val momId = db.personDao().getAll().first { it.name == "妈" }.id
+        db.personFactDao().insert(
+            PersonFactEntity("f1", momId, "HOBBY", null, "广场舞", 1, 1, 1)
+        )
+        val out = ByteArrayOutputStream()
+        backup.exportShare(out, pw, sharedBy = me)
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw).getOrThrow()
+        assertTrue(plan.personFacts.isEmpty())
+    }
+
+    @Test
+    fun 旧备份无personFacts键恢复为空() = runTest {
+        seed()
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        val plain = BackupCrypto.decrypt(out.toByteArray(), pw)
+        val files = linkedMapOf<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(plain)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                files[entry.name] = zip.readBytes()
+            }
+        }
+        val root = org.json.JSONObject(files.getValue("backup.json").decodeToString())
+        root.remove("personFacts")
+        files["backup.json"] = root.toString().encodeToByteArray()
+        val rewritten = ByteArrayOutputStream()
+        ZipOutputStream(rewritten).use { zip ->
+            files.forEach { (name, bytes) ->
+                zip.putNextEntry(ZipEntry(name)); zip.write(bytes); zip.closeEntry()
+            }
+        }
+        val encrypted = BackupCrypto.encrypt(rewritten.toByteArray(), pw)
+        val plan = backup.inspect(ByteArrayInputStream(encrypted), pw).getOrThrow()
+        assertTrue(plan.personFacts.isEmpty())
+        backup.restore(plan)
+        assertTrue(db.personFactDao().getAll().isEmpty())
+    }
+
+    @Test
+    fun personFacts校验() = runTest {
+        seed()
+        val exported = ByteArrayOutputStream()
+        backup.export(exported, pw)
+        val base = backup.inspect(ByteArrayInputStream(exported.toByteArray()), pw).getOrThrow()
+        val personId = base.persons.first().id
+        suspend fun inspectFact(fact: PersonFactEntity) = backup.inspect(
+            ByteArrayInputStream(encryptedPlan(base, listOf(fact))), pw
+        )
+        fun assertInvalid(result: Result<RestorePlan>) {
+            assertTrue(result.isFailure)
+            assertTrue(
+                (result.exceptionOrNull() as BackupException).error is
+                    BackupError.InvalidContent
+            )
+        }
+        val valid = PersonFactEntity("f", personId, "FUTURE_X", null, "值", 1, 1, 1)
+        assertInvalid(inspectFact(valid.copy(personId = "missing")))
+        assertInvalid(inspectFact(valid.copy(content = "甲".repeat(101))))
+        assertInvalid(inspectFact(valid.copy(label = "甲".repeat(21))))
+        val future = inspectFact(valid).getOrThrow().personFacts.single()
+        assertEquals("FUTURE_X", future.category)
+    }
+
+    private fun encryptedPlan(
+        plan: RestorePlan,
+        personFacts: List<PersonFactEntity>
+    ): ByteArray = BackupCrypto.encrypt(
+        BackupJson.writeZip(
+            persons = plan.persons,
+            phones = plan.phones,
+            relationships = plan.relationships,
+            dates = plan.importantDates,
+            prefs = plan.prefs,
+            customTitles = plan.customTitles,
+            tasks = plan.tasks,
+            contactLogs = plan.contactLogs,
+            contactPlans = plan.contactPlans,
+            personFacts = personFacts,
+            settings = plan.settings,
+            avatars = plan.avatars,
+            createdAt = plan.summary.createdAt ?: 1,
+            appVersion = plan.summary.appVersion ?: "test",
+            purpose = plan.purpose,
+            sharedBy = plan.sharedBy,
+            personOrigins = plan.personOrigins
+        ),
+        pw
+    )
 }

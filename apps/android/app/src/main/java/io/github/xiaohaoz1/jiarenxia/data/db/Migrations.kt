@@ -426,3 +426,11 @@ val MIGRATION_16_17 = object : Migration(16, 17) {
         db.execSQL("DROP TABLE IF EXISTS `family_local_only`")
     }
 }
+
+/** v17 → v18：新增 person_facts（「关于TA」私密记录）及人物索引。 */
+val MIGRATION_17_18 = object : Migration(17, 18) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `person_facts` (`id` TEXT NOT NULL, `person_id` TEXT NOT NULL, `category` TEXT NOT NULL, `label` TEXT, `content` TEXT NOT NULL, `recorded_epoch_day` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_person_facts_person_id` ON `person_facts` (`person_id`)")
+    }
+}

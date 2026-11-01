@@ -308,6 +308,30 @@ data class ContactPlanEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )
 
+/** person_facts：「关于TA」记录（私密：进备份，不进共享/碰一碰/合并）。category 存枚举名。 */
+@Entity(
+    tableName = "person_facts",
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("person_id")]
+)
+data class PersonFactEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    val category: String,
+    val label: String?,
+    val content: String,
+    @ColumnInfo(name = "recorded_epoch_day") val recordedEpochDay: Long,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
 /**
  * spouse_pairing：碰一碰夫妻配对记录（单行，id 恒 1）。
  * 本机配偶人物被删（含备份恢复/共享导入/清空数据的整表清空）时级联清除——
