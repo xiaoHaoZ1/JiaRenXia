@@ -97,11 +97,12 @@ gradlew.bat :app:assembleRelease
 - `local.properties` 不入库：从主工作区 `apps/android/local.properties` 复制到新 worktree 的 `apps/android/`（内容为 `sdk.dir=<本机 Android SDK 路径>`，Windows 路径的冒号须转义，如 `C\:/...`）。
 - 提交作者必须是用户本人，不能写 Devin 机器人。WSL 里的 git 没有配置提交人，**不要改 git config**，每次提交用：`git -c user.name=yangyonghao -c user.email=2107290326@qq.com commit ...`。
 - 提交后随时推送分支。WSL 里的 git 没有 GitHub 凭据，用 Windows git 在主仓库目录推送（分支是共享的）：`cmd.exe /c "cd /d <产品根目录> && git push -u origin feature/<名称>"`。
+- 本机私密补充（拉取/推送的网络方式、JDK 与 adb 路径、worktree 注意事项等）见 `private/AGENTS.local.md`（`private/` 不入库）；拉取、推送、构建或清理 worktree 前先读它。
 - 各任务会话只推送自己的分支，不合并 main。审阅、合并 main、推送 main 由负责合并的会话完成；合并后删除已合并的 worktree 和分支。
 - 命令执行工具会提前展开 `$变量`：一条命令里不要依赖 shell 变量、循环或 `export`，把值直接写进命令。
 - 界面改动可以交给助手实现，但**设计由主代理定、改完由主代理逐页看渲染结果验收**（用户 2026-10-09 调整；此前 2026-10-06 的要求是主代理亲自写，现已放宽）。交付给助手的必须是已定稿的规格：每一行放什么、文案、层级、交互都写清楚，不要让助手自己拿主意；验收要看实际渲染图（`:app:testDebugUnitTest --tests *ScreenShotsTest*` 产出在 `app/build/outputs/roborazzi/`），不能只看它说"做完了"。构建、测试等验证照常委派。
 - 真机 `<真机序列号>` 装的是新密钥签名的正式版，里面是用户的真实家庭数据，测试时直接用这些数据看效果。debug 包不能覆盖正式版；卸载、清除数据、从备份恢复等会覆盖数据的操作，必须先征得用户同意。可以截图、`uiautomator dump`，但不得把数据库或个人资料拷出手机、写进仓库或测试；测试用例一律用合成名字。
-- `AGENTS.md` 中用「`private:start` / `private:end`」HTML 注释标记包住的段落是本机私密信息，不入公开快照：公开仓库的内容由维护者从开发仓库按版本导出，提交历史以版本为单位。`jrx.cmd public-snapshot <目标目录>` 导出 `git archive` 产物、剔除 `scripts/public-exclude.txt` 列出的文件并删掉这些段落，再做 `scripts/public-scan.txt` 泄漏扫描（有命中即失败）。
+- `AGENTS.md` 中用「`private:start` / `private:end`」HTML 注释标记包住的段落是本机私密信息，不入公开快照：公开仓库的内容由维护者从开发仓库按版本导出，提交历史以版本为单位。`jrx.cmd public-snapshot <目标目录>` 导出 `git archive` 产物、剔除 `scripts/public-exclude.txt` 列出的文件并删掉这些段落，再做 `scripts/public-scan.txt` 泄漏扫描（有命中即失败）。注意：origin（`xiaoHaoZ1/JiaRenXia`）本身就是公开仓库，推到这里的提交即公开；这些标记只在导出快照时生效，保护不了已提交的内容。本机私密信息一律写进 `private/AGENTS.local.md`，不要写进 AGENTS.md。
 
 ## 守护（已拆出）
 
@@ -110,7 +111,7 @@ gradlew.bat :app:assembleRelease
 
 ## 架构指引
 
-- `data/` — `FamilyRepository` 是唯一写入路径；多表写入一律 `db.withTransaction`，校验失败用 `TxAbort` 回滚；头像经 `AvatarStorage`（`filesDir/avatars`）。
+- `data/` — 家庭名册（人物、关系、重要日期、手机号）只经 `FamilyRepository` 写入；挂在人物下、生命周期独立的私密列表（事项 `FamilyTaskRepository`、联系记录 `ContactRepository`、「关于TA」`PersonFactRepository`）各有自己的仓库。多表写入一律 `db.withTransaction`，校验失败用 `TxAbort` 回滚；头像经 `AvatarStorage`（`filesDir/avatars`）。
 - `domain/` — `ObserveFamilyOverview`（resolveAll + 生日合成总览，`Dispatchers.Default`）、`FamilyOrdering`（核心家人分组排序，中国拼音 Collator）、`PersonSearch`。
 - `reminder/` — 数据库是唯一事实来源：每天按各类提醒时刻做 WorkManager 检查（`ReminderTiming`，生日/事项/联系三时刻各自可配，默认 09:00），已过的时刻可当天补跑、按当日已通知键去重，跑完排最近的下一时刻；`ReminderSync` 在启动及生日/纪念日/事项/联系计划与记录/三个开关/三个时刻变化时 reconcile；`POST_NOTIFICATIONS` 只自动问一次。**`BirthdayReminderWorker` 类名不可改**——WorkManager 已持久化已排队任务名。
 - `ui/` — Compose + Hilt ViewModel + StateFlow；业务规则不进 Composable；`ui/graph/GraphLayout` 为纯 JVM 布局算法。
@@ -129,7 +130,7 @@ gradlew.bat :app:assembleRelease
 
 ## 家人共享
 
-- 共享文件 = 备份格式（purpose="share" + sharedBy），导出走 BackupManager.exportShare、导入走 importShare（选“我是谁”→ is_self，设置保留接收方）。只含家人档案（人物/手机号/关系/生日/提醒偏好/头像）；事项/人情/保单与备注一律不写、不提供勾选。“分享给家人”与关系图共用同一个选人页（`ui/share/ShareScope*`，默认全选、可用 `personIds` 做部分分享）。
+- 共享文件 = 备份格式（purpose="share" + sharedBy），导出走 BackupManager.exportShare、导入走 importShare（选“我是谁”→ is_self，设置保留接收方）。只含家人档案（人物/手机号/关系/生日/提醒偏好/头像）；事项/联系记录/「关于TA」/人情/保单与备注一律不写、不提供勾选。“分享给家人”与关系图共用同一个选人页（`ui/share/ShareScope*`，默认全选、可用 `personIds` 做部分分享）。
 - 恢复流程（我的页“从备份恢复”与欢迎页“用已有资料开始”）共用 ui/restore/RestoreFlow，按 purpose 分流；BackupManager.restore 只收 purpose="backup" 的 plan。
 - 已有数据默认合并（domain/merge/FamilyMerge，预览重算见 ui/share/MergePreview.kt）；对方→本机对应关系存 person_alias（DB v10，不进备份/共享）。
 - 接收 intent-filter：ACTION_VIEW(content) / ACTION_SEND，mimeType 固定 application/octet-stream，不要注册通配 MIME。
