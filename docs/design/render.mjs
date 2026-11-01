@@ -32,17 +32,24 @@ const chromium = loadChromium();
 
 mkdirSync(OUT, { recursive: true });
 const icons = readFileSync(join(HERE, "icons.html"), "utf8");
-const css = readFileSync(join(HERE, "base.css"), "utf8");
 
 const browser = await chromium.launch({ channel: "msedge" });
 const page = await browser.newPage({ deviceScaleFactor: 2 });
 
-for (const [name, width] of [["main", 1700], ["mine", 1320]]) {
+// [页面, 视口宽度, 样式表]：main/mine 为 2026-10-09 改版稿；jiashu-* 为「家书」改版稿（2.21）
+for (const [name, width, cssFile] of [
+  ["main", 1700, "base.css"],
+  ["mine", 1320, "base.css"],
+  ["jiashu-main", 1264, "jiashu.css"],
+  ["jiashu-more", 1264, "jiashu.css"]
+]) {
+  const css = readFileSync(join(HERE, cssFile), "utf8");
   const html = readFileSync(join(HERE, `${name}.html`), "utf8")
     .replace("<!--ICONS-->", icons)
-    .replace('<link rel="stylesheet" href="base.css">', `<style>${css}</style>`);
+    .replace(`<link rel="stylesheet" href="${cssFile}">`, `<style>${css}</style>`);
   await page.setViewportSize({ width, height: 1000 });
   await page.setContent(html, { waitUntil: "load" });
+  await page.evaluate(() => document.fonts.ready);
   const el = await page.$(".sheet");
   writeFileSync(join(OUT, `${name}.png`), await el.screenshot({ type: "png" }));
   const box = await el.boundingBox();
