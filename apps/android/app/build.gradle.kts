@@ -16,8 +16,8 @@ android {
         applicationId = "com.jiarenxia.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 55
-        versionName = "2.1.6"
+        versionCode = 56
+        versionName = "2.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
     }
