@@ -129,13 +129,19 @@ class ScreenShotsTest {
     /**
      * 大字号（×1.3，约等于应用内“特大”级别）截图：用 LocalDensity 覆盖模拟
      * 应用内字号系数（同 MainActivity 的 density 覆盖方式），文件名加 _lg。
+     * [scale] 默认 1.3；需要验证字号上限时传 1.6（外观与字号滑杆的最大值）。
      */
-    private fun shotLarge(name: String, dark: Boolean = false, content: @Composable () -> Unit) {
+    private fun shotLarge(
+        name: String,
+        dark: Boolean = false,
+        scale: Float = 1.3f,
+        content: @Composable () -> Unit
+    ) {
         composeRule.setContent {
             val d = androidx.compose.ui.platform.LocalDensity.current
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.ui.platform.LocalDensity provides
-                    androidx.compose.ui.unit.Density(d.density, d.fontScale * 1.3f)
+                    androidx.compose.ui.unit.Density(d.density, d.fontScale * scale)
             ) {
                 JiaRenXiaTheme(mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT) {
                     androidx.compose.material3.Surface(
@@ -390,9 +396,8 @@ class ScreenShotsTest {
         assertNoTexts("尺码", "想要的")
     }
 
-    @Test
-    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
-    fun aboutEditorAddSize() = shot("about_editor_add_size") {
+    @Composable
+    private fun AboutEditorAddSizeContent() {
         Column(Modifier.padding(24.dp)) {
             FactEditorBody(
                 mode = FactEditorMode.ADD,
@@ -409,8 +414,46 @@ class ScreenShotsTest {
                 onContentChange = {}
             )
         }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun aboutEditorAddSize() = shot("about_editor_add_size") {
+        AboutEditorAddSizeContent()
     }.also {
         assertTexts("分类", "哪一项", "原来记的是 37，保存后会替换")
+    }
+
+    /** 字号上限 160%：弹框正文最高的一种组合，验证换行与弹框内滚动的必要性。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun aboutEditorAddSizeLarge() = shotLarge("about_editor_add_size", scale = 1.6f) {
+        AboutEditorAddSizeContent()
+    }
+
+    /** 编辑尺码：不显示尺码项选择，输入框标签就是该项名称。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun aboutEditorEditSize() = shot("about_editor_edit_size") {
+        Column(Modifier.padding(24.dp)) {
+            FactEditorBody(
+                mode = FactEditorMode.EDIT,
+                availableCategories = FactCategory.entries,
+                category = FactCategory.SIZE,
+                sizeChoice = "鞋码",
+                otherSizeLabel = "",
+                customLabel = "",
+                content = "37",
+                originalContent = null,
+                recordedOn = LocalDate.of(2026, 9, 1),
+                onCategoryChange = {}, onSizeChoiceChange = {},
+                onOtherSizeLabelChange = {}, onCustomLabelChange = {},
+                onContentChange = {}
+            )
+        }
+    }.also {
+        assertTexts("鞋码", "记录于 2026年9月")
+        assertNoTexts("哪一项", "分类", "上衣")
     }
 
     @Test

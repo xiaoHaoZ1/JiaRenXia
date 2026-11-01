@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.AlertDialog
@@ -198,35 +200,41 @@ internal fun FactEditorBody(
         }
         when (category) {
             FactCategory.SIZE -> {
-                Text(
-                    "哪一项",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    (FACT_SIZE_LABELS + "其他").forEach { item ->
-                        FilterChip(
-                            selected = sizeChoice == item,
-                            onClick = { onSizeChoiceChange(item) },
-                            label = { Text(item) }
+                // 编辑时尺码项固定：切换尺码项会和已有同名项重复（新增路径才做同名替换）
+                if (mode == FactEditorMode.ADD) {
+                    Text(
+                        "哪一项",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        (FACT_SIZE_LABELS + "其他").forEach { item ->
+                            FilterChip(
+                                selected = sizeChoice == item,
+                                onClick = { onSizeChoiceChange(item) },
+                                label = { Text(item) }
+                            )
+                        }
+                    }
+                    if (sizeChoice == "其他") {
+                        OutlinedTextField(
+                            value = otherSizeLabel,
+                            onValueChange = { onOtherSizeLabelChange(it.take(FACT_LABEL_MAX)) },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("名称") },
+                            placeholder = { Text("比如：帽子") },
+                            singleLine = true
                         )
                     }
                 }
-                if (sizeChoice == "其他") {
-                    OutlinedTextField(
-                        value = otherSizeLabel,
-                        onValueChange = { onOtherSizeLabelChange(it.take(FACT_LABEL_MAX)) },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("名称") },
-                        placeholder = { Text("比如：帽子") },
-                        singleLine = true
-                    )
-                }
+                val fieldLabel = if (mode == FactEditorMode.EDIT) {
+                    if (sizeChoice == "其他") otherSizeLabel else sizeChoice
+                } else "尺码"
                 OutlinedTextField(
                     value = content,
                     onValueChange = { onContentChange(it.take(FACT_CONTENT_MAX)) },
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("尺码") },
+                    label = { Text(fieldLabel) },
                     placeholder = sizePlaceholder(sizeChoice)?.let { value ->
                         { Text(value) }
                     },
@@ -323,25 +331,28 @@ private fun FactDialog(
             Text(if (initialFact == null) "添加" else "编辑「" + groupTitle + "」")
         },
         text = {
-            FactEditorBody(
-                mode = if (initialFact == null) FactEditorMode.ADD else FactEditorMode.EDIT,
-                availableCategories = availableCategories,
-                category = category,
-                sizeChoice = sizeChoice,
-                otherSizeLabel = otherSizeLabel,
-                customLabel = customLabel,
-                content = content,
-                originalContent = originalContent,
-                recordedOn = initialFact?.recordedOn,
-                onCategoryChange = {
-                    category = it
-                    if (it == FactCategory.SIZE) sizeChoice = "鞋码"
-                },
-                onSizeChoiceChange = { sizeChoice = it },
-                onOtherSizeLabelChange = { otherSizeLabel = it },
-                onCustomLabelChange = { customLabel = it },
-                onContentChange = { content = it }
-            )
+            // 大字号加键盘时正文会超过弹框高度；AlertDialog 正文默认裁切不滚动
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                FactEditorBody(
+                    mode = if (initialFact == null) FactEditorMode.ADD else FactEditorMode.EDIT,
+                    availableCategories = availableCategories,
+                    category = category,
+                    sizeChoice = sizeChoice,
+                    otherSizeLabel = otherSizeLabel,
+                    customLabel = customLabel,
+                    content = content,
+                    originalContent = originalContent,
+                    recordedOn = initialFact?.recordedOn,
+                    onCategoryChange = {
+                        category = it
+                        if (it == FactCategory.SIZE) sizeChoice = "鞋码"
+                    },
+                    onSizeChoiceChange = { sizeChoice = it },
+                    onOtherSizeLabelChange = { otherSizeLabel = it },
+                    onCustomLabelChange = { customLabel = it },
+                    onContentChange = { content = it }
+                )
+            }
         },
         confirmButton = {
             TextButton(
