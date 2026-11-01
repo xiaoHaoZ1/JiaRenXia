@@ -1912,3 +1912,20 @@ CREATE INDEX index_person_alias_local_person_id
 
 （第 9 版为碰一碰的 `spouse_pairing` / `tap_person_map` / `tap_device`
 三表，见 FAMILY_AFFAIRS 第 10 节与 Room 导出的 9.json。）
+
+### 25.10 第 18 版：person_facts 表（关于TA）
+
+人物详情页的私密小档案；进入完整备份，不进入分享、碰一碰或合并。
+
+| 字段 | 类型 | 可空 | 说明 |
+|------|------|------|------|
+| id | TEXT | 否 | 记录 ID，主键 |
+| person_id | TEXT | 否 | 所属人物 |
+| category | TEXT | 否 | `FactCategory` 枚举名；未知值按自定义显示 |
+| label | TEXT | 是 | 尺码项名或自定义分类名 |
+| content | TEXT | 否 | 记录内容 |
+| recorded_epoch_day | INTEGER | 否 | 最近新建或修改内容的日期 |
+| created_at | INTEGER | 否 | 创建时间 |
+| updated_at | INTEGER | 否 | 更新时间 |
+
+`person_id` 外键指向 `persons.id`，`ON DELETE CASCADE`；索引 `index_person_facts_person_id` 支持按人物观察。迁移 `MIGRATION_17_18` 只建表与索引，不改既有数据。
