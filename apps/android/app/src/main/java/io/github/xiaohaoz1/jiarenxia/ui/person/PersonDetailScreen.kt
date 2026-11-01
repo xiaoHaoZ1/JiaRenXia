@@ -186,6 +186,9 @@ fun PersonDetailScreen(
         onSetContactPlan = viewModel::setContactPlan,
         onLogContact = viewModel::logContact,
         onDeleteContactLog = viewModel::deleteContactLog,
+        onAddFact = viewModel::addFact,
+        onUpdateFact = viewModel::updateFact,
+        onDeleteFact = viewModel::deleteFact,
         onSetDeath = viewModel::setDeathAnniversary,
         onSetCustomTitle = viewModel::setCustomTitle,
         onDeletePerson = { viewModel.deletePerson() },
@@ -243,6 +246,11 @@ fun PersonDetailContent(
         io.github.xiaohaoz1.jiarenxia.core.model.ContactMethod,
         String?) -> Unit = { _, _ -> },
     onDeleteContactLog: (String) -> Unit = {},
+    onAddFact: (
+        io.github.xiaohaoz1.jiarenxia.core.model.FactCategory,
+        String?, String) -> Unit = { _, _, _ -> },
+    onUpdateFact: (String, String?, String) -> Unit = { _, _, _ -> },
+    onDeleteFact: (String) -> Unit = {},
     onSetDeath: (
         io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue?) -> Unit = {},
     /** 生日提醒偏移：第一个参数为历法槽位。 */
@@ -734,6 +742,17 @@ fun PersonDetailContent(
                     )
                 }
                 Spacer(Modifier.height(12.dp))
+                if (!person.isSelf) {
+                    AboutCard(
+                        facts = st.facts,
+                        deceased = person.livingStatus == LivingStatus.DECEASED,
+                        today = today,
+                        onAdd = onAddFact,
+                        onUpdate = onUpdateFact,
+                        onDelete = onDeleteFact
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
                 // “我的事/TA 的事”卡片：此人名下待办（最多 3 条）+ 添加；
                 // 全家级事项不在这里，在提醒页时间线（“查看全部”也跳到那里）
                 JrxCard(Modifier.fillMaxWidth()) {
@@ -1156,6 +1175,9 @@ fun PersonDetailContent(
         val extras = buildList {
             val undone = st.tasks.size
             if (undone > 0) add(undone.toString() + " 条事项")
+            if (st.facts.isNotEmpty()) {
+                add(st.facts.size.toString() + " 条「关于TA」记录")
+            }
         }
         val extraText = if (extras.isEmpty()) "" else "同时删除 " +
             extras.joinToString("、") + "，"
@@ -1170,7 +1192,7 @@ fun PersonDetailContent(
 }
 
 @Composable
-private fun SectionTitle(title: String) {
+internal fun SectionTitle(title: String) {
     Text(
         title,
         style = MaterialTheme.typography.titleMedium,

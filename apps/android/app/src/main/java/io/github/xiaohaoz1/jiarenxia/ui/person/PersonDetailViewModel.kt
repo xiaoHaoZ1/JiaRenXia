@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
+import io.github.xiaohaoz1.jiarenxia.core.model.PersonFact
 import io.github.xiaohaoz1.jiarenxia.core.model.PhoneNumber
 import io.github.xiaohaoz1.jiarenxia.core.model.Relationship
 import io.github.xiaohaoz1.jiarenxia.core.model.RelativeAgeOrder
@@ -43,6 +44,8 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
     @Suppress("UNCHECKED_CAST")
     val contactLogs get() =
         values[5] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>
+    @Suppress("UNCHECKED_CAST")
+    val facts get() = values[6] as List<PersonFact>
 }
 
 data class PersonDetailUiState(
@@ -64,6 +67,8 @@ data class PersonDetailUiState(
     /** 联系记录（新的在前）。 */
     val contactLogs: List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog> =
         emptyList(),
+    /** 「关于TA」记录，按创建时间升序。 */
+    val facts: List<PersonFact> = emptyList(),
     /** 共同父母推荐（无配偶且恰有一位异性共同父母）：记为夫妻+纪念日。 */
     val weddingCandidateId: String? = null,
     val weddingCandidateName: String? = null,
@@ -87,7 +92,8 @@ class PersonDetailViewModel @Inject constructor(
     private val taskRepository: io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository,
     private val engine: KinshipEngine,
     observeOverview: ObserveFamilyOverview,
-    val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
+    val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
+    private val factRepository: io.github.xiaohaoz1.jiarenxia.data.PersonFactRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -103,7 +109,8 @@ class PersonDetailViewModel @Inject constructor(
                 taskRepository.observeTasksForPerson(personId),
                 repository.observeDateEntries(),
                 contactRepository.observePlans(),
-                contactRepository.observeLogs(personId)
+                contactRepository.observeLogs(personId),
+                factRepository.observeForPerson(personId)
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -151,6 +158,7 @@ class PersonDetailViewModel @Inject constructor(
                             contactPlanDays =
                                 comb.contactPlans[personId],
                             contactLogs = comb.contactLogs,
+                            facts = comb.facts,
                             // “记为夫妻”候选只给“我”的页面用，其他人不查
                             weddingCandidateId = weddingCandidate?.id,
                             weddingCandidateName = weddingCandidate?.name,
@@ -311,6 +319,44 @@ class PersonDetailViewModel @Inject constructor(
 
     fun deleteContactLog(id: String) {
         viewModelScope.launch { contactRepository.deleteLog(id) }
+    }
+
+    /** 新增「关于TA」；预设尺码同名时替换旧值。 */
+    fun addFact(
+        category: io.github.xiaohaoz1.jiarenxia.core.model.FactCategory,
+        label: String?,
+        content: String
+    ) {
+        viewModelScope.launch {
+            val normalizedLabel = label?.trim()
+            val existing = if (
+                category == io.github.xiaohaoz1.jiarenxia.core.model.FactCategory.SIZE &&
+                normalizedLabel in io.github.xiaohaoz1.jiarenxia.core.model.FACT_SIZE_LABELS
+            ) {
+                _ui.value.facts.firstOrNull {
+                    it.category == category && it.label == normalizedLabel
+                }
+            } else null
+            val r = if (existing != null) {
+                factRepository.update(existing.id, label, content)
+            } else {
+                factRepository.add(personId, category, label, content)
+            }
+            if (r is FamilyResult.Failure) _ui.update { it.copy(error = r.error.message) }
+        }
+    }
+
+    /** 修改一条「关于TA」记录。 */
+    fun updateFact(id: String, label: String?, content: String) {
+        viewModelScope.launch {
+            val r = factRepository.update(id, label, content)
+            if (r is FamilyResult.Failure) _ui.update { it.copy(error = r.error.message) }
+        }
+    }
+
+    /** 删除一条「关于TA」记录。 */
+    fun deleteFact(id: String) {
+        viewModelScope.launch { factRepository.delete(id) }
     }
 
     /**

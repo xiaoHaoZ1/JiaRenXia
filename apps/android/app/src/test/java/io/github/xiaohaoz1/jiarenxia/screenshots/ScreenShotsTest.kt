@@ -17,6 +17,8 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.xiaohaoz1.jiarenxia.core.kinship.FamilyGraph
 import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine
 import io.github.xiaohaoz1.jiarenxia.core.model.Gender
+import io.github.xiaohaoz1.jiarenxia.core.model.FactCategory
+import io.github.xiaohaoz1.jiarenxia.core.model.PersonFact
 import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue
 import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
@@ -81,6 +83,8 @@ import io.github.xiaohaoz1.jiarenxia.ui.person.PersonEditMode
 import io.github.xiaohaoz1.jiarenxia.ui.person.PersonEditUiState
 import io.github.xiaohaoz1.jiarenxia.ui.person.PhoneRowState
 import io.github.xiaohaoz1.jiarenxia.ui.person.RelationRow
+import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorBody
+import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorMode
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderContent
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderUiState
 import io.github.xiaohaoz1.jiarenxia.ui.search.SearchContent
@@ -290,6 +294,147 @@ class ScreenShotsTest {
     }.also {
         assertTexts("重要日期", "结婚纪念日（与李雪）", "36 岁",
             "添加恋爱纪念日", "添加领证纪念日")
+        assertNoTexts("关于TA")
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun detailAboutEmpty() = shot("detail_about_empty") {
+        PersonDetailContent(
+            lunar = Demo.lunar,
+            st = Demo.detailOf("mom").copy(facts = emptyList()),
+            today = Demo.today, snackbar = SnackbarHostState(),
+            onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+            onDial = {}, onSetReminder = { _, _ -> },
+            onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {},
+            onDeletePerson = {}, onSetSiblingOrder = { _, _, _ -> },
+            onRemoveRelation = {}
+        )
+    }.also {
+        assertTexts("关于TA", "记下TA的尺码、口味和心愿")
+    }
+
+    private fun aboutFacts(): List<PersonFact> {
+        fun fact(
+            id: String,
+            category: FactCategory,
+            label: String?,
+            content: String,
+            day: LocalDate = LocalDate.of(2026, 9, 1),
+            createdAt: Long
+        ) = PersonFact(id, "mom", category, label, content, day, createdAt, createdAt)
+        return listOf(
+            fact("f1", FactCategory.SIZE, "鞋码", "37", createdAt = 1),
+            fact("f2", FactCategory.SIZE, "上衣", "L", createdAt = 2),
+            fact("f3", FactCategory.FOOD_LIKE, null, "红烧肉", createdAt = 3),
+            fact("f4", FactCategory.FOOD_LIKE, null, "清蒸鲈鱼", createdAt = 4),
+            fact("f5", FactCategory.FOOD_AVOID, null, "不吃香菜", createdAt = 5),
+            fact("f6", FactCategory.HEALTH, null, "血压偏高，少放盐", createdAt = 6),
+            fact("f7", FactCategory.HOBBY, null, "广场舞", createdAt = 7),
+            fact(
+                "f8", FactCategory.WISH, null, "按摩椅",
+                day = LocalDate.of(2024, 9, 1), createdAt = 8
+            ),
+            fact("f9", FactCategory.CUSTOM, "常去的店", "楼下张记水果店", createdAt = 9)
+        )
+    }
+
+    @Composable
+    private fun DetailAboutContent() {
+        PersonDetailContent(
+            lunar = Demo.lunar,
+            st = Demo.detailOf("mom").copy(facts = aboutFacts()),
+            today = Demo.today, snackbar = SnackbarHostState(),
+            onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+            onDial = {}, onSetReminder = { _, _ -> },
+            onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {},
+            onDeletePerson = {}, onSetSiblingOrder = { _, _, _ -> },
+            onRemoveRelation = {}
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun detailAbout() = shot("detail_about") { DetailAboutContent() }.also {
+        assertTexts(
+            "关于TA", "尺码", "鞋码 37", "上衣 L", "按摩椅 · 2024年",
+            "常去的店", "楼下张记水果店"
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun detailAboutLarge() = shotLarge("detail_about") { DetailAboutContent() }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun detailAboutDeceased() = shot("detail_about_deceased") {
+        val base = Demo.detailOf("mom")
+        PersonDetailContent(
+            lunar = Demo.lunar,
+            st = base.copy(
+                detail = base.detail!!.copy(
+                    person = base.detail.person.copy(livingStatus = LivingStatus.DECEASED)
+                ),
+                facts = emptyList()
+            ),
+            today = Demo.today, snackbar = SnackbarHostState(),
+            onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+            onDial = {}, onSetReminder = { _, _ -> },
+            onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {},
+            onDeletePerson = {}, onSetSiblingOrder = { _, _, _ -> },
+            onRemoveRelation = {}
+        )
+    }.also {
+        assertTexts("留作念想")
+        assertNoTexts("尺码", "想要的")
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun aboutEditorAddSize() = shot("about_editor_add_size") {
+        Column(Modifier.padding(24.dp)) {
+            FactEditorBody(
+                mode = FactEditorMode.ADD,
+                availableCategories = FactCategory.entries,
+                category = FactCategory.SIZE,
+                sizeChoice = "鞋码",
+                otherSizeLabel = "",
+                customLabel = "",
+                content = "38",
+                originalContent = "37",
+                recordedOn = null,
+                onCategoryChange = {}, onSizeChoiceChange = {},
+                onOtherSizeLabelChange = {}, onCustomLabelChange = {},
+                onContentChange = {}
+            )
+        }
+    }.also {
+        assertTexts("分类", "哪一项", "原来记的是 37，保存后会替换")
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun aboutEditorEditCustom() = shot("about_editor_edit_custom") {
+        Column(Modifier.padding(24.dp)) {
+            FactEditorBody(
+                mode = FactEditorMode.EDIT,
+                availableCategories = FactCategory.entries,
+                category = FactCategory.CUSTOM,
+                sizeChoice = "鞋码",
+                otherSizeLabel = "",
+                customLabel = "常去的店",
+                content = "楼下张记水果店",
+                originalContent = null,
+                recordedOn = LocalDate.of(2026, 9, 1),
+                onCategoryChange = {}, onSizeChoiceChange = {},
+                onOtherSizeLabelChange = {}, onCustomLabelChange = {},
+                onContentChange = {}
+            )
+        }
+    }.also {
+        assertTexts("分类名", "记录于 2026年9月")
+        assertNoTexts("哪一项")
     }
 
     @Test

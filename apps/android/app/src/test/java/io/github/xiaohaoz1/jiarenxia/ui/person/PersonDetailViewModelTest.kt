@@ -6,6 +6,7 @@ import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine
 import io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue
 import io.github.xiaohaoz1.jiarenxia.core.model.CalendarType
 import io.github.xiaohaoz1.jiarenxia.core.model.Gender
+import io.github.xiaohaoz1.jiarenxia.core.model.FactCategory
 import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationRole
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
@@ -14,6 +15,7 @@ import io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository
 import io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepositoryImpl
 import io.github.xiaohaoz1.jiarenxia.data.IdGenerator
 import io.github.xiaohaoz1.jiarenxia.data.PersonDraft
+import io.github.xiaohaoz1.jiarenxia.data.PersonFactRepositoryImpl
 import io.github.xiaohaoz1.jiarenxia.data.RepoTestBase
 import io.github.xiaohaoz1.jiarenxia.data.TimeSource
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
@@ -71,8 +73,35 @@ class PersonDetailViewModelTest : RepoTestBase() {
             tasks,
             KinshipEngine(),
             ObserveFamilyOverview(repo, KinshipEngine()),
-            IcuLunarCalendar()
+            IcuLunarCalendar(),
+            PersonFactRepositoryImpl(
+                db,
+                object : IdGenerator { override fun newId() = "f-" + (++seq) },
+                object : TimeSource { override fun now() = now }
+            )
         ).also(viewModels::add)
+    }
+
+    @Test
+    fun 关于TA新增并替换同名预设尺码() = runTest {
+        val me = createSelf()
+        val mom = repo.createRelative(
+            draft("妈妈", Gender.FEMALE), me, RelationRole.MOTHER
+        ).ok()
+        val model = vm(mom)
+        model.ui.first { !it.loading }
+
+        model.addFact(FactCategory.FOOD_LIKE, null, "红烧肉")
+        model.ui.first { it.facts.any { fact -> fact.content == "红烧肉" } }
+        model.addFact(FactCategory.SIZE, "鞋码", "37")
+        model.ui.first { it.facts.any { fact -> fact.content == "37" } }
+        model.addFact(FactCategory.SIZE, "鞋码", "38")
+        val state = model.ui.first {
+            it.facts.count { fact -> fact.category == FactCategory.SIZE } == 1 &&
+                it.facts.any { fact -> fact.content == "38" }
+        }
+        assertEquals("红烧肉", state.facts.first { it.category == FactCategory.FOOD_LIKE }.content)
+        assertEquals("38", state.facts.single { it.category == FactCategory.SIZE }.content)
     }
 
     @Test
