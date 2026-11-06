@@ -102,6 +102,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.common.rememberNotificationPermissionReq
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DateTile
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.IconInfoRow
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
@@ -938,7 +939,7 @@ fun PersonDetailContent(
                             var noteText by remember { mutableStateOf("") }
                             AlertDialog(
                                 onDismissRequest = { logSheet = false },
-                                title = { Text("记一次联系") },
+                                title = { DialogTitle("记一次联系") },
                                 text = {
                                     Column {
                                         FlowRow(

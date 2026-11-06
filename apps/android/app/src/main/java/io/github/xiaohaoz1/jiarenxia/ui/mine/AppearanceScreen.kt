@@ -1,22 +1,33 @@
 package io.github.xiaohaoz1.jiarenxia.ui.mine
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -24,6 +35,9 @@ import io.github.xiaohaoz1.jiarenxia.data.settings.MAX_FONT_SCALE_FACTOR
 import io.github.xiaohaoz1.jiarenxia.data.settings.MIN_FONT_SCALE_FACTOR
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 import kotlin.math.roundToInt
 
 /** 外观与字号（我的 → 二级页）：深浅模式 + 桌面插件配色 + 应用内字体大小。 */
@@ -58,68 +72,46 @@ fun AppearanceContent(
     onFontScale: (Float) -> Unit,
     onBack: () -> Unit
 ) {
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     SettingsScaffold("外观与字号", onBack) {
         SettingsGroup("主题") {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.entries
-                    .forEachIndexed { i, s ->
-                    SegmentedButton(
-                        selected = themeStyle == s,
-                        onClick = { onThemeStyle(s) },
-                        shape = SegmentedButtonDefaults.itemShape(
-                            i, io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.entries.size)
-                    ) {
-                        Text(
-                            when (s) {
-                                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU -> "家书"
-                                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC -> "经典"
-                            }
-                        )
-                    }
-                }
-            }
+            StyleOptions(
+                labels = JrxStyle.entries.map {
+                    when (it) { JrxStyle.JIASHU -> "家书"; JrxStyle.CLASSIC -> "经典" }
+                },
+                selected = JrxStyle.entries.indexOf(themeStyle),
+                onSelect = { onThemeStyle(JrxStyle.entries[it]) }
+            )
             SettingsHint("「家书」是纸墨风的改版样式；「经典」是原来的暖白样式。切换即全 App 生效。")
         }
 
         SettingsGroup("深浅模式") {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                ThemeMode.entries.forEachIndexed { i, m ->
-                    SegmentedButton(
-                        selected = themeMode == m,
-                        onClick = { onThemeMode(m) },
-                        shape = SegmentedButtonDefaults.itemShape(i, ThemeMode.entries.size)
-                    ) {
-                        Text(
-                            when (m) {
-                                ThemeMode.LIGHT -> "浅色"
-                                ThemeMode.DARK -> "深色"
-                                ThemeMode.SYSTEM -> "跟随系统"
-                            }
-                        )
+            StyleOptions(
+                labels = ThemeMode.entries.map {
+                    when (it) {
+                        ThemeMode.LIGHT -> "浅色"
+                        ThemeMode.DARK -> "深色"
+                        ThemeMode.SYSTEM -> "跟随系统"
                     }
-                }
-            }
+                },
+                selected = ThemeMode.entries.indexOf(themeMode),
+                onSelect = { onThemeMode(ThemeMode.entries[it]) }
+            )
             SettingsHint("深浅模式管 App 内界面。")
         }
 
         SettingsGroup("桌面插件配色") {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                WidgetThemeMode.entries.forEachIndexed { i, m ->
-                    SegmentedButton(
-                        selected = widgetThemeMode == m,
-                        onClick = { onWidgetThemeMode(m) },
-                        shape = SegmentedButtonDefaults.itemShape(i, WidgetThemeMode.entries.size)
-                    ) {
-                        Text(
-                            when (m) {
-                                WidgetThemeMode.LIGHT -> "浅色"
-                                WidgetThemeMode.DARK -> "深色"
-                                WidgetThemeMode.SYSTEM -> "跟随系统"
-                            }
-                        )
+            StyleOptions(
+                labels = WidgetThemeMode.entries.map {
+                    when (it) {
+                        WidgetThemeMode.LIGHT -> "浅色"
+                        WidgetThemeMode.DARK -> "深色"
+                        WidgetThemeMode.SYSTEM -> "跟随系统"
                     }
-                }
-            }
+                },
+                selected = WidgetThemeMode.entries.indexOf(widgetThemeMode),
+                onSelect = { onWidgetThemeMode(WidgetThemeMode.entries[it]) }
+            )
             SettingsHint("只管桌面「家事时间线」插件：系统深色时也可以让插件保持浅色。")
         }
 
@@ -138,7 +130,13 @@ fun AppearanceContent(
                 onValueChangeFinished = { onFontScale(slider) },
                 valueRange = MIN_FONT_SCALE_FACTOR..MAX_FONT_SCALE_FACTOR,
                 steps = ((MAX_FONT_SCALE_FACTOR - MIN_FONT_SCALE_FACTOR) * 20)
-                    .roundToInt() - 1
+                    .roundToInt() - 1,
+                // 「家书」滑杆：墨色轨道 + 朱砂滑钮
+                colors = if (jiashu) SliderDefaults.colors(
+                    thumbColor = LocalJrxColors.current.seal,
+                    activeTrackColor = MaterialTheme.colorScheme.onSurface,
+                    inactiveTrackColor = MaterialTheme.colorScheme.outlineVariant
+                ) else SliderDefaults.colors()
             )
             Spacer(Modifier.height(10.dp))
             Column(Modifier.fillMaxWidth().padding(top = 2.dp)) {
@@ -156,5 +154,56 @@ fun AppearanceContent(
         }
         SettingsHint("字号对全 App 生效，不影响系统其他应用。")
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * 单选选项：「家书」用文字选项，选中项粗体加朱砂下划线；
+ * 「经典」保持分段按钮。
+ */
+@Composable
+private fun StyleOptions(
+    labels: List<String>,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) {
+        Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+            labels.forEachIndexed { i, label ->
+                val on = i == selected
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .clickable(role = Role.Button) { onSelect(i) }
+                        .padding(4.dp)
+                ) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+                        color = if (on) MaterialTheme.colorScheme.onSurface
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(Modifier.height(3.dp))
+                    Box(
+                        Modifier.height(2.dp).width(30.dp).background(
+                            if (on) LocalJrxColors.current.seal
+                            else androidx.compose.ui.graphics.Color.Transparent
+                        )
+                    )
+                }
+            }
+        }
+    } else {
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            labels.forEachIndexed { i, label ->
+                SegmentedButton(
+                    selected = i == selected,
+                    onClick = { onSelect(i) },
+                    shape = SegmentedButtonDefaults.itemShape(i, labels.size)
+                ) { Text(label) }
+            }
+        }
     }
 }

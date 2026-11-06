@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
 import io.github.xiaohaoz1.jiarenxia.ui.restore.DOWNLOAD_INITIAL_URI
 import io.github.xiaohaoz1.jiarenxia.ui.restore.PasswordField
 import java.text.SimpleDateFormat
@@ -101,7 +102,7 @@ fun ExportPasswordDialog(
     val problem = exportPasswordProblem(p1, p2)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { DialogTitle(title) },
         text = {
             Column {
                 io.github.xiaohaoz1.jiarenxia.ui.common.DisableAutofill()

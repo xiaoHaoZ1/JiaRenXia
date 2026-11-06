@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.HelpOutline
@@ -25,6 +26,8 @@ import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material3.Button
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,8 +59,12 @@ import io.github.xiaohaoz1.jiarenxia.ui.backup.backupFileName
 import io.github.xiaohaoz1.jiarenxia.ui.backup.lastBackupSubtitle
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitleBlock
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SealMark
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 
 /**
  * 「我的」页（2026-10-09 改版）。
@@ -163,12 +170,139 @@ fun MineContent(
     updateBadge: Boolean = false,
     onCheckUpdate: () -> Unit = {}
 ) {
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
         contentColor = MaterialTheme.colorScheme.onBackground
     ) {
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            if (jiashu) {
+                PageHeader { PageTitleBlock("我的") }
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    // 我是谁：56dp 方角头像 + 姓名行（发丝线分隔）
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                            .then(
+                                if (self != null)
+                                    Modifier.clickable(role = Role.Button) {
+                                        onOpenPerson(self.id)
+                                    }
+                                else Modifier
+                            )
+                            .padding(vertical = 16.dp)
+                    ) {
+                        PersonAvatar(
+                            self?.avatarPath, self?.name ?: "我", 56.dp,
+                            ring = io.github.xiaohaoz1.jiarenxia.ui.theme
+                                .LocalJrxColors.current.seal,
+                            shape = RoundedCornerShape(4.dp)
+                        )
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                self?.name ?: "我",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                "查看我的资料",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 备份块：主按钮只有一种——墨青实心小方角
+                    Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
+                        Text("备份", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            lastBackupSubtitle(lastBackupAt) +
+                                "。资料只存在这台手机里，换手机或误删时要靠备份找回。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Button(
+                                shape = jrxActionShape(),
+                                onClick = onBackup
+                            ) { Text("备份…") }
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                "需要设置密码",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 五个入口：发丝线行，无卡片
+                    SettingsNavRow(
+                        icon = Icons.Rounded.SystemUpdate,
+                        title = "检查更新",
+                        subtitle = updateSubtitle,
+                        badge = if (updateBadge) "新版" else null,
+                        arrow = false,
+                        onClick = onCheckUpdate
+                    )
+                    RowDivider()
+                    SettingsNavRow(
+                        icon = Icons.Rounded.Storage,
+                        title = "数据管理",
+                        subtitle = "备份、恢复与清空",
+                        onClick = onDataManage
+                    )
+                    RowDivider()
+                    SettingsNavRow(
+                        icon = Icons.Rounded.TextFields,
+                        title = "外观与字号",
+                        value = appearanceSummary(themeMode, themeStyle, fontScaleFactor),
+                        onClick = onAppearance
+                    )
+                    RowDivider()
+                    SettingsNavRow(
+                        icon = Icons.Rounded.GridView,
+                        title = "功能介绍与管理",
+                        subtitle = "认识各项功能",
+                        onClick = onModules
+                    )
+                    RowDivider()
+                    SettingsNavRow(
+                        icon = Icons.AutoMirrored.Rounded.HelpOutline,
+                        title = "帮助与关于",
+                        subtitle = "隐私说明 · 新手引导 · 问题反馈",
+                        onClick = onAbout
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 落款：朱砂「侠」印 + 隐私声明
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = androidx.compose.foundation
+                            .layout.Arrangement.Center,
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 22.dp)
+                    ) {
+                        SealMark("侠")
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "资料只留在你的手机里",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(Modifier.height(20.dp))
+                }
+            } else {
             PageHeader {
                 io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitle("我的")
             }
@@ -288,6 +422,7 @@ fun MineContent(
                     modifier = Modifier.fillMaxWidth()
                 )
                 Spacer(Modifier.height(20.dp))
+            }
             }
         }
     }

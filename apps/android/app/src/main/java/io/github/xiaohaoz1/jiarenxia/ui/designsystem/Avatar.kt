@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -96,7 +97,8 @@ object AvatarPalette {
 }
 
 /**
- * 人物头像：有图显示圆形图片，无图显示姓名首字的暖色渐变圆形占位。
+ * 人物头像：有图显示图片，无图显示姓名首字的暖色渐变占位；默认圆形，
+ * 「家书」的方角头像传 [shape] = RoundedCornerShape(4.dp)。
  * - ring：侧别色描边（3dp，外留 2dp 间隙）
  * - deceased：去饱和 + 75% 透明度
  * 解码在 Dispatchers.IO 上按显示尺寸降采样。
@@ -108,7 +110,8 @@ fun PersonAvatar(
     size: Dp,
     modifier: Modifier = Modifier,
     ring: Color? = null,
-    deceased: Boolean = false
+    deceased: Boolean = false,
+    shape: Shape = CircleShape
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -135,9 +138,9 @@ fun PersonAvatar(
     val contentAlpha = if (deceased) 0.75f else 1f
     Box(modifier = boxModifier, contentAlignment = Alignment.Center) {
         if (ring != null) {
-            Box(Modifier.fillMaxSize().border(3.dp, ring, CircleShape))
+            Box(Modifier.fillMaxSize().border(3.dp, ring, shape))
         }
-        val innerMod = Modifier.size(size).clip(CircleShape).alpha(contentAlpha)
+        val innerMod = Modifier.size(size).clip(shape).alpha(contentAlpha)
         if (bitmap != null) {
             Image(
                 bitmap = bitmap!!.asImageBitmap(),
@@ -148,22 +151,25 @@ fun PersonAvatar(
                 modifier = innerMod
             )
         } else {
-            AvatarPlaceholder(name = name, size = size, deceased = deceased, modifier = innerMod)
+            AvatarPlaceholder(
+                name = name, size = size, deceased = deceased,
+                shape = shape, modifier = innerMod)
         }
     }
 }
 
-/** 无头像占位：姓名首字 + 姓名哈希选出的暖色渐变。 */
+/** 无头像占位：姓名首字 + 姓名哈希选出的暖色渐变；[shape] 默认圆形。 */
 @Composable
 fun AvatarPlaceholder(
     name: String,
     size: Dp,
     modifier: Modifier = Modifier,
-    deceased: Boolean = false
+    deceased: Boolean = false,
+    shape: Shape = CircleShape
 ) {
     val (top, bottom) = AvatarPalette.gradient(name, deceased)
     Box(
-        modifier = modifier.size(size).clip(CircleShape)
+        modifier = modifier.size(size).clip(shape)
             .background(Brush.verticalGradient(listOf(top, bottom))),
         contentAlignment = Alignment.Center
     ) {

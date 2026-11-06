@@ -34,6 +34,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.FACT_LABEL_MAX
 import io.github.xiaohaoz1.jiarenxia.core.model.FACT_SIZE_LABELS
 import io.github.xiaohaoz1.jiarenxia.core.model.FactCategory
 import io.github.xiaohaoz1.jiarenxia.core.model.PersonFact
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import java.time.LocalDate
 
@@ -328,7 +329,8 @@ private fun FactDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(if (initialFact == null) "添加" else "编辑「" + groupTitle + "」")
+            DialogTitle(
+                if (initialFact == null) "添加" else "编辑「" + groupTitle + "」")
         },
         text = {
             // 大字号加键盘时正文会超过弹框高度；AlertDialog 正文默认裁切不滚动

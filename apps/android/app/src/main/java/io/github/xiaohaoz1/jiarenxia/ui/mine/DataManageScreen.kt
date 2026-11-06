@@ -36,6 +36,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.backup.CreateBackupDocument
 import io.github.xiaohaoz1.jiarenxia.ui.backup.backupFileName
 import io.github.xiaohaoz1.jiarenxia.ui.backup.lastBackupSubtitle
 import io.github.xiaohaoz1.jiarenxia.ui.common.ConfirmDialog
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
 import io.github.xiaohaoz1.jiarenxia.ui.restore.OpenBackupDocument
 import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreDialogs
 import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreOutcome
@@ -164,7 +165,7 @@ fun DataManageScreen(
     if (showClear2) {
         AlertDialog(
             onDismissRequest = { showClear2 = false },
-            title = { Text("清空所有数据") },
+            title = { DialogTitle("清空所有数据") },
             text = {
                 Column {
                     Text("请输入“清空”确认")

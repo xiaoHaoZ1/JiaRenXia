@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import io.github.xiaohaoz1.jiarenxia.data.backup.BackupSummary
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
 
 /**
  * 恢复流程对话框（FAMILY_AFFAIRS 16.1/16.2）：问密码 / 进行中 / 确认恢复。
@@ -60,7 +61,7 @@ fun RestoreDialogs(
         )
         is RestoreStep.Confirm -> AlertDialog(
             onDismissRequest = onDismiss,
-            title = { Text("恢复此备份？") },
+            title = { DialogTitle("恢复此备份？") },
             text = {
                 RestoreConfirmBody(step.summary, step.overwrites, onNotMe)
             },
@@ -125,7 +126,7 @@ internal fun PasswordDialog(
     var visible by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { DialogTitle(title) },
         text = {
             Column {
                 io.github.xiaohaoz1.jiarenxia.ui.common.DisableAutofill()

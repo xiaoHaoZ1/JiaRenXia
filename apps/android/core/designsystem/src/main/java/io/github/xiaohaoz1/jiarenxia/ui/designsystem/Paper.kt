@@ -140,6 +140,23 @@ fun SealLabel(text: String, modifier: Modifier = Modifier) {
     )
 }
 
+/**
+ * 弹框标题：「家书」是顶上双线 + 粗体标题（便笺样式）；「经典」是普通粗体标题。
+ * 直接在 AlertDialog 的 title 槽里替换 `Text(title)` 即可。
+ */
+@Composable
+fun DialogTitle(title: String, modifier: Modifier = Modifier) {
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) {
+        Column(modifier.fillMaxWidth()) {
+            DoubleRule()
+            Spacer(Modifier.height(10.dp))
+            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        }
+    } else {
+        Text(title)
+    }
+}
+
 /** 墨青文字链（打个电话 / 记一次）：粗体 + 下划线。 */
 @Composable
 fun JrxLink(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {

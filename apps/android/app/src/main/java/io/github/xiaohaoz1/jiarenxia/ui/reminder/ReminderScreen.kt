@@ -93,6 +93,7 @@ import io.github.xiaohaoz1.jiarenxia.reminder.BirthdayRow
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskTemplates
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.EmptyState
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxLink
@@ -580,7 +581,7 @@ fun ReminderContent(
         var noteText by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { contactLogFor = null },
-            title = { Text("记一次联系") },
+            title = { DialogTitle("记一次联系") },
             text = {
                 Column {
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -949,7 +950,7 @@ internal fun formatFen(fen: Long): String =
 internal fun TemplatePickerDialog(onPick: (TaskKind) -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("新建事项") },
+        title = { DialogTitle("新建事项") },
         text = {
             Column {
                 TaskTemplates.ALL.forEach { t ->

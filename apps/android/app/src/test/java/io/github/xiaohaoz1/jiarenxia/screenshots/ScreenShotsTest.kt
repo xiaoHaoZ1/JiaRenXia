@@ -1754,10 +1754,24 @@ class ScreenShotsTest {
 
     @Test
     @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
-    fun mine() = shot("mine") {
+    fun mine() = shot(
+        "mine",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
         MineContent(self = Demo.demoOverview().self.person)
     }.also {
         assertTexts("家庭资料备份", "数据管理", "外观与字号", "功能介绍与管理", "帮助与关于", "检查更新")
+    }
+
+    /** 我的页·家书：标题双线、方角头像、备份块、发丝线入口、「侠」印落款。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun mineJiashu() = shot("mine_js") {
+        MineContent(self = Demo.demoOverview().self.person)
+    }.also {
+        assertTexts("我的", "备份", "需要设置密码", "查看我的资料",
+            "数据管理", "外观与字号", "功能介绍与管理", "帮助与关于", "检查更新",
+            "资料只留在你的手机里")
     }
 
     @Test
@@ -1859,6 +1873,22 @@ class ScreenShotsTest {
         io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
             themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
             themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+            widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
+            fontScaleFactor = 1.0f,
+            onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
+            onFontScale = {}, onBack = {}
+        )
+    }.also { assertTexts("家书", "经典", "浅色", "字号 100%", "桌面插件配色") }
+
+    /** 外观页·经典：分段按钮保持不变。 */
+    @Test
+    fun appearanceClassic() = shot(
+        "appearance_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
+            themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
+            themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
             widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
             fontScaleFactor = 1.0f,
             onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},

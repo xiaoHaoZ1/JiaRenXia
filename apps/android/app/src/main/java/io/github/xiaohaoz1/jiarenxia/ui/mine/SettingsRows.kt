@@ -36,6 +36,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DoubleRule
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SealLabel
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 
 /**
  * 设置类页面的共用行与骨架（2026-10-09 界面改版）。
@@ -45,6 +49,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
  */
 
 /** 二级设置页骨架：返回 + 标题 + 可滚动内容（内容自带 16dp 左右留白）。
+ *  「家书」下标题单独一行（28sp 粗体 + 双线），返回键在顶行。
  *  [bottomBar] 提供时钉在页面底部不随内容滚动（如固定操作栏）。 */
 @Composable
 fun SettingsScaffold(
@@ -53,6 +58,7 @@ fun SettingsScaffold(
     bottomBar: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -70,11 +76,24 @@ fun SettingsScaffold(
                         contentDescription = "返回"
                     )
                 }
-                Spacer(Modifier.width(2.dp))
-                Text(
-                    title, style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.semantics { heading() }
-                )
+                if (!jiashu) {
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        title, style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                }
+            }
+            if (jiashu) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    DoubleRule()
+                }
             }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState())
@@ -86,31 +105,44 @@ fun SettingsScaffold(
     }
 }
 
-/** 分组：灰色小标题 + 一张卡片（卡片内用 [SettingsNavRow] 等行）。 */
+/**
+ * 分组：经典 = 灰色小标题 + 一张卡片；家书 = 朱砂小标签 + 裸行（发丝线分隔）。
+ */
 @Composable
 fun SettingsGroup(
     title: String? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    if (title != null) {
-        Text(
-            title,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp)
-                .semantics { heading() }
-        )
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
+    if (jiashu) {
+        if (title != null) {
+            SealLabel(title, Modifier.padding(top = 18.dp, bottom = 8.dp))
+        } else {
+            Spacer(Modifier.height(12.dp))
+        }
+        Column(Modifier.fillMaxWidth(), content = content)
     } else {
-        Spacer(Modifier.height(10.dp))
+        if (title != null) {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 4.dp, top = 14.dp, bottom = 6.dp)
+                    .semantics { heading() }
+            )
+        } else {
+            Spacer(Modifier.height(10.dp))
+        }
+        JrxCard(Modifier.fillMaxWidth(), content = content)
     }
-    JrxCard(Modifier.fillMaxWidth(), content = content)
 }
 
-/** 卡片内的行间分隔线（与卡片描边同色，缩进对齐文字）。 */
+/** 行间分隔线：经典是卡片内缩进分隔；家书是行下发丝线（行的留白已够）。 */
 @Composable
 fun RowDivider() {
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     HorizontalDivider(
-        Modifier.padding(vertical = 10.dp),
+        if (jiashu) Modifier else Modifier.padding(vertical = 10.dp),
         color = MaterialTheme.colorScheme.outlineVariant
     )
 }
@@ -134,14 +166,19 @@ fun SettingsNavRow(
 ) {
     val tint = if (danger) MaterialTheme.colorScheme.error
     else MaterialTheme.colorScheme.primary
+    // 「家书」行不带图标、行距更开（发丝线分隔名单感）
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
             .clickable(role = Role.Button, onClick = onClick)
-            .padding(vertical = 4.dp)
+            .padding(vertical = if (jiashu) 14.dp else 4.dp)
     ) {
-        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(12.dp))
+        if (!jiashu) {
+            Icon(icon, contentDescription = null, tint = tint,
+                modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+        }
         Column(Modifier.weight(1f)) {
             Text(
                 title, style = MaterialTheme.typography.bodyLarge,
@@ -195,13 +232,14 @@ fun SettingsSwitchRow(
     /** 开关右侧之前的附加内容（如提醒时刻）。 */
     trailing: (@Composable () -> Unit)? = null
 ) {
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
             .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-            .padding(vertical = 4.dp)
+            .padding(vertical = if (jiashu) 14.dp else 4.dp)
     ) {
-        if (icon != null) {
+        if (icon != null && !jiashu) {
             Icon(
                 icon, contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp)
