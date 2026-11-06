@@ -31,10 +31,10 @@ export const SITE = {
  * 并同步这里的版本/大小/校验值。version 留空表示暂无测试版。 */
 export const APK_BETA = {
   /** 安装包的 versionName，含 -debug 后缀 */
-  version: "2.1.3-debug",
-  sizeBytes: 26_191_429,
-  sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.1.3.apk`,
+  version: "2.2.0-debug",
+  sizeBytes: 25_111_054,
+  sha256: "dad41a5a2d5446119e69ef44b87bb5a8fc95070c272b4503492b8dc5cdef4464",
+  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.2.0.apk`,
 };
 
 /** 小侠家族页展示的同作者小应用。安装包同样放站点根目录、不入库；
