@@ -58,6 +58,7 @@ import io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem
 import io.github.xiaohaoz1.jiarenxia.domain.PersonPickList
 import io.github.xiaohaoz1.jiarenxia.domain.PersonSearch
 import io.github.xiaohaoz1.jiarenxia.ui.backup.ExportPasswordDialog
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphBranch
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphBranches
 import java.io.File
@@ -413,7 +414,7 @@ fun ShareScopeContent(
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onNext,
                     enabled = !state.loading && state.selected.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth()

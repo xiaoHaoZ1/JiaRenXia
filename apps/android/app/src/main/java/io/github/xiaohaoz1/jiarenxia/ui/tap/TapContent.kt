@@ -76,6 +76,7 @@ import io.github.xiaohaoz1.jiarenxia.nfc.TapProtocol
 import io.github.xiaohaoz1.jiarenxia.ui.common.PersonPickerDialog
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.graph.GraphBranch
 
 /**
@@ -411,7 +412,7 @@ fun TapContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 8.dp))
                     Button(
-                        shape = MaterialTheme.shapes.small,
+                        shape = jrxActionShape(),
                         onClick = onShare,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -424,7 +425,7 @@ fun TapContent(
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier.padding(16.dp, 16.dp, 16.dp, 8.dp))
                     Button(
-                        shape = MaterialTheme.shapes.small,
+                        shape = jrxActionShape(),
                         onClick = {
                             ctx.startActivity(
                                 Intent(Settings.ACTION_NFC_SETTINGS))
@@ -468,7 +469,7 @@ fun TapContent(
                     // 缺“我”（roleReady 之前）没法重试，只能先去建人
                     if (st.roleReady) {
                         Button(
-                            shape = MaterialTheme.shapes.small,
+                            shape = jrxActionShape(),
                             onClick = onRetry,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -677,7 +678,7 @@ private fun WaitingPage(
                 }
             }
             OutlinedButton(
-                shape = MaterialTheme.shapes.small,
+                shape = jrxActionShape(),
                 onClick = onToggleRole,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -788,7 +789,7 @@ private fun ConfirmPage(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 12.dp))
                 Button(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -796,7 +797,7 @@ private fun ConfirmPage(
                 ) { Text("是，就是我的配偶",
                     style = MaterialTheme.typography.titleMedium) }
                 OutlinedButton(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onDecline,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -818,7 +819,7 @@ private fun ConfirmPage(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 12.dp))
                 Button(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -826,7 +827,7 @@ private fun ConfirmPage(
                 ) { Text("是配偶，重新配对并合并",
                     style = MaterialTheme.typography.titleMedium) }
                 OutlinedButton(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onDecline,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -858,7 +859,7 @@ private fun ConfirmPage(
                         modifier = Modifier.padding(16.dp, 4.dp, 16.dp, 0.dp))
                 }
                 Button(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onConfirm,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -866,7 +867,7 @@ private fun ConfirmPage(
                 ) { Text("确认勾选并合并",
                     style = MaterialTheme.typography.titleMedium) }
                 OutlinedButton(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onDecline,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1029,7 +1030,7 @@ private fun UpdatePreviewPage(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp, 8.dp, 16.dp, 8.dp))
         Button(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = onConfirmUpdate,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1037,7 +1038,7 @@ private fun UpdatePreviewPage(
         ) { Text("确认更新（本机）",
             style = MaterialTheme.typography.titleMedium) }
         OutlinedButton(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = onCancelUpdate,
             modifier = Modifier
                 .fillMaxWidth()
@@ -1134,7 +1135,7 @@ private fun RelScopePage(
             modifier = Modifier.padding(top = 12.dp)
         )
         Button(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = onConfirm,
             enabled = st.scopeSelected.size > 1,
             modifier = Modifier
@@ -1208,7 +1209,7 @@ private fun RelIdentifyPage(
                 modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 4.dp))
         }
         Button(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = { pickExisting = true; newMode = false },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1216,7 +1217,7 @@ private fun RelIdentifyPage(
         ) { Text("他是我家里已经有的人",
             style = MaterialTheme.typography.titleMedium) }
         OutlinedButton(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = { newMode = !newMode },
             modifier = Modifier
                 .fillMaxWidth()
@@ -1229,7 +1230,7 @@ private fun RelIdentifyPage(
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(16.dp, 12.dp, 16.dp, 0.dp))
             OutlinedButton(
-                shape = MaterialTheme.shapes.small,
+                shape = jrxActionShape(),
                 onClick = { anchorPick = true },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1256,7 +1257,7 @@ private fun RelIdentifyPage(
                 }
             }
             Button(
-                shape = MaterialTheme.shapes.small,
+                shape = jrxActionShape(),
                 onClick = {
                     val a = anchorId; val r = role
                     if (a != null && r != null) onAnswerNew(a, r)
@@ -1340,7 +1341,7 @@ private fun RelPickPage(
             }
         }
         Button(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = onConfirm,
             enabled = st.relPickSelected.isNotEmpty() && !st.relBusy,
             modifier = Modifier
@@ -1369,7 +1370,7 @@ private fun RelDonePage(st: TapUiState, onDone: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(16.dp, 0.dp, 16.dp, 12.dp))
         Button(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = onDone,
             modifier = Modifier
                 .fillMaxWidth()

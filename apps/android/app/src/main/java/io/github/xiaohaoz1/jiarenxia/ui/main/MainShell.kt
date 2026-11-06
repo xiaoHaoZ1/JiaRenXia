@@ -19,8 +19,16 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.EventNote
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -31,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,7 +52,9 @@ import androidx.navigation.compose.rememberNavController
 import io.github.xiaohaoz1.jiarenxia.ui.family.FamilyScreen
 import io.github.xiaohaoz1.jiarenxia.ui.mine.MineScreen
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderScreen
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 
 /**
  * 主界面外壳：底部导航 3 个标签——家庭 / 家事 / 我的。
@@ -51,22 +62,52 @@ import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
  */
 private data class MainTab(
     val route: String,
-    val label: String
+    val label: String,
+    /** 经典底栏图标；「家书」底栏纯文字不用图标。 */
+    val icon: ImageVector
 )
 
 private val tabs = listOf(
-    MainTab(route = "family", label = "家庭"),
-    MainTab(route = "reminder", label = "家事"),
-    MainTab(route = "mine", label = "我的")
+    MainTab(route = "family", label = "家庭", icon = Icons.Rounded.Home),
+    MainTab(route = "reminder", label = "家事", icon = Icons.Rounded.EventNote),
+    MainTab(route = "mine", label = "我的", icon = Icons.Rounded.Person)
 )
 
 /**
- * 底部导航栏（「家书」改版 2.22）：三项等宽，只有文字，不用图标与 Material 指示器；
- * 选中项墨色粗体、下方一个朱砂圆点，未选中 outline 色；顶部一条发丝线。
- * 自己处理系统导航栏留白；抽出供截图测试直接渲染。
+ * 底部导航栏：按主题风格分流——「家书」纯文字 + 朱砂点，经典 Material 图标栏。
+ * 抽出供截图测试直接渲染。
  */
 @Composable
 internal fun MainBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) JiashuBottomBar(currentRoute, onSelect)
+    else ClassicBottomBar(currentRoute, onSelect)
+}
+
+/** 经典底栏：Material NavigationBar，图标 + 文字 + 胶囊指示器。 */
+@Composable
+private fun ClassicBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
+    NavigationBar {
+        tabs.forEach { tab ->
+            NavigationBarItem(
+                selected = currentRoute == tab.route,
+                onClick = { onSelect(tab.route) },
+                icon = { Icon(tab.icon, contentDescription = tab.label) },
+                label = { Text(tab.label) },
+                colors = NavigationBarItemDefaults.colors(
+                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            )
+        }
+    }
+}
+
+/**
+ * 「家书」底栏（2.22）：三项等宽，只有文字，不用图标与 Material 指示器；
+ * 选中项墨色粗体、下方一个朱砂圆点，未选中 outline 色；顶部一条发丝线。
+ * 自己处理系统导航栏留白。
+ */
+@Composable
+private fun JiashuBottomBar(currentRoute: String?, onSelect: (String) -> Unit) {
     val jrx = LocalJrxColors.current
     Surface(color = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding()) {

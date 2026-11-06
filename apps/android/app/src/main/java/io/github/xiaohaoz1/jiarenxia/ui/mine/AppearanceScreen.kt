@@ -35,9 +35,11 @@ fun AppearanceScreen(
     val st by viewModel.ui.collectAsStateWithLifecycle()
     AppearanceContent(
         themeMode = st.themeMode,
+        themeStyle = st.themeStyle,
         widgetThemeMode = st.widgetThemeMode,
         fontScaleFactor = st.fontScaleFactor,
         onThemeMode = viewModel::setThemeMode,
+        onThemeStyle = viewModel::setThemeStyle,
         onWidgetThemeMode = viewModel::setWidgetThemeMode,
         onFontScale = viewModel::setFontScaleFactor,
         onBack = onBack
@@ -47,14 +49,38 @@ fun AppearanceScreen(
 @Composable
 fun AppearanceContent(
     themeMode: ThemeMode,
+    themeStyle: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle,
     widgetThemeMode: WidgetThemeMode,
     fontScaleFactor: Float,
     onThemeMode: (ThemeMode) -> Unit,
+    onThemeStyle: (io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle) -> Unit,
     onWidgetThemeMode: (WidgetThemeMode) -> Unit,
     onFontScale: (Float) -> Unit,
     onBack: () -> Unit
 ) {
     SettingsScaffold("外观与字号", onBack) {
+        SettingsGroup("主题") {
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.entries
+                    .forEachIndexed { i, s ->
+                    SegmentedButton(
+                        selected = themeStyle == s,
+                        onClick = { onThemeStyle(s) },
+                        shape = SegmentedButtonDefaults.itemShape(
+                            i, io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.entries.size)
+                    ) {
+                        Text(
+                            when (s) {
+                                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU -> "家书"
+                                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC -> "经典"
+                            }
+                        )
+                    }
+                }
+            }
+            SettingsHint("「家书」是纸墨风的改版样式；「经典」是原来的暖白样式。切换即全 App 生效。")
+        }
+
         SettingsGroup("深浅模式") {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 ThemeMode.entries.forEachIndexed { i, m ->

@@ -57,6 +57,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.backup.lastBackupSubtitle
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 
 /**
  * 「我的」页（2026-10-09 改版）。
@@ -106,6 +107,7 @@ fun MineScreen(
         self = st.self,
         lastBackupAt = st.lastBackupAt,
         themeMode = st.themeMode,
+        themeStyle = st.themeStyle,
         fontScaleFactor = st.fontScaleFactor,
         onOpenPerson = onOpenPerson,
         onBackup = viewModel.backupExport::start,
@@ -146,6 +148,8 @@ fun MineContent(
     self: Person?,
     lastBackupAt: Long? = null,
     themeMode: ThemeMode = ThemeMode.LIGHT,
+    themeStyle: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle =
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
     fontScaleFactor: Float = 1.0f,
     onOpenPerson: (String) -> Unit = {},
     onBackup: () -> Unit = {},
@@ -227,7 +231,7 @@ fun MineContent(
                         }
                         Spacer(Modifier.width(8.dp))
                         // 文案带省略号：点下去还要设密码、选保存位置，不是一键完成
-                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = onBackup) { Text("备份…") }
+                        OutlinedButton(shape = jrxActionShape(), onClick = onBackup) { Text("备份…") }
                     }
                 }
 
@@ -243,7 +247,7 @@ fun MineContent(
                     SettingsNavRow(
                         icon = Icons.Rounded.TextFields,
                         title = "外观与字号",
-                        value = appearanceSummary(themeMode, fontScaleFactor),
+                        value = appearanceSummary(themeMode, themeStyle, fontScaleFactor),
                         onClick = onAppearance
                     )
                     RowDivider()
@@ -289,8 +293,16 @@ fun MineContent(
     }
 }
 
-/** 「外观与字号」行尾摘要，如「跟随系统 · 标准」「深色 · 字号 115%」。 */
-private fun appearanceSummary(mode: ThemeMode, factor: Float): String {
+/** 「外观与字号」行尾摘要，如「家书 · 跟随系统 · 标准」「经典 · 深色 · 字号 115%」。 */
+private fun appearanceSummary(
+    mode: ThemeMode,
+    style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle,
+    factor: Float
+): String {
+    val s = when (style) {
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU -> "家书"
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC -> "经典"
+    }
     val m = when (mode) {
         ThemeMode.LIGHT -> "浅色"
         ThemeMode.DARK -> "深色"
@@ -298,7 +310,7 @@ private fun appearanceSummary(mode: ThemeMode, factor: Float): String {
     }
     val l = if (factor == 1.0f) "标准"
         else "字号 " + kotlin.math.round(factor * 100).toInt() + "%"
-    return m + " · " + l
+    return s + " · " + m + " · " + l
 }
 
 /** 一张分组卡片（测试工具等老卡片仍在用）。 */

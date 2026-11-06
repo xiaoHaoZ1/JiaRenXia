@@ -30,6 +30,7 @@ import io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager
 import io.github.xiaohaoz1.jiarenxia.data.db.AppDatabase
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.restore.OpenBackupDocument
 import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreDialogs
 import io.github.xiaohaoz1.jiarenxia.ui.restore.RestoreFlow
@@ -151,7 +152,7 @@ fun WelcomeContent(
                     )
                     Spacer(Modifier.height(10.dp))
                     Button(
-                        shape = MaterialTheme.shapes.small,
+                        shape = jrxActionShape(),
                         onClick = onNewFamily,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("开始填写") }
@@ -166,7 +167,7 @@ fun WelcomeContent(
                     )
                     Spacer(Modifier.height(10.dp))
                     Button(
-                        shape = MaterialTheme.shapes.small,
+                        shape = jrxActionShape(),
                         onClick = onPickFile,
                         modifier = Modifier.fillMaxWidth()
                     ) { Text("选择文件") }

@@ -22,6 +22,7 @@ import io.github.xiaohaoz1.jiarenxia.navigation.AppNavHost
 import io.github.xiaohaoz1.jiarenxia.navigation.ShareIntents
 import io.github.xiaohaoz1.jiarenxia.navigation.StartViewModel
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JiaRenXiaTheme
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.isJrxDarkTheme
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +58,9 @@ class MainActivity : ComponentActivity() {
     /** 外观模式（默认 LIGHT，DataStore 值到达后立即生效）。 */
     private val themeMode = MutableStateFlow(ThemeMode.LIGHT)
 
+    /** 主题风格（默认家书，DataStore 值到达后立即生效）。 */
+    private val themeStyle = MutableStateFlow(JrxStyle.JIASHU)
+
     /** 应用内字号系数（默认 1.0，与 themeMode 同样的 StateFlow 方式避免闪屏）。 */
     private val fontFactor = MutableStateFlow(1.0f)
 
@@ -71,9 +75,11 @@ class MainActivity : ComponentActivity() {
         pendingTab.value = intent.getStringExtra(EXTRA_TAB)
         resolveShareIntent(intent)
         lifecycleScope.launch { settings.themeMode.collect { themeMode.value = it } }
+        lifecycleScope.launch { settings.themeStyle.collect { themeStyle.value = it } }
         lifecycleScope.launch { settings.fontScaleFactor.collect { fontFactor.value = it } }
         setContent {
             val mode by themeMode.collectAsStateWithLifecycle()
+            val style by themeStyle.collectAsStateWithLifecycle()
             val factor by fontFactor.collectAsStateWithLifecycle()
             val dark = isJrxDarkTheme(mode)
             // 系统栏图标对比度随实际深浅切换（edge-to-edge 下状态栏/导航栏透明）
@@ -91,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     Density(density, (fontScale * factor).coerceAtMost(2.0f))
                 }
             ) {
-            JiaRenXiaTheme(mode = mode) {
+            JiaRenXiaTheme(mode = mode, style = style) {
                 val startRoute by startVm.startRoute.collectAsStateWithLifecycle()
                 startRoute?.let { route ->
                     AppNavHost(

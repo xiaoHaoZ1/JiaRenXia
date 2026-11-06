@@ -92,6 +92,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PickedAvatar
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.TitleChip
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.roleIcon
 
 /** 表单回调集合：把 ViewModel 方法打包传给无状态 Content，便于预览与截图测试。 */
@@ -556,7 +557,7 @@ fun PersonEditContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = cb.onAddPhone) {
+                        OutlinedButton(shape = jrxActionShape(), onClick = cb.onAddPhone) {
                             Icon(Icons.Rounded.Add, contentDescription = null,
                                 modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(4.dp))
@@ -567,7 +568,7 @@ fun PersonEditContent(
                         val importLauncher = rememberLauncherForActivityResult(
                             io.github.xiaohaoz1.jiarenxia.ui.common.PickPhoneContact()
                         ) { picked -> picked?.let(cb.onImportContact) }
-                        OutlinedButton(shape = MaterialTheme.shapes.small, onClick = {
+                        OutlinedButton(shape = jrxActionShape(), onClick = {
                             try {
                                 importLauncher.launch(Unit)
                             } catch (e: android.content.ActivityNotFoundException) {

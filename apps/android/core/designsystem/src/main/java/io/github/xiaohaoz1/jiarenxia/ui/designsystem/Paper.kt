@@ -28,7 +28,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 
 /*
  * 「家书」改版（docs/DEVELOPMENT_PLAN.md 2.22）的纸面元素：双线、页标题、朱砂印、顶栏文字入口。
@@ -49,8 +51,9 @@ fun DoubleRule(modifier: Modifier = Modifier) {
 }
 
 /**
- * 页标题：一级页 34sp、二级页（[secondary]）28sp，700。
- * 字号放大超过 [PAGE_TITLE_MAX_SCALE] 倍时按上限显示，避免大标题把内容挤出屏幕。
+ * 页标题：「家书」一级页 34sp、二级页（[secondary]）28sp，700；
+ * 经典沿用改版前的 headlineSmall（22sp/600）。
+ * 字号放大超过 [PAGE_TITLE_MAX_SCALE] 倍时「家书」标题按上限显示，避免大标题把内容挤出屏幕。
  */
 @Composable
 fun PageTitle(
@@ -58,19 +61,27 @@ fun PageTitle(
     modifier: Modifier = Modifier,
     secondary: Boolean = false
 ) {
-    val scale = LocalDensity.current.fontScale
-    val base = if (secondary) 28f else 34f
-    // 实际显示 = base × min(fontScale, 上限)；fontSize 会再乘一次 fontScale，这里先除掉超出部分
-    val size = if (scale > PAGE_TITLE_MAX_SCALE) base * PAGE_TITLE_MAX_SCALE / scale else base
-    Text(
-        text,
-        fontSize = size.sp,
-        lineHeight = (size * 1.25f).sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.sp,
-        color = MaterialTheme.colorScheme.onBackground,
-        modifier = modifier.semantics { heading() }
-    )
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) {
+        val scale = LocalDensity.current.fontScale
+        val base = if (secondary) 28f else 34f
+        // 实际显示 = base × min(fontScale, 上限)；fontSize 会再乘一次 fontScale，这里先除掉超出部分
+        val size = if (scale > PAGE_TITLE_MAX_SCALE) base * PAGE_TITLE_MAX_SCALE / scale else base
+        Text(
+            text,
+            fontSize = size.sp,
+            lineHeight = (size * 1.25f).sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = modifier.semantics { heading() }
+        )
+    } else {
+        Text(
+            text,
+            style = MaterialTheme.typography.headlineSmall,
+            modifier = modifier.semantics { heading() }
+        )
+    }
 }
 
 /** 朱砂方印：一两个字，旋转 -5°，如页头的“家”、底部的“侠”。 */

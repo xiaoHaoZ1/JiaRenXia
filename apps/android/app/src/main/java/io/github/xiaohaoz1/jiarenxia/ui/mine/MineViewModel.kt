@@ -25,6 +25,9 @@ data class MineUiState(
     val taskRemindersEnabled: Boolean = true,
     val contactRemindersEnabled: Boolean = true,
     val themeMode: ThemeMode = ThemeMode.LIGHT,
+    /** 主题风格（经典/家书），默认家书。 */
+    val themeStyle: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle =
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
     /** 桌面插件配色（跟随系统/浅色/深色），默认跟随系统。 */
     val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.SYSTEM,
     /** 应用内字号系数（相对系统字号），默认 1.0。 */
@@ -99,6 +102,7 @@ class MineViewModel @Inject constructor(
             st.copy(taskReminderMinuteOfDay = m) }
         .combine(settings.contactReminderMinuteOfDay) { st, m ->
             st.copy(contactReminderMinuteOfDay = m) }
+        .combine(settings.themeStyle) { st, s -> st.copy(themeStyle = s) }
         .combine(settings.widgetThemeMode) { st, m -> st.copy(widgetThemeMode = m) }
         .combine(settings.lastBackupAt) { st, t -> st.copy(lastBackupAt = t) }
         .combine(message) { st, m -> st.copy(message = m) }
@@ -126,6 +130,11 @@ class MineViewModel @Inject constructor(
 
     fun setThemeMode(mode: ThemeMode) {
         viewModelScope.launch { settings.setThemeMode(mode) }
+    }
+
+    /** 主题风格（经典/家书）；全 App 即时生效。 */
+    fun setThemeStyle(style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle) {
+        viewModelScope.launch { settings.setThemeStyle(style) }
     }
 
     /** 桌面插件配色；保存后由 WidgetRefresh 监听到设置变化即时重绘。 */

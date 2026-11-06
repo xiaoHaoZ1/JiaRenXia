@@ -51,6 +51,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 
 /** 快捷入口 → 图标。 */
 private fun entryIcon(label: String): ImageVector = when (label) {
@@ -122,7 +123,7 @@ fun AddFamilyContent(
         bottomBar = {
             if (onboarding) {
                 Button(
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(),
                     onClick = onDone,
                     modifier = Modifier
                         .fillMaxWidth()

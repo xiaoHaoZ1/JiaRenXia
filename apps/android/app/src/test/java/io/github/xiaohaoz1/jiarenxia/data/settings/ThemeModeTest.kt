@@ -78,4 +78,22 @@ class ThemeModeTest {
         repo.setThemeMode(ThemeMode.SYSTEM)
         assertEquals(ThemeMode.SYSTEM, repo.themeMode.first())
     }
+
+    @Test
+    fun 主题风格默认家书() = runBlocking {
+        assertEquals(
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+            repo.themeStyle.first())
+    }
+
+    @Test
+    fun 主题风格切换并持久化() = runBlocking {
+        repo.setThemeStyle(io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC)
+        assertEquals(
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+            repo.themeStyle.first())
+        assertEquals(
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+            repo.themeStyle.first())
+    }
 }

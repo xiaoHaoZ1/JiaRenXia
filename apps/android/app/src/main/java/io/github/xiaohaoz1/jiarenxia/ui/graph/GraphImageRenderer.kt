@@ -52,19 +52,48 @@ object GraphImageRenderer {
     private const val TITLE_FONT = 44f  // 顶部标题字号（1080 基准）
     private const val FOOT_FONT = 26f   // 落款字号（1080 基准）
 
-    // 近似屏幕配色（浅色主题，跟随 JrxTheme「家书」token，2.22）：纸色底、浅纸卡片带发丝框，“我”朱砂
-    private const val BG = 0xFFF3EDE2.toInt()
-    private const val CARD = 0xFFF8F4EC.toInt()
-    private const val CARD_LINE = 0xFFD9CFBE.toInt()
-    private const val CARD_SELF = 0xFFF5E1DA.toInt()
-    private const val OUTLINE = 0xFF8E8578.toInt()
-    private const val FAINT = 0xFFA2998B.toInt()
-    private const val SPOUSE = 0xFFB23E2D.toInt()
-    private const val SELF_BORDER = 0xFFB23E2D.toInt()
-    private const val TEXT = 0xFF1F2A29.toInt()
-    private const val TEXT_SUB = 0xFF6B6357.toInt()
-    /** 卡片圆角（1080 基准）：随屏幕 6dp 小圆角收小。 */
-    private const val CARD_RADIUS = 9f
+    /**
+     * 导出图调色板（近似屏幕浅色主题，跟随当前主题风格）：
+     * 家书纸色底、浅纸卡片带发丝框，“我”朱砂；经典暖白底、纯白卡片无边框，“我”砖红。
+     */
+    private data class Palette(
+        val bg: Int, val card: Int, val cardLine: Int?, val cardSelf: Int,
+        val outline: Int, val faint: Int, val spouse: Int, val selfBorder: Int,
+        val text: Int, val textSub: Int, val cardRadius: Float
+    )
+
+    private val JiashuPalette = Palette(
+        bg = 0xFFF3EDE2.toInt(),
+        card = 0xFFF8F4EC.toInt(),
+        cardLine = 0xFFD9CFBE.toInt(),
+        cardSelf = 0xFFF5E1DA.toInt(),
+        outline = 0xFF8E8578.toInt(),
+        faint = 0xFFA2998B.toInt(),
+        spouse = 0xFFB23E2D.toInt(),
+        selfBorder = 0xFFB23E2D.toInt(),
+        text = 0xFF1F2A29.toInt(),
+        textSub = 0xFF6B6357.toInt(),
+        cardRadius = 9f   // 随屏幕 6dp 小圆角收小
+    )
+
+    private val ClassicPalette = Palette(
+        bg = 0xFFFAF6F2.toInt(),
+        card = 0xFFFFFFFF.toInt(),
+        cardLine = null,  // 经典卡片不画细框（同改版前）
+        cardSelf = 0xFFF7E4DE.toInt(),
+        outline = 0xFF8D8A85.toInt(),
+        faint = 0xFFA9A49C.toInt(),
+        spouse = 0xFFB4473C.toInt(),
+        selfBorder = 0xFFB4473C.toInt(),
+        text = 0xFF23211F.toInt(),
+        textSub = 0xFF6F6A63.toInt(),
+        cardRadius = 20f
+    )
+
+    /** 按主题风格取导出图调色板。 */
+    private fun paletteOf(style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle) =
+        if (style == io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU)
+            JiashuPalette else ClassicPalette
 
     private fun routingOf(model: GraphModel) = GraphEdgeRouting.route(model)
 
@@ -122,8 +151,12 @@ object GraphImageRenderer {
         edgeLabels: Boolean = false,
         /** 落款上方的说明文字（可为 null）。 */
         footNote: String? = null,
-        textScale: Float = 1f
+        textScale: Float = 1f,
+        /** 主题风格：导出图配色跟随它（默认家书）。 */
+        themeStyle: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle =
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU
     ): Bitmap {
+        val pal = paletteOf(themeStyle)
         val routing = routingOf(model)
         val bounds = routing.nodeBounds
         val unit = textScale              // 布局 dp → 自然像素
@@ -151,7 +184,7 @@ object GraphImageRenderer {
             footFont * footLines + bottomPad + 0.5f).toInt().coerceAtLeast(1)
         val bmp = createBitmap(outW, outH, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        c.drawColor(BG)
+        c.drawColor(pal.bg)
 
         val ox = MARGIN * scale
         val oy = topPad + titleFont + MARGIN * scale
@@ -163,15 +196,15 @@ object GraphImageRenderer {
         }
 
         val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = OUTLINE; strokeWidth = 3f * scale + 1f
+            color = pal.outline; strokeWidth = 3f * scale + 1f
             style = Paint.Style.STROKE
         }
         val spousePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = SPOUSE; strokeWidth = 5f * scale + 1.5f
+            color = pal.spouse; strokeWidth = 5f * scale + 1.5f
             style = Paint.Style.STROKE
         }
         val sibPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = FAINT; strokeWidth = 2f * scale + 1f
+            color = pal.faint; strokeWidth = 2f * scale + 1f
             style = Paint.Style.STROKE
             pathEffect = DashPathEffect(floatArrayOf(16f * scale, 10f * scale), 0f)
         }
@@ -192,7 +225,7 @@ object GraphImageRenderer {
         }
 
         // 屏幕与导出共用跨线标记：交叉经过的两家不会被误读为关联。
-        val bridgeMask = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = BG }
+        val bridgeMask = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pal.bg }
         for (q in routing.crossings) {
             val x = px(q.x); val y = py(q.y); val r = q.radius * unit * scale
             c.drawCircle(x, y, r + 1f * scale, bridgeMask)
@@ -209,7 +242,7 @@ object GraphImageRenderer {
 
         // ---- 家庭分组标签 / 折行标记（与屏幕同一批画布元素）----
         val notePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = TEXT_SUB
+            color = pal.textSub
             textSize = 20f * textScale * scale
             textAlign = Paint.Align.CENTER
         }
@@ -227,24 +260,27 @@ object GraphImageRenderer {
         // ---- 节点卡片 ----
         val cardPaint = Paint(Paint.ANTI_ALIAS_FLAG)
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = SELF_BORDER
+            color = pal.selfBorder
             style = Paint.Style.STROKE
             strokeWidth = 4f * scale
         }
-        val cardLinePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = CARD_LINE
-            style = Paint.Style.STROKE
-            strokeWidth = 1.5f * scale
+        // 经典卡片不画细框：无 cardLine 时普通节点也不描边（同改版前）
+        val cardLinePaint = pal.cardLine?.let {
+            Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = it
+                style = Paint.Style.STROKE
+                strokeWidth = 1.5f * scale
+            }
         }
         // 姓名/称谓画笔与 GraphTextMeasure 同管线：sans-serif-medium
         // 姓名、默认字体称谓，折行由 StaticLayout 完成（不限行数、不省略）。
         val namePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = TEXT
+            color = pal.text
             typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
             textSize = NAME_TEXT * unit * scale
         }
         val titlePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = TEXT_SUB
+            color = pal.textSub
             textSize = TITLE_TEXT * unit * scale
         }
         model.nodes.forEach { n ->
@@ -252,10 +288,12 @@ object GraphImageRenderer {
             val rect = cardRect(n)
             val cx = rect.centerX(); val cy = rect.centerY()
             cardPaint.color =
-                if (n.personId == selfId) CARD_SELF else CARD
-            val r = CARD_RADIUS * scale
+                if (n.personId == selfId) pal.cardSelf else pal.card
+            val r = pal.cardRadius * scale
             c.drawRoundRect(rect, r, r, cardPaint)
-            c.drawRoundRect(rect, r, r, if (n.personId == selfId) borderPaint else cardLinePaint)
+            val edgePaint =
+                if (n.personId == selfId) borderPaint else cardLinePaint
+            if (edgePaint != null) c.drawRoundRect(rect, r, r, edgePaint)
             val alpha = if (info.deceased) 160 else 255
             namePaint.alpha = alpha; titlePaint.alpha = alpha
             // 卡内宽与卡片高度来自同一份测量（布局层 sizer）；
@@ -283,7 +321,7 @@ object GraphImageRenderer {
             else GraphEdgeLabels.compute(routing)
         if (labelPts.isNotEmpty()) {
             val lpPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                color = TEXT_SUB
+                color = pal.textSub
                 textSize = 20f * scale
                 textAlign = Paint.Align.CENTER
             }
@@ -292,7 +330,7 @@ object GraphImageRenderer {
             val hPad = 8f * scale
             val vPad = 2f * scale
             val lGap = 6f * scale
-            val chipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = CARD }
+            val chipPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = pal.card }
             labelPts.forEach { lp ->
                 val cx = px(lp.x)
                 val cy = py(lp.y) - th / 2 - lGap
@@ -308,7 +346,7 @@ object GraphImageRenderer {
 
         // ---- 标题与落款 ----
         val titlePaint2 = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = TEXT; textSize = titleFont
+            color = pal.text; textSize = titleFont
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
             textAlign = Paint.Align.CENTER
         }
@@ -316,7 +354,7 @@ object GraphImageRenderer {
         c.drawText(titleLine, outW / 2f,
             topPad + titleFont * 0.9f, titlePaint2)
         val footPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = TEXT_SUB; textSize = footFont
+            color = pal.textSub; textSize = footFont
             textAlign = Paint.Align.CENTER
         }
         // 落款区：说明行（线型图例/收起人数）在上，品牌行在下

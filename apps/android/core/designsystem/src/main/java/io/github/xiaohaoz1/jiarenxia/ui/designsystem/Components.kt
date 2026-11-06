@@ -32,14 +32,22 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
+
+/** 「家书」主按钮用小方角（shapes.small）；经典沿用传入的 [classic]（默认 Button 胶囊）。 */
+@Composable
+fun jrxActionShape(classic: Shape? = null): Shape =
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) MaterialTheme.shapes.small
+    else classic ?: ButtonDefaults.shape
 
 /**
- * 卡片：浅纸色 + 发丝描边 + 6dp 圆角，16dp 内边距。
- *
- * 2026-10-09 改版去掉阴影与实色底；2026-11「家书」改版（2.22）卡底随纸色、圆角收小，
- * 一级页逐步改成无卡片的行，二级页继续用它。
+ * 卡片：实底 + 发丝描边，16dp 内边距。圆角与底色随风格 token——
+ * 经典纯白卡 14dp，「家书」浅纸卡 6dp（2.22：一级页逐步改成无卡片的行，二级页继续用它）。
  */
 @Composable
 fun JrxCard(
@@ -84,9 +92,12 @@ fun SectionHeader(
         modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 区块标题标记为 heading，TalkBack 可按标题导航；「家书」改版用 20sp/700
+        // 区块标题标记为 heading，TalkBack 可按标题导航；「家书」用 20sp/700，经典 16sp/600
         Text(
-            title, style = MaterialTheme.typography.titleLarge,
+            title,
+            style = if (LocalJrxStyle.current == JrxStyle.JIASHU)
+                MaterialTheme.typography.titleLarge
+            else MaterialTheme.typography.titleMedium,
             modifier = Modifier.weight(1f).semantics { heading() }
         )
         if (actionLabel != null) {
@@ -99,30 +110,49 @@ fun SectionHeader(
 enum class ChipTone { CORE, OTHER, MUTED }
 
 /**
- * 细框标签（称谓、状态等）：透明底 + 1dp 描边 + 2dp 圆角。
- * CORE 朱砂字朱砂框（核心称谓、主号码），OTHER 次要字发丝框，MUTED 淡字发丝框。
+ * 称谓/状态小标签。「家书」= 细框印（透明底 + 1dp 描边 + 2dp 圆角）；
+ * 经典 = 彩色小胶囊（实底无描边）。CORE 是核心称谓/主号码，OTHER 次要，MUTED 最淡。
  */
 @Composable
 fun TitleChip(text: String, tone: ChipTone = ChipTone.CORE) {
-    val jrx = LocalJrxColors.current
-    val (line, fg) = when (tone) {
-        ChipTone.CORE -> jrx.sealLine to jrx.seal
-        ChipTone.OTHER -> MaterialTheme.colorScheme.outline to
-            MaterialTheme.colorScheme.onSurfaceVariant
-        ChipTone.MUTED -> MaterialTheme.colorScheme.outlineVariant to
-            MaterialTheme.colorScheme.outline
-    }
-    Surface(
-        color = Color.Transparent,
-        shape = RoundedCornerShape(2.dp),
-        border = BorderStroke(1.dp, line)
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
-            color = fg,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-        )
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) {
+        val jrx = LocalJrxColors.current
+        val (line, fg) = when (tone) {
+            ChipTone.CORE -> jrx.sealLine to jrx.seal
+            ChipTone.OTHER -> MaterialTheme.colorScheme.outline to
+                MaterialTheme.colorScheme.onSurfaceVariant
+            ChipTone.MUTED -> MaterialTheme.colorScheme.outlineVariant to
+                MaterialTheme.colorScheme.outline
+        }
+        Surface(
+            color = Color.Transparent,
+            shape = RoundedCornerShape(2.dp),
+            border = BorderStroke(1.dp, line)
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = fg,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+            )
+        }
+    } else {
+        val (bg, fg) = when (tone) {
+            ChipTone.CORE -> MaterialTheme.colorScheme.primaryContainer to
+                MaterialTheme.colorScheme.onPrimaryContainer
+            ChipTone.OTHER -> MaterialTheme.colorScheme.secondaryContainer to
+                MaterialTheme.colorScheme.onSecondaryContainer
+            ChipTone.MUTED -> MaterialTheme.colorScheme.surfaceVariant to
+                MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Surface(color = bg, shape = MaterialTheme.shapes.small) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = fg,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+        }
     }
 }
 
@@ -208,7 +238,7 @@ fun EmptyState(
             textAlign = TextAlign.Center)
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(20.dp))
-            androidx.compose.material3.Button(shape = MaterialTheme.shapes.small, onClick = onAction) { Text(actionLabel) }
+            androidx.compose.material3.Button(shape = jrxActionShape(), onClick = onAction) { Text(actionLabel) }
         }
     }
 }

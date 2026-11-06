@@ -69,6 +69,15 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: ThemeMode)
 
     /**
+     * 主题风格：经典 / 家书，默认家书（2.22 改版起新装与升级用户都见家书）。
+     * 与 [themeMode] 相互独立——风格定视觉语言，模式管深浅明暗。
+     * 本机偏好，不进备份；接口提供默认实现，测试假类无需逐个补。
+     */
+    val themeStyle: Flow<io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle> get() =
+        kotlinx.coroutines.flow.flowOf(io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU)
+    suspend fun setThemeStyle(style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle) {}
+
+    /**
      * 桌面插件配色：跟随系统 / 浅色 / 深色，默认跟随系统。
      * 与 [themeMode] 相互独立（系统深色时可以只要插件保持浅色）。
      * 本机偏好，不进备份；接口提供默认实现，测试假类无需逐个补。
@@ -186,6 +195,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyContactReminderMinute = intPreferencesKey("contact_reminder_minute_of_day")
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
+    private val keyThemeStyle = stringPreferencesKey("theme_style")
     private val keyWidgetThemeMode = stringPreferencesKey("widget_theme_mode")
     private val keyFontScaleFactor = floatPreferencesKey("font_scale_factor")
     private val keyFontScale = stringPreferencesKey("font_scale_level") // 旧键：档位名
@@ -300,6 +310,19 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setThemeMode(mode: ThemeMode) {
         dataStore.edit { it[keyThemeMode] = mode.name }
+    }
+
+    override val themeStyle: Flow<io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle> =
+        dataStore.data.map {
+            it[keyThemeStyle]?.let { v ->
+                runCatching {
+                    io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.valueOf(v)
+                }.getOrNull()
+            } ?: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU
+        }.distinctUntilChanged()
+
+    override suspend fun setThemeStyle(style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle) {
+        dataStore.edit { it[keyThemeStyle] = style.name }
     }
 
     override val widgetThemeMode: Flow<WidgetThemeMode> =

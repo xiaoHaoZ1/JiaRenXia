@@ -18,11 +18,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 
 /**
  * 日历方块：52×58dp，上带“N月”，下显日号。
- * highlight 时顶带用朱砂（今天/重点生日）。
+ * highlight 时顶带用强调印色（家书朱砂 / 经典砖红，今天/重点生日）。
  */
 @Composable
 fun DateTile(month: Int, day: Int, highlight: Boolean = false) {
@@ -31,9 +33,12 @@ fun DateTile(month: Int, day: Int, highlight: Boolean = false) {
     else MaterialTheme.colorScheme.secondaryContainer
     val bandFg = if (highlight) jrx.onSeal
     else MaterialTheme.colorScheme.onSecondaryContainer
+    // 经典沿用改版前的 12dp 圆角，「家书」随风格圆角（6dp）
+    val tileShape = if (LocalJrxStyle.current == JrxStyle.JIASHU)
+        MaterialTheme.shapes.medium else RoundedCornerShape(12.dp)
     Column(
         modifier = Modifier.width(52.dp).height(58.dp)
-            .clip(MaterialTheme.shapes.medium)
+            .clip(tileShape)
             .background(MaterialTheme.colorScheme.surfaceContainer),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -49,7 +54,10 @@ fun DateTile(month: Int, day: Int, highlight: Boolean = false) {
     }
 }
 
-/** 生日倒计时印：0→今天（朱砂实心），1→明天、其他→N天后（朱砂细框）。 */
+/**
+ * 生日倒计时徽章：0→今天（强调色实心），1→明天、其他→N天后。
+ * 「家书」画细框印，经典画主色容器小胶囊。
+ */
 @Composable
 fun CountdownBadge(days: Int) {
     val jrx = LocalJrxColors.current
@@ -58,16 +66,31 @@ fun CountdownBadge(days: Int) {
         1 -> "明天" to false
         else -> days.toString() + "天后" to false
     }
-    Surface(
-        color = if (filled) jrx.seal else Color.Transparent,
-        shape = RoundedCornerShape(2.dp),
-        border = if (filled) null else BorderStroke(1.dp, jrx.sealLine)
-    ) {
-        Text(
-            text,
-            style = MaterialTheme.typography.labelMedium,
-            color = if (filled) jrx.onSeal else jrx.seal,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
-        )
+    if (LocalJrxStyle.current == JrxStyle.JIASHU) {
+        Surface(
+            color = if (filled) jrx.seal else Color.Transparent,
+            shape = RoundedCornerShape(2.dp),
+            border = if (filled) null else BorderStroke(1.dp, jrx.sealLine)
+        ) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = if (filled) jrx.onSeal else jrx.seal,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+            )
+        }
+    } else {
+        val (bg, fg) = if (filled)
+            MaterialTheme.colorScheme.primary to MaterialTheme.colorScheme.onPrimary
+        else MaterialTheme.colorScheme.primaryContainer to
+            MaterialTheme.colorScheme.onPrimaryContainer
+        Surface(color = bg, shape = MaterialTheme.shapes.small) {
+            Text(
+                text,
+                style = MaterialTheme.typography.labelMedium,
+                color = fg,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+            )
+        }
     }
 }

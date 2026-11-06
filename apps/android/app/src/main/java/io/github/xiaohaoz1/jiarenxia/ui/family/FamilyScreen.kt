@@ -72,8 +72,11 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SectionHeader
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ringColorOf
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 import java.time.LocalDate
 
 /** 在世且生日在 0..days 天内时返回天数（双生日取最近的一次），否则 null。 */
@@ -429,12 +432,15 @@ private fun TodayBirthdayBanner(
     onDial: (String) -> Unit
 ) {
     val jrx = LocalJrxColors.current
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
+    // 经典沿用改版前的 14dp 圆角（shapes.medium 刚好也是 14，但为了语义稳定写死回退值）
     val shape = MaterialTheme.shapes.medium
     val isSelf = o.person.isSelf
     val title = (if (isSelf) "今天是你的生日" else "今天是" + o.displayTitle + "的生日") +
         (if (others > 0) " 等 $others 人" else "")
     val sub = o.person.name + (age?.let { " · $it 岁" } ?: "")
-    // 生日是喜事：朱砂浅底 + 朱砂蛋糕；“打个电话”是操作，仍用墨青主按钮
+    // 生日是喜事：强调浅底 + 强调蛋糕；“打个电话”是操作，仍用主按钮。
+    // 经典底是主色容器、字色 onPrimaryContainer；家书底是朱砂浅底、字色随版面。
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
             .clip(shape)
@@ -453,19 +459,21 @@ private fun TodayBirthdayBanner(
             Text(
                 title,
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurface
+                color = if (jiashu) MaterialTheme.colorScheme.onSurface
+                else MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
                 sub,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (jiashu) MaterialTheme.colorScheme.onSurfaceVariant
+                else MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
         if (number != null && !isSelf) {
             Spacer(Modifier.width(10.dp))
             Button(
                 onClick = { onDial(number) },
-                shape = MaterialTheme.shapes.small,
+                shape = jrxActionShape(RoundedCornerShape(999.dp)),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary

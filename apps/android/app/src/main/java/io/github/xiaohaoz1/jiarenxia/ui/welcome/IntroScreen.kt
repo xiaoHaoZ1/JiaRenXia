@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Diversity1
 import androidx.compose.material.icons.rounded.Favorite
@@ -37,6 +38,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
 import javax.inject.Inject
 import kotlinx.coroutines.launch
@@ -180,7 +182,7 @@ fun IntroContent(onDone: () -> Unit) {
                     .padding(horizontal = 32.dp)
                     .padding(bottom = 20.dp)
                     .height(50.dp),
-                shape = MaterialTheme.shapes.small
+                shape = jrxActionShape(RoundedCornerShape(25.dp))
             ) {
                 Text("开始使用", style = MaterialTheme.typography.titleMedium)
             }

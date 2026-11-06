@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.flowOn
@@ -130,7 +131,8 @@ class GraphViewModel @Inject constructor(
                     edgeLabels = st.showEdgeLabels,
                     footNote = footNote,
                     textScale = context.resources.configuration.fontScale
-                        .coerceAtLeast(1f))
+                        .coerceAtLeast(1f),
+                    themeStyle = settings.themeStyle.first())
                 val name = GraphExport.fileName(today)
                 if (kind == "album") {
                     val uri = withContext(

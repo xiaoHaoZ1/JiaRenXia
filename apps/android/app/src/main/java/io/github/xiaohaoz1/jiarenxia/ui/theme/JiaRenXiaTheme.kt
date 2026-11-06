@@ -13,12 +13,14 @@ fun isJrxDarkTheme(mode: ThemeMode): Boolean = when (mode) {
 }
 
 /**
- * 应用主题：温馨暖色，默认浅色；固定配色，不使用动态取色。
+ * 应用主题：固定配色，不使用动态取色。
+ * [mode] 管深浅（浅色/深色/跟随系统），[style] 管视觉语言（经典/家书，默认家书）。
  */
 @Composable
 fun JiaRenXiaTheme(
     mode: ThemeMode = ThemeMode.LIGHT,
+    style: JrxStyle = JrxStyle.JIASHU,
     content: @Composable () -> Unit
 ) {
-    JrxTheme(dark = isJrxDarkTheme(mode), content = content)
+    JrxTheme(dark = isJrxDarkTheme(mode), style = style, content = content)
 }

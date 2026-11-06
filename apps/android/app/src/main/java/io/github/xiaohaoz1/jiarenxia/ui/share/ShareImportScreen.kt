@@ -69,6 +69,7 @@ import io.github.xiaohaoz1.jiarenxia.domain.merge.FamilyMerge
 import io.github.xiaohaoz1.jiarenxia.ui.common.PersonPickerDialog
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
@@ -875,7 +876,7 @@ fun ShareImportContent(
                         )
                         Spacer(Modifier.height(10.dp))
                         Button(
-                            shape = MaterialTheme.shapes.small,
+                            shape = jrxActionShape(),
                             onClick = { onOpen(password.copyOf()) },
                             enabled = password.isNotEmpty(),
                             modifier = Modifier.fillMaxWidth()
@@ -966,7 +967,7 @@ fun ShareImportContent(
                             st.hasExisting && st.localSelfId != null
                         if (canMerge) {
                             Button(
-                                shape = MaterialTheme.shapes.small,
+                                shape = jrxActionShape(),
                                 onClick = onEnterMerge,
                                 enabled = st.selectedId != null && !st.busy,
                                 modifier = Modifier.fillMaxWidth()
@@ -980,7 +981,7 @@ fun ShareImportContent(
                             ) { Text("整体替换我的资料…") }
                         } else {
                             Button(
-                                shape = MaterialTheme.shapes.small,
+                                shape = jrxActionShape(),
                                 onClick = onConfirm,
                                 enabled = st.selectedId != null && !st.busy,
                                 modifier = Modifier.fillMaxWidth()

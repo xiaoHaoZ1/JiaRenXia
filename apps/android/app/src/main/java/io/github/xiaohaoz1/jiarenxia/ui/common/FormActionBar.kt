@@ -19,6 +19,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 
 /**
  * 表单固定底部完成条：主操作常驻页面底部，不随表单滚走，也不与键盘重叠。
@@ -77,7 +78,7 @@ fun FormActionBar(
                 Button(
                     onClick = onPrimary,
                     enabled = primaryEnabled && !busy,
-                    shape = MaterialTheme.shapes.small,
+                    shape = jrxActionShape(MaterialTheme.shapes.medium),
                     modifier = if (secondaryText != null) Modifier.weight(1f)
                     else Modifier.fillMaxWidth()
                 ) {

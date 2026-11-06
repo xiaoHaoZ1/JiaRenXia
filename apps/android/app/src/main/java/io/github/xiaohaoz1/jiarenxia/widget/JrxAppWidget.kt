@@ -35,6 +35,7 @@ import androidx.glance.unit.ColorProvider as GlanceColorProvider
 import io.github.xiaohaoz1.jiarenxia.MainActivity
 import io.github.xiaohaoz1.jiarenxia.R
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -51,23 +52,31 @@ class JrxAppWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val state = withContext(Dispatchers.IO) { WidgetTimeline.load(context) }
-        // DataStore 属凭据保护存储，未解锁（Direct Boot）时读不到 → 回落跟随系统
+        // DataStore 属凭据保护存储，未解锁（Direct Boot）时读不到 → 回落跟随系统/家书
         val themeMode = runCatching {
             withContext(Dispatchers.IO) {
                 WidgetEntryPoint.of(context).settings().widgetThemeMode.first()
             }
         }.getOrDefault(WidgetThemeMode.SYSTEM)
+        val themeStyle = runCatching {
+            withContext(Dispatchers.IO) {
+                WidgetEntryPoint.of(context).settings().themeStyle.first()
+            }
+        }.getOrDefault(JrxStyle.JIASHU)
         val today = LocalDate.now()
-        provideContent { JrxWidgetContent(context, state, today, themeMode) }
+        provideContent { JrxWidgetContent(context, state, today, themeMode, themeStyle) }
     }
 }
 
 /**
- * 插件调色板：颜色取应用主题 token 的亮/暗两档。
- * [mode] 为跟随系统时 day/night 各归各位；强制浅色/深色时两档都取同一套，
- * 插件不再随系统切换。
+ * 插件调色板：颜色取应用主题 token 的亮/暗两档，并按主题风格（[style]）取
+ * 家书或经典的字面量。[mode] 为跟随系统时 day/night 各归各位；强制浅色/深色
+ * 时两档都取同一套，插件不再随系统切换。
  */
-internal class WidgetColors(private val mode: WidgetThemeMode) {
+internal class WidgetColors(
+    private val mode: WidgetThemeMode,
+    private val style: JrxStyle = JrxStyle.JIASHU
+) {
 
     /** 按模式收拢 day/night 两档：强制模式下两档同色。 */
     private fun themed(day: Color, night: Color): GlanceColorProvider = when (mode) {
@@ -76,27 +85,63 @@ internal class WidgetColors(private val mode: WidgetThemeMode) {
         WidgetThemeMode.SYSTEM -> ColorProvider(day = day, night = night)
     }
 
-    /** 卡片实底：纸色/墨色纸，与应用页面底色一致（不设背景文字会压在壁纸上）。 */
-    val surface = themed(day = Color(0xFFF3EDE2), night = Color(0xFF1E2120))
-    val text = themed(day = Color(0xFF1F2A29), night = Color(0xFFECE4D6))
-    val secondary = themed(day = Color(0xFF6B6357), night = Color(0xFFA39B8D))
-    /** 插件的强调色是“今天、生日”，取朱砂（2.22），不取应用的墨青主色。 */
-    val primary = themed(day = Color(0xFFB23E2D), night = Color(0xFFE07B63))
-    val onPrimary = themed(day = Color(0xFFF8EDE0), night = Color(0xFF191C1B))
-    val error = themed(day = Color(0xFFB3261E), night = Color(0xFFF2B8B5))
+    /** 卡片实底：与应用页面底色一致（不设背景文字会压在壁纸上）。 */
+    val surface = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFF3EDE2), night = Color(0xFF1E2120))
+    else themed(day = Color(0xFFFBF8F5), night = Color(0xFF26201C))
+    val text = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF1F2A29), night = Color(0xFFECE4D6))
+    else themed(day = Color(0xFF1F1A17), night = Color(0xFFF4EDEA))
+    val secondary = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF6B6357), night = Color(0xFFA39B8D))
+    else themed(day = Color(0xFF7A6E68), night = Color(0xFFB8AAA3))
+    /** 插件的强调色是“今天、生日”：家书取朱砂（2.22），经典取砖红。 */
+    val primary = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFB23E2D), night = Color(0xFFE07B63))
+    else themed(day = Color(0xFFB4473C), night = Color(0xFFFFB4A7))
+    val onPrimary = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFF8EDE0), night = Color(0xFF191C1B))
+    else themed(day = Color.White, night = Color(0xFF3A1010))
+    val error = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFB3261E), night = Color(0xFFF2B8B5))
+    else themed(day = Color(0xFFBA1A1A), night = Color(0xFFFF8A80))
 
-    val primaryContainer = themed(day = Color(0xFFF5E1DA), night = Color(0xFF3A2420))
-    val onPrimaryContainer = themed(day = Color(0xFF7A2A1E), night = Color(0xFFF0B4A4))
-    val onPrimaryContainerMuted = themed(day = Color(0xBF7A2A1E), night = Color(0xBFF0B4A4))
-    val tertiaryContainer = themed(day = Color(0xFFF1E6C8), night = Color(0xFF3A3218))
-    val onTertiaryContainer = themed(day = Color(0xFF4A3800), night = Color(0xFFF1E2B5))
-    val secondaryContainer = themed(day = Color(0xFFE6DDCC), night = Color(0xFF2A2E2C))
-    val onSecondaryContainer = themed(day = Color(0xFF1F2A29), night = Color(0xFFECE4D6))
-    val contactContainer = themed(day = Color(0xFFDCE7E4), night = Color(0xFF1F3A3C))
-    val onContactContainer = themed(day = Color(0xFF0C4247), night = Color(0xFFCDE6E2))
-    val memorialContainer = themed(day = Color(0xFFE6DDCC), night = Color(0xFF2A2E2C))
-    val onMemorialContainer = themed(day = Color(0xFF8E8578), night = Color(0xFF8A847A))
-    val hairline = themed(day = Color(0xFFD9CFBE), night = Color(0xFF343937))
+    val primaryContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFF5E1DA), night = Color(0xFF3A2420))
+    else themed(day = Color(0xFFFBEAE7), night = Color(0xFF3A2420))
+    val onPrimaryContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF7A2A1E), night = Color(0xFFF0B4A4))
+    else themed(day = Color(0xFF7E2A22), night = Color(0xFFFFB4A7))
+    val onPrimaryContainerMuted = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xBF7A2A1E), night = Color(0xBFF0B4A4))
+    else themed(day = Color(0xBF7E2A22), night = Color(0xBFFFB4A7))
+    val tertiaryContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFF1E6C8), night = Color(0xFF3A3218))
+    else themed(day = Color(0xFFF1F6F2), night = Color(0xFF24322A))
+    val onTertiaryContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF4A3800), night = Color(0xFFF1E2B5))
+    else themed(day = Color(0xFF1C3B2B), night = Color(0xFFBDD3B9))
+    val secondaryContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFE6DDCC), night = Color(0xFF2A2E2C))
+    else themed(day = Color(0xFFF6EDE4), night = Color(0xFF2E2420))
+    val onSecondaryContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF1F2A29), night = Color(0xFFECE4D6))
+    else themed(day = Color(0xFF53433E), night = Color(0xFFEDBFA2))
+    val contactContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFDCE7E4), night = Color(0xFF1F3A3C))
+    else themed(day = Color(0xFFE4F0E9), night = Color(0xFF223528))
+    val onContactContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF0C4247), night = Color(0xFFCDE6E2))
+    else themed(day = Color(0xFF1E4A35), night = Color(0xFF9BD8B2))
+    val memorialContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFE6DDCC), night = Color(0xFF2A2E2C))
+    else themed(day = Color(0xFFF2ECE8), night = Color(0xFF322A26))
+    val onMemorialContainer = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFF8E8578), night = Color(0xFF8A847A))
+    else themed(day = Color(0xFF8A817D), night = Color(0xFF9C948F))
+    val hairline = if (style == JrxStyle.JIASHU)
+        themed(day = Color(0xFFD9CFBE), night = Color(0xFF343937))
+    else themed(day = Color(0xFFEFE7E1), night = Color(0xFF342A25))
     val focusBadge = themed(day = Color(0x66FFFFFF), night = Color(0x66FFFFFF))
 }
 
@@ -177,9 +222,10 @@ internal fun JrxWidgetContent(
     state: WidgetState,
     today: LocalDate = LocalDate.now(),
     themeMode: WidgetThemeMode = WidgetThemeMode.SYSTEM,
+    themeStyle: JrxStyle = JrxStyle.JIASHU,
     staticTimelineForTest: Boolean = false,
 ) {
-    val colors = WidgetColors(themeMode)
+    val colors = WidgetColors(themeMode, themeStyle)
     Column(
         GlanceModifier.fillMaxSize()
             .appWidgetBackground()

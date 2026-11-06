@@ -1791,11 +1791,13 @@ class ScreenShotsTest {
     fun appearance() = shot("appearance") {
         io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
             themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
+            themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
             widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
             fontScaleFactor = 1.0f,
-            onThemeMode = {}, onWidgetThemeMode = {}, onFontScale = {}, onBack = {}
+            onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
+            onFontScale = {}, onBack = {}
         )
-    }.also { assertTexts("浅色", "字号 100%", "桌面插件配色") }
+    }.also { assertTexts("家书", "经典", "浅色", "字号 100%", "桌面插件配色") }
 
     @Test
     fun about() = shot("about") {

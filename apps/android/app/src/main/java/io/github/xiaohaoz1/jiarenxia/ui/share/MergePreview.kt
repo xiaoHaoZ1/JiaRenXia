@@ -30,6 +30,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.RelationRole
 import io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem
 import io.github.xiaohaoz1.jiarenxia.domain.merge.FamilyMerge
 import io.github.xiaohaoz1.jiarenxia.ui.common.PersonPickerDialog
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 
 /**
  * 合并预览（FAMILY_AFFAIRS 16.7）：无状态分组展示——
@@ -87,7 +88,7 @@ internal fun MergePreviewContent(
             Spacer(Modifier.height(16.dp))
             Text("没有新内容", style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(8.dp))
-            Button(shape = MaterialTheme.shapes.small, onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
+            Button(shape = jrxActionShape(), onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
                 Text("完成")
             }
             TextButton(onClick = onBack, modifier = Modifier.fillMaxWidth()) {
@@ -210,7 +211,7 @@ internal fun MergePreviewContent(
 
         Spacer(Modifier.height(16.dp))
         Button(
-            shape = MaterialTheme.shapes.small,
+            shape = jrxActionShape(),
             onClick = onConfirm,
             enabled = (plan.hasWrites() || newAliases > 0) && !busy,
             modifier = Modifier.fillMaxWidth()

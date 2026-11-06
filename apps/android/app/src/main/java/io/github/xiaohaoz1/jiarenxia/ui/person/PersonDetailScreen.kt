@@ -108,6 +108,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.QuickAction
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.TitleChip
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ringColorOf
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
 import java.time.LocalDate
@@ -865,7 +866,7 @@ fun PersonDetailContent(
                         // 记一次联系：方式胶囊 + 备注（≤100 字）
                         var logSheet by remember { mutableStateOf(false) }
                         androidx.compose.material3.FilledTonalButton(
-                            shape = MaterialTheme.shapes.small,
+                            shape = jrxActionShape(),
                             onClick = { logSheet = true },
                             modifier = Modifier.fillMaxWidth()
                                 .padding(top = 8.dp)

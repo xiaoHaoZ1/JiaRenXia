@@ -1556,7 +1556,11 @@ private fun GraphNodeItem(
             focused -> BorderStroke(3.dp, MaterialTheme.colorScheme.tertiary)
             picked -> BorderStroke(2.5.dp, MaterialTheme.colorScheme.primary)
             isSelf -> BorderStroke(1.5.dp, jrx.seal)
-            else -> BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            // 「家书」纸色底上普通卡片带发丝细框；经典沿用改版前的无边框
+            else -> if (io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle.current ==
+                io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU)
+                BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+            else null
         }
     ) {
         Box(Modifier.fillMaxSize()) {
