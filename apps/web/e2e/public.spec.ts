@@ -104,6 +104,19 @@ test("下载地址与版本清单走 dl.jiarenxia.com", async ({ page, request }
   expect(existsSync(join(ROOT, "apps", "web", "dist", "_headers"))).toBeTruthy();
 });
 
+test("宣传下载页把已知匿名来源带到安装包链接", async ({ page }) => {
+  const sources = ["xhs-call", "xhs-kinship", "bili-story", "wx-video"];
+  for (const source of sources) {
+    await page.goto(`/download?src=${source}`);
+    const link = page.locator("a[href*='dl.jiarenxia.com/jiarenxia-']").first();
+    await expect(link).toHaveAttribute("href", new RegExp(`\\?src=${source}$`));
+  }
+
+  await page.goto("/download?src=unknown-campaign");
+  await expect(page.locator("a[href*='dl.jiarenxia.com/jiarenxia-']").first())
+    .toHaveAttribute("href", /\?src=web$/);
+});
+
 test("旧安装包路径 302 到下载服务", async ({ request }) => {
   const resp = await request.get("/jiarenxia.apk", { maxRedirects: 0 });
   expect(resp.status()).toBe(302);

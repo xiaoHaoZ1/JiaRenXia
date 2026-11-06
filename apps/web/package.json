@@ -8,6 +8,7 @@
     "build": "vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "node serve.mjs 4173",
     "brand-images": "node scripts/brand-images.mjs",
+    "promo-call-video": "node scripts/promo-call-video.mjs",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test"
   },
