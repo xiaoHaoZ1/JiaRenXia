@@ -20,7 +20,9 @@ data class FamilyUiState(
     val defaultNumbers: Map<String, String> = emptyMap(),
     val today: LocalDate = LocalDate.now(),
     /** personId → 已 N 天未联系（仅逾期者，联系提醒）。 */
-    val contactOverdue: Map<String, Int> = emptyMap()
+    val contactOverdue: Map<String, Int> = emptyMap(),
+    /** 在世者覆盖的辈分数（「N 代同堂」；「家书」家庭页摘要用）。 */
+    val generationCount: Int = 0
 )
 
 /** 家庭页 ViewModel：订阅家庭整体视图与默认号码表。 */
@@ -31,7 +33,9 @@ class FamilyViewModel @Inject constructor(
     val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
     val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data
-        .ContactRepository) : ViewModel() {
+        .ContactRepository,
+    private val engine: io.github.xiaohaoz1.jiarenxia.core.kinship
+        .KinshipEngine) : ViewModel() {
 
     val ui: StateFlow<FamilyUiState> =
         combine(
@@ -55,8 +59,18 @@ class FamilyViewModel @Inject constructor(
                     (status.daysSinceLast ?: status.overdueDays +
                         plan.intervalDays) else null
             }.toMap()
+            // 在世者覆盖的辈分数（含“我”；engine.generations 以“我”为 0 代标号）
+            val genCount = ov?.let { o ->
+                engine.generations(o.graph, o.self.person.id)
+                    .filterKeys { id ->
+                        o.byId[id]?.person?.livingStatus ==
+                            io.github.xiaohaoz1.jiarenxia.core.model
+                                .LivingStatus.ALIVE
+                    }.values.toSet().size
+            } ?: 0
             FamilyUiState(
-                ov, nums, today, contactOverdue = overdue)
+                ov, nums, today, contactOverdue = overdue,
+                generationCount = genCount)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FamilyUiState())
 
     /** 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。 */

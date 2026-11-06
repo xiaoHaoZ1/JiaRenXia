@@ -111,9 +111,18 @@ class ScreenShotsTest {
     @get:Rule
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
-    private fun shot(name: String, dark: Boolean = false, content: @Composable () -> Unit) {
+    private fun shot(
+        name: String,
+        dark: Boolean = false,
+        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle =
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+        content: @Composable () -> Unit
+    ) {
         composeRule.setContent {
-            JiaRenXiaTheme(mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT) {
+            JiaRenXiaTheme(
+                mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT,
+                style = style
+            ) {
                 // 截图脱离 MainShell：自带底色与内容色，避免默认黑字
                 androidx.compose.material3.Surface(
                     color = androidx.compose.material3.MaterialTheme.colorScheme.background,
@@ -135,6 +144,8 @@ class ScreenShotsTest {
         name: String,
         dark: Boolean = false,
         scale: Float = 1.3f,
+        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle =
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
         content: @Composable () -> Unit
     ) {
         composeRule.setContent {
@@ -143,7 +154,10 @@ class ScreenShotsTest {
                 androidx.compose.ui.platform.LocalDensity provides
                     androidx.compose.ui.unit.Density(d.density, d.fontScale * scale)
             ) {
-                JiaRenXiaTheme(mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT) {
+                JiaRenXiaTheme(
+                    mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT,
+                    style = style
+                ) {
                     androidx.compose.material3.Surface(
                         color = androidx.compose.material3.MaterialTheme.colorScheme.background,
                         contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
@@ -228,7 +242,10 @@ class ScreenShotsTest {
 
     @Test
     @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
-    fun family() = shot("family_home") {
+    fun family() = shot(
+        "family_home",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
         FamilyContent(Demo.familyState(), Demo.lunar, {}, {}, {}, {}, {})
     }.also {
         // 自定义称呼覆盖：伯父 杨建春 → “大伯”
@@ -236,6 +253,27 @@ class ScreenShotsTest {
         // 标题下文字入口（不再是图标按钮）：查找家人、添加家人均可点击
         composeRule.onNodeWithText("查找家人").assertHasClickAction()
         composeRule.onNodeWithText("添加家人").assertHasClickAction()
+    }
+
+    /** 「家书」家庭页：「杨家」标题+家字印、今日惦记、至亲行式名单。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyJiashu() = shot("family_home_js") {
+        FamilyContent(
+            Demo.familyState().copy(
+                contactOverdue = mapOf("fil" to 23),
+                generationCount = 4
+            ),
+            Demo.lunar, {}, {}, {}, {}, {}
+        )
+    }.also {
+        assertTexts("杨家", "18 位家人 · 4代同堂", "今日惦记",
+            "今天是母亲的生日", "打个电话", "23 天没联系了", "至亲",
+            "家庭关系图", "共享与连接", "大伯")
+        composeRule.onNodeWithText("查找").assertHasClickAction()
+        composeRule.onNodeWithText("添加").assertHasClickAction()
+        // 家书页不再有经典版文案
+        assertNoTexts("核心家人", "查找家人")
     }
 
     @Test
@@ -1720,7 +1758,7 @@ class ScreenShotsTest {
     @Config(qualifiers = "w412dp-h1400dp-xxhdpi")
     fun familyWithNav() = navShot("family_with_nav", "family") {
         FamilyContent(Demo.familyState(), Demo.lunar, {}, {}, {}, {}, {})
-    }.also { assertTexts("家庭", "家事", "我的", "核心家人"); assertNoTexts("守护") }
+    }.also { assertTexts("家庭", "家事", "我的", "至亲"); assertNoTexts("守护") }
 
     @Test
     fun affairsWithNav() = navShot("affairs_with_nav", "reminder") {

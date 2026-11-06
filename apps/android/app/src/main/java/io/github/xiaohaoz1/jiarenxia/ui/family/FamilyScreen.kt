@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,6 +30,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.AccountTree
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Diversity1
@@ -51,27 +54,40 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
 import io.github.xiaohaoz1.jiarenxia.domain.AgeMath
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyGrouping
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyOrdering
+import io.github.xiaohaoz1.jiarenxia.domain.FamilyTitle
 import io.github.xiaohaoz1.jiarenxia.domain.PersonOverview
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarFormat
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DateTile
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.EmptyState
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitleBlock
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SealLabel
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SealMark
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SectionHeader
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.TitleChip
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.TopTextAction
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ringColorOf
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
@@ -155,6 +171,7 @@ fun FamilyContent(
     onShareConnect: () -> Unit = {}
 ) {
     val ov = st.overview
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
 
     // 独立底色/内容色：脱离 MainShell 渲染（截图、预览）时也不失真
     Surface(
@@ -163,54 +180,82 @@ fun FamilyContent(
         contentColor = MaterialTheme.colorScheme.onBackground
     ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // 1. 页头（固定，不随列表滚动）：标题 + 搜索/添加，摘要小字
-        PageHeader {
-            Column {
-                // 页面标题（PageTitle 自带 heading 语义，TalkBack 可按标题导航）
-                io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitle("家庭")
-                if (ov != null) {
-                    Text(
-                        "${ov.core.size + ov.others.size} 位家人 · 核心家人 ${ov.core.size} 位",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+        // 1. 页头（固定，不随列表滚动）
+        if (jiashu) {
+            // 「家书」：右上查找/添加（图标加文字）+「X家」与家字印 + 摘要 + 双线
+            PageHeader(
+                contentPadding = PaddingValues(
+                    start = 24.dp, end = 12.dp, top = 0.dp, bottom = 14.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TopTextAction(Icons.Rounded.Search, "查找", onSearch)
+                        TopTextAction(Icons.Rounded.PersonAdd, "添加", onAddFamily)
+                    }
+                    PageTitleBlock(
+                        title = FamilyTitle.of(ov?.self?.person?.name),
+                        summary = ov?.let { jiashuFamilySummary(st, it) },
+                        titleTrailing = {
+                            SealMark("家", size = 30.dp,
+                                modifier = Modifier.offset(y = 3.dp))
+                        }
                     )
                 }
-                Spacer(Modifier.height(10.dp))
-                // 两个可见文字入口，各半行宽；图标仅辅助，不单独表意
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onSearch,
-                        modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.medium
-                    ) {
-                        Icon(
-                            Icons.Rounded.Search, contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+            }
+        } else {
+            // 「经典」：标题 + 搜索/添加，摘要小字
+            PageHeader {
+                Column {
+                    // 页面标题（PageTitle 自带 heading 语义，TalkBack 可按标题导航）
+                    io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitle("家庭")
+                    if (ov != null) {
+                        Text(
+                            "${ov.core.size + ov.others.size} 位家人 · 核心家人 ${ov.core.size} 位",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Spacer(Modifier.width(6.dp))
-                        Text("查找家人", maxLines = 1, softWrap = false)
                     }
-                    OutlinedButton(
-                        onClick = onAddFamily,
-                        modifier = Modifier.weight(1f),
-                        shape = MaterialTheme.shapes.medium
+                    Spacer(Modifier.height(10.dp))
+                    // 两个可见文字入口，各半行宽；图标仅辅助，不单独表意
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Icon(
-                            Icons.Rounded.PersonAdd, contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
-                        Text("添加家人", maxLines = 1, softWrap = false)
+                        OutlinedButton(
+                            onClick = onSearch,
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Icon(
+                                Icons.Rounded.Search, contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("查找家人", maxLines = 1, softWrap = false)
+                        }
+                        OutlinedButton(
+                            onClick = onAddFamily,
+                            modifier = Modifier.weight(1f),
+                            shape = MaterialTheme.shapes.medium
+                        ) {
+                            Icon(
+                                Icons.Rounded.PersonAdd, contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("添加家人", maxLines = 1, softWrap = false)
+                        }
                     }
                 }
             }
         }
 
-        // 2. 关系图入口（固定，不随列表滚动）；仅自己与未加载时不显示，与列表分支一致
-        if (ov != null && ov.byId.size > 1) {
+        // 2. 关系图入口（「经典」固定，不随列表滚动；「家书」在列表里做行式入口）
+        if (!jiashu && ov != null && ov.byId.size > 1) {
             JrxCard(
                 onClick = onOpenGraph,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)
@@ -253,128 +298,209 @@ fun FamilyContent(
                 return@LazyColumn
             }
 
-            // 3. 今天有人过生日：横幅（当天没人过生日时，下面显示近期生日卡）
-            val todayPeople = (listOf(ov.self) + ov.core + ov.others)
-                .filter { daysUntil(it, st.today, 0, lunar) == 0 }
-            todayPeople.firstOrNull()?.let { first ->
+            if (jiashu) {
+                // 3. 今日惦记：今天/最近的生日一句 + 联系超期最久一句；都没有则不显示
                 item {
-                    TodayBirthdayBanner(
-                        o = first,
-                        others = todayPeople.size - 1,
-                        age = AgeMath.ageAt(first.birthdays, st.today, lunar),
-                        number = st.defaultNumbers[first.person.id],
-                        onDial = { n ->
-                            onPersonDial(first.person, promptLabel(first), n)
-                        }
+                    JiashuTodayBlock(
+                        st = st, ov = ov, lunar = lunar,
+                        onDial = { p, label, n -> onPersonDial(p, label, n) }
                     )
                 }
-            }
 
-            // 4. 近期生日（1..7 天，最多 3 人，最快在前；今天的人已在横幅里）
-            val upcoming = ov.byId.values
-                .mapNotNull { o -> daysUntil(o, st.today, 7, lunar)?.let { o to it } }
-                .filter { it.second > 0 }
-                .sortedBy { it.second }
-                .take(3)
-            if (upcoming.isNotEmpty()) {
-                item {
-                    JrxCard(modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)) {
+                // 4. 关系图入口行（上下发丝线）
+                item { JiashuGraphRow(onOpenGraph) }
+
+                // 5. 至亲（排序沿用 FamilyOrdering，单列行、不放头像）
+                item { JiashuSectionTitle("至亲", "${ov.core.size} 位") }
+                if (ov.core.isEmpty()) {
+                    item {
                         Text(
-                            text = "近期生日",
-                            style = MaterialTheme.typography.titleMedium
+                            "还没有添加家人，点击右上角“添加”",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(
+                                horizontal = 24.dp, vertical = 8.dp)
                         )
-                        Spacer(Modifier.height(10.dp))
-                        upcoming.forEachIndexed { i, (o, days) ->
-                            BirthdayRow(
-                                o = o, days = days,
-                                number = st.defaultNumbers[o.person.id],
+                    }
+                } else {
+                    items(ov.core, key = { it.person.id }) { o ->
+                        JiashuKinRow(
+                            o = o,
+                            contactDays = st.contactOverdue[o.person.id],
+                            today = st.today,
+                            lunar = lunar,
+                            onClick = { onOpenPerson(o.person.id) }
+                        )
+                    }
+                }
+
+                // 6. 其他家人分组
+                FamilyGrouping.group(ov.others, ov.byId)
+                    .forEach { (group, members) ->
+                        item {
+                            JiashuSectionTitle(group.label, "${members.size} 位")
+                        }
+                        items(members, key = { it.person.id }) { o ->
+                            JiashuKinRow(
+                                o = o,
+                                contactDays = st.contactOverdue[o.person.id],
                                 today = st.today,
                                 lunar = lunar,
-                                onClick = { onOpenPerson(o.person.id) },
-                                onDial = { n ->
-                                    onPersonDial(o.person, promptLabel(o), n)
-                                }
+                                onClick = { onOpenPerson(o.person.id) }
                             )
-                            if (i != upcoming.lastIndex) {
-                                HorizontalDivider(
-                                    Modifier.padding(vertical = 8.dp),
-                                    color = MaterialTheme.colorScheme.outlineVariant
-                                )
-                            }
                         }
                     }
-                }
-            }
 
-            // 5. 核心家人（两列紧凑行）
-            item {
-                SectionHeader("核心家人", modifier = Modifier.padding(horizontal = 16.dp))
-            }
-            if (ov.core.isEmpty()) {
-                item {
-                    Text(
-                        "还没有添加家人，点击右上角“＋”添加家人",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
+                // 7. 共享与连接：行式入口
+                item { JiashuShareRow(onShareConnect) }
             } else {
-                item {
-                    JrxCard(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                        FamilyOrdering.coreRows(ov.core).forEachIndexed { rowIndex, pair ->
-                            if (rowIndex > 0) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                // 3. 今天有人过生日：横幅（当天没人过生日时，下面显示近期生日卡）
+                val todayPeople = (listOf(ov.self) + ov.core + ov.others)
+                    .filter { daysUntil(it, st.today, 0, lunar) == 0 }
+                todayPeople.firstOrNull()?.let { first ->
+                    item {
+                        TodayBirthdayBanner(
+                            o = first,
+                            others = todayPeople.size - 1,
+                            age = AgeMath.ageAt(first.birthdays, st.today, lunar),
+                            number = st.defaultNumbers[first.person.id],
+                            onDial = { n ->
+                                onPersonDial(first.person, promptLabel(first), n)
                             }
-                            Row(Modifier.height(IntrinsicSize.Min)) {
-                                pair.forEachIndexed { i, o ->
-                                    if (i > 0) {
-                                        Box(
-                                            Modifier.width(1.dp).fillMaxHeight()
-                                                .background(MaterialTheme.colorScheme.outlineVariant)
-                                        )
+                        )
+                    }
+                }
+
+                // 4. 近期生日（1..7 天，最多 3 人，最快在前；今天的人已在横幅里）
+                val upcoming = ov.byId.values
+                    .mapNotNull { o ->
+                        daysUntil(o, st.today, 7, lunar)?.let { o to it } }
+                    .filter { it.second > 0 }
+                    .sortedBy { it.second }
+                    .take(3)
+                if (upcoming.isNotEmpty()) {
+                    item {
+                        JrxCard(
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "近期生日",
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            upcoming.forEachIndexed { i, (o, days) ->
+                                BirthdayRow(
+                                    o = o, days = days,
+                                    number = st.defaultNumbers[o.person.id],
+                                    today = st.today,
+                                    lunar = lunar,
+                                    onClick = { onOpenPerson(o.person.id) },
+                                    onDial = { n ->
+                                        onPersonDial(o.person, promptLabel(o), n)
                                     }
-                                    CoreMemberCell(
-                                        o = o,
-                                        ring = ringColorOf(o, ov.byId),
-                                        today = st.today,
-                                        lunar = lunar,
-                                        contactDays = st.contactOverdue[o.person.id],
-                                        onClick = { onOpenPerson(o.person.id) },
-                                        modifier = Modifier.weight(1f)
+                                )
+                                if (i != upcoming.lastIndex) {
+                                    HorizontalDivider(
+                                        Modifier.padding(vertical = 8.dp),
+                                        color = MaterialTheme.colorScheme.outlineVariant
                                     )
                                 }
-                                if (pair.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
                     }
                 }
-            }
 
-            // 6. 其他家人分组
-            FamilyGrouping.group(ov.others, ov.byId).forEach { (group, members) ->
+                // 5. 核心家人（两列紧凑行）
                 item {
-                    SectionHeader(group.label, modifier = Modifier.padding(horizontal = 16.dp))
+                    SectionHeader(
+                        "核心家人",
+                        modifier = Modifier.padding(horizontal = 16.dp))
                 }
-                items(members, key = { it.person.id }) { o ->
-                    MemberRow(
-                        o = o,
-                        onClick = { onOpenPerson(o.person.id) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    )
+                if (ov.core.isEmpty()) {
+                    item {
+                        Text(
+                            "还没有添加家人，点击右上角“＋”添加家人",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(
+                                horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
+                } else {
+                    item {
+                        JrxCard(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            FamilyOrdering.coreRows(ov.core)
+                                .forEachIndexed { rowIndex, pair ->
+                                    if (rowIndex > 0) {
+                                        HorizontalDivider(
+                                            color = MaterialTheme.colorScheme
+                                                .outlineVariant)
+                                    }
+                                    Row(Modifier.height(IntrinsicSize.Min)) {
+                                        pair.forEachIndexed { i, o ->
+                                            if (i > 0) {
+                                                Box(
+                                                    Modifier.width(1.dp)
+                                                        .fillMaxHeight()
+                                                        .background(MaterialTheme
+                                                            .colorScheme
+                                                            .outlineVariant)
+                                                )
+                                            }
+                                            CoreMemberCell(
+                                                o = o,
+                                                ring = ringColorOf(o, ov.byId),
+                                                today = st.today,
+                                                lunar = lunar,
+                                                contactDays = st.contactOverdue[
+                                                    o.person.id],
+                                                onClick = {
+                                                    onOpenPerson(o.person.id) },
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                        }
+                                        if (pair.size == 1) {
+                                            Spacer(Modifier.weight(1f))
+                                        }
+                                    }
+                                }
+                        }
+                    }
                 }
-            }
-            // 7. 共享与连接：和家人交换资料的入口都在这里
-            item {
-                io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
-                ) {
-                    io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsNavRow(
-                        icon = Icons.Rounded.Diversity1,
-                        title = "共享与连接",
-                        subtitle = "分享家庭档案 · 接收家人分享 · 碰一碰",
-                        onClick = onShareConnect
-                    )
+
+                // 6. 其他家人分组
+                FamilyGrouping.group(ov.others, ov.byId)
+                    .forEach { (group, members) ->
+                        item {
+                            SectionHeader(
+                                group.label,
+                                modifier = Modifier.padding(horizontal = 16.dp))
+                        }
+                        items(members, key = { it.person.id }) { o ->
+                            MemberRow(
+                                o = o,
+                                onClick = { onOpenPerson(o.person.id) },
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        }
+                    }
+                // 7. 共享与连接：和家人交换资料的入口都在这里
+                item {
+                    io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard(
+                        Modifier.fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsNavRow(
+                            icon = Icons.Rounded.Diversity1,
+                            title = "共享与连接",
+                            subtitle = "分享家庭档案 · 接收家人分享 · 碰一碰",
+                            onClick = onShareConnect
+                        )
+                    }
                 }
             }
             // 底部留白
@@ -382,6 +508,16 @@ fun FamilyContent(
         }
     }
     }
+}
+
+/** 「家书」摘要：N 位家人；在世者覆盖 ≥3 代时再写「N 代同堂」。 */
+private fun jiashuFamilySummary(
+    st: FamilyUiState,
+    ov: io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
+): String {
+    val base = "${ov.core.size + ov.others.size} 位家人"
+    return if (st.generationCount >= 3) "$base · ${st.generationCount}代同堂"
+    else base
 }
 
 /** “联系上了吗”提示用的称呼：称谓优先，本人与无称谓回退姓名。 */
@@ -666,6 +802,347 @@ private fun MemberRow(
         Icon(
             Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * 「家书」今日惦记（2.22）：朱砂小标签 + 主句（今天/最近的生日）+ 次行 + 副句（联系超期）。
+ * 主句、副句都没有时整块不显示（连下方发丝线一起）。
+ */
+@Composable
+private fun JiashuTodayBlock(
+    st: FamilyUiState,
+    ov: io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview,
+    lunar: LunarCalendar,
+    onDial: (io.github.xiaohaoz1.jiarenxia.core.model.Person, String, String) -> Unit
+) {
+    val jrx = LocalJrxColors.current
+    // 主句：今天有人过生日优先，否则取 7 天内最近的一个生日
+    val todayPeople = (listOf(ov.self) + ov.core + ov.others)
+        .filter { daysUntil(it, st.today, 0, lunar) == 0 }
+    val todayFirst = todayPeople.firstOrNull()
+    val upcoming = if (todayFirst == null) {
+        ov.byId.values
+            .mapNotNull { o -> daysUntil(o, st.today, 7, lunar)?.let { o to it } }
+            .filter { it.second > 0 }
+            .minByOrNull { it.second }
+    } else null
+    // 副句：联系超期最久的一位
+    val overdue = st.contactOverdue.maxByOrNull { it.value }
+        ?.let { (id, days) ->
+            ov.byId[id]?.let { o -> Triple(o, days, st.defaultNumbers[id]) }
+        }
+    if (todayFirst == null && upcoming == null && overdue == null) return
+
+    Column(
+        Modifier.fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 14.dp)
+    ) {
+        SealLabel("今日惦记")
+        if (todayFirst != null) {
+            // 「今天是{称谓}的生日」（多人加「等 N 人」；自己写“你的生日”）
+            val label = if (todayFirst.person.isSelf) "你"
+            else todayFirst.displayTitle.ifEmpty { todayFirst.person.name }
+            Text(
+                "今天是" + label + "的生日" +
+                    if (todayPeople.size > 1) "（等 ${todayPeople.size - 1} 人）" else "",
+                fontSize = 22.sp,
+                lineHeight = 33.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 2.dp)
+            ) {
+                Text(
+                    todayFirst.person.name +
+                        (AgeMath.ageAt(todayFirst.birthdays, st.today, lunar)
+                            ?.let { " · $it 岁" } ?: ""),
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val number = st.defaultNumbers[todayFirst.person.id]
+                if (number != null && !todayFirst.person.isSelf) {
+                    QingLink("打个电话") {
+                        onDial(todayFirst.person, promptLabel(todayFirst), number)
+                    }
+                }
+            }
+        } else if (upcoming != null) {
+            // 「{称谓}的生日，还有 {d} 天。」（d 朱砂放大）
+            val (o, days) = upcoming
+            val label = if (o.person.isSelf) "你"
+            else o.displayTitle.ifEmpty { o.person.name }
+            Text(
+                buildAnnotatedString {
+                    append(label + "的生日，还有 ")
+                    withStyle(
+                        SpanStyle(
+                            color = jrx.seal,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    ) { append(days.toString()) }
+                    append(" 天。")
+                },
+                fontSize = 22.sp,
+                lineHeight = 33.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+            val due = o.birthdays.mapNotNull { b ->
+                BirthdayMath.nextOccurrence(b, st.today, lunar)?.let { b to it }
+            }.minByOrNull { it.second }
+            Text(
+                o.person.name +
+                    (due?.let { (b, d) ->
+                        " · " + (LunarFormat.lunarShort(b)
+                            ?: "${d.monthValue}月${d.dayOfMonth}日")
+                    } ?: "") +
+                    (AgeMath.ageAt(o.birthdays, st.today, lunar)
+                        ?.let { " · $it 岁" } ?: ""),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+        if (overdue != null) {
+            val (o, n, number) = overdue
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(top = 12.dp)
+            ) {
+                Text(
+                    (o.displayTitle.ifEmpty { "" }) + o.person.name +
+                        "，${n} 天没联系了。",
+                    fontSize = 15.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f, fill = false)
+                )
+                if (number != null) {
+                    QingLink("打个电话") {
+                        onDial(o.person, promptLabel(o), number)
+                    }
+                }
+            }
+        }
+    }
+    HorizontalDivider(
+        Modifier.padding(horizontal = 24.dp),
+        color = MaterialTheme.colorScheme.outlineVariant
+    )
+}
+
+/** 墨青文字链（打个电话）：粗体 + 下划线。 */
+@Composable
+private fun QingLink(label: String, onClick: () -> Unit) {
+    Text(
+        label,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        textDecoration = TextDecoration.Underline,
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onClick)
+            .padding(4.dp)
+    )
+}
+
+/** 「家书」关系图入口行：墨青线性图标 + 名称/说明 + 箭头，上下发丝线。 */
+@Composable
+private fun JiashuGraphRow(onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider(
+            Modifier.padding(horizontal = 24.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+        Row(
+            Modifier.fillMaxWidth()
+                .semantics(mergeDescendants = true) {}
+                .clickable(onClick = onClick)
+                .padding(horizontal = 24.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Rounded.AccountTree, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "家庭关系图",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "按辈分看全家 · 可只看父系、母系",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        HorizontalDivider(
+            Modifier.padding(horizontal = 24.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
+    }
+}
+
+/** 「家书」区块标题（至亲 / 分组）：20sp 粗体 + 淡色「N 位」。 */
+@Composable
+private fun JiashuSectionTitle(title: String, count: String) {
+    Row(
+        Modifier.fillMaxWidth()
+            .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.Bottom
+    ) {
+        Text(
+            title,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.semantics { heading() }
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            count,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.outline
+        )
+    }
+}
+
+/**
+ * 「家书」家人行：姓名 17sp/500 + 称谓细框 + 右侧状态，行间发丝线、不放头像。
+ * 状态优先级：已故 → 今天 → N 天后 → N 天未联系 → 生日日期；
+ * 生日相关朱砂粗体，未联系墨青粗体，已故整行淡色。
+ */
+@Composable
+private fun JiashuKinRow(
+    o: PersonOverview,
+    contactDays: Int?,
+    today: LocalDate,
+    lunar: LunarCalendar,
+    onClick: () -> Unit
+) {
+    val jrx = LocalJrxColors.current
+    val deceased = o.person.livingStatus == LivingStatus.DECEASED
+    val days = daysUntil(o, today, 30, lunar)
+    val nextBirthday = o.birthdays.mapNotNull { b ->
+        BirthdayMath.nextOccurrence(b, today, lunar)?.let { b to it }
+    }.minByOrNull { it.second }
+    val status: Pair<String, Color>? = when {
+        deceased -> "已故" to jrx.deceased
+        days == 0 -> "今天" to jrx.seal
+        days != null -> (days.toString() + " 天后") to jrx.seal
+        contactDays != null -> (contactDays.toString() + " 天未联系") to
+            MaterialTheme.colorScheme.primary
+        nextBirthday != null -> nextBirthday.let { (b, d) ->
+            (LunarFormat.lunarShort(b)
+                ?: (d.monthValue.toString() + "月" + d.dayOfMonth + "日")) to
+                MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        else -> null
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        Row(
+            Modifier.fillMaxWidth()
+                .semantics(mergeDescendants = true) {}
+                .clickable(onClick = onClick)
+                .padding(vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                o.person.name,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (deceased) jrx.deceased
+                else MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false)
+            )
+            if (o.displayTitle.isNotEmpty()) {
+                Spacer(Modifier.width(10.dp))
+                TitleChip(
+                    o.displayTitle,
+                    tone = if (deceased) ChipTone.MUTED else ChipTone.CORE
+                )
+            }
+            if (o.titleOnly) {
+                Spacer(Modifier.width(6.dp))
+                TitleChip("待补充", tone = ChipTone.MUTED)
+            }
+            Spacer(Modifier.weight(1f))
+            if (status != null) {
+                Text(
+                    status.first,
+                    fontSize = 13.sp,
+                    fontWeight = if (days != null || contactDays != null &&
+                        !deceased
+                    ) FontWeight.Bold else FontWeight.Normal,
+                    color = status.second,
+                    maxLines = 1,
+                    softWrap = false
+                )
+            }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+/** 「家书」共享与连接行（列表末尾）。 */
+@Composable
+private fun JiashuShareRow(onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth()
+                .semantics(mergeDescendants = true) {}
+                .clickable(onClick = onClick)
+                .padding(horizontal = 24.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Rounded.Diversity1, contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "共享与连接",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    "分享家庭档案 · 接收家人分享 · 碰一碰",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 1.dp)
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        HorizontalDivider(
+            Modifier.padding(horizontal = 24.dp),
+            color = MaterialTheme.colorScheme.outlineVariant
         )
     }
 }
