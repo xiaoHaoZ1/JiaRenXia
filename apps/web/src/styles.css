@@ -130,6 +130,13 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   cursor: pointer;
 }
 .nav-btn:hover { background: color-mix(in srgb, var(--primary-bg) 55%, transparent); }
+/* 语言切换：导航最右一项，细框区分于普通链接 */
+.nav a.nav-lang {
+  margin-left: 0.4em;
+  padding: 0 0.9em;
+  border: 1px solid var(--border, currentColor);
+  font-weight: 600;
+}
 .menu-btn {
   display: none;
   margin-left: auto;

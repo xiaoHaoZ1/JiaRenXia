@@ -4,7 +4,9 @@
 // 标签、没有才新建，避免出现两个 <title> 或两条 description。开发模式下模板里没有
 // 这些标签，首次调用会补齐。
 
-import { canonicalFor, isIndexable, OG_IMAGE, seoFor, SITE_NAME, SITE_URL } from "./seo";
+import {
+  canonicalFor, hreflangFor, isIndexable, langOf, OG_IMAGE, seoFor, SITE_NAME, SITE_URL,
+} from "./seo";
 
 function meta(attr: "name" | "property", key: string, content: string) {
   const selector = `meta[${attr}="${key}"]`;
@@ -27,17 +29,35 @@ function canonical(href: string) {
   el.href = href;
 }
 
-/** 按当前路径更新标题、摘要、canonical 与分享卡片信息。 */
+/** 重写 hreflang alternate 链接组：先清旧的再按当前页重建，避免残留上一页的语言对。 */
+function hreflang(path: string) {
+  for (const el of document.head.querySelectorAll('link[rel="alternate"][hreflang]')) {
+    el.remove();
+  }
+  if (!isIndexable(path)) return;
+  for (const { hreflang: hl, href } of hreflangFor(path)) {
+    const el = document.createElement("link");
+    el.rel = "alternate";
+    el.hreflang = hl;
+    el.href = href;
+    document.head.appendChild(el);
+  }
+}
+
+/** 按当前路径更新标题、摘要、canonical、hreflang 与分享卡片信息。 */
 export function applyHead(path: string) {
+  const lang = langOf(path);
   const seo = seoFor(path);
   const url = canonicalFor(path);
+  document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
   document.title = seo.title;
   meta("name", "description", seo.description);
   meta("name", "robots", isIndexable(path) ? "index,follow" : "noindex,follow");
   canonical(url);
+  hreflang(path);
   meta("property", "og:type", "website");
   meta("property", "og:site_name", SITE_NAME);
-  meta("property", "og:locale", "zh_CN");
+  meta("property", "og:locale", lang === "en" ? "en_US" : "zh_CN");
   meta("property", "og:title", seo.title);
   meta("property", "og:description", seo.description);
   meta("property", "og:url", url);

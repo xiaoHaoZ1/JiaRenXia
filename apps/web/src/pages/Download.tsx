@@ -4,26 +4,91 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { downloadSourceFromSearch, type WebDownloadSource } from "../downloadSource";
+import { useLang, useTo } from "../i18n";
 import { APK_BETA, SITE } from "../site";
+
+const T = {
+  zh: {
+    h1: "下载",
+    stableTitle: "Android 正式版",
+    stableMissingTitle: "Android 正式版尚未发布",
+    stableMissing:
+      "我们正在打磨正式版安装包。系统要求：Android 8.0 及以上。想第一时间知道发布消息，可以写信到 ",
+    version: "版本：",
+    size: "大小：",
+    downloadStable: "下载安装包",
+    betaTitle: "Android 测试版（Beta）",
+    betaIntro:
+      "开发中的功能抢先体验。它与正式版是两个独立应用（桌面图标名「家人侠-测试版」），" +
+      "可以同时安装、数据互不相通；签名与正式版不同，两者之间不能直接覆盖升级；" +
+      "未做压缩优化，体积比正式版大。",
+    requirement: "系统要求：Android 8.0 及以上",
+    downloadBeta: "下载测试版",
+    betaMissing: "暂无测试版可下载。",
+    sourcePre: "家人侠和守护侠的源代码以 GPL-3.0 协议公开：",
+    sourceJrx: "家人侠",
+    sourceShx: "守护侠",
+    sourcePost: "。",
+    gxPre: "守护功能由独立应用「守护侠」提供（测试版，可在",
+    gxLink: "「小侠家族」",
+    gxPost:
+      "页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先做一次「实机演练」走一遍流程，确认能响能拨，再放心交给它。",
+    free: "家人侠完全免费：所有功能，包括导出表格和高清关系图，不收取任何费用。",
+  },
+  en: {
+    h1: "Download",
+    stableTitle: "Android release",
+    stableMissingTitle: "The Android release is not out yet",
+    stableMissing:
+      "We're still polishing the release package. Requirement: Android 8.0+. " +
+      "To hear about it first, write to ",
+    version: "Version: ",
+    size: "Size: ",
+    downloadStable: "Download APK",
+    betaTitle: "Android beta",
+    betaIntro:
+      "Try upcoming features early. It's a separate app from the release (icon name " +
+      "\"JiaRenXia Beta\") — both can be installed side by side with independent data; " +
+      "the signature differs from the release so they can't upgrade over each other; " +
+      "no size optimization, so the file is larger.",
+    requirement: "Requirement: Android 8.0+",
+    downloadBeta: "Download beta",
+    betaMissing: "No beta build available right now.",
+    sourcePre: "The source code of JiaRenXia and ShouHuXia is published under GPL-3.0: ",
+    sourceJrx: "JiaRenXia",
+    sourceShx: "ShouHuXia",
+    sourcePost: ".",
+    gxPre: "The guardian feature lives in a separate app, ShouHuXia (beta — get it on the ",
+    gxLink: "More apps",
+    gxPost:
+      " page). Phone brands restrict background work and auto-start differently, so after " +
+      "installing please run the built-in live drill once to confirm it can ring and dial " +
+      "before relying on it.",
+    free: "JiaRenXia is completely free: every feature, including spreadsheet export and HD family graph images, costs nothing.",
+  },
+} as const;
 
 export default function Download() {
   // 预渲染与首次 hydration 都保持 web，挂载后再读取查询参数，避免服务端与浏览器
   // 首屏属性不一致。来源码不写 Cookie，也不在浏览器持久化。
   const [downloadSource, setDownloadSource] = useState<WebDownloadSource>("web");
+  const lang = useLang();
+  const t = T[lang];
+  const to = useTo();
   useEffect(() => {
     setDownloadSource(downloadSourceFromSearch(window.location.search));
   }, []);
 
   return (
     <>
-      <h1>下载</h1>
+      <h1>{t.h1}</h1>
       <div className="card">
         {SITE.apkVersion ? (
           <>
-            <h3>Android 正式版</h3>
+            <h3>{t.stableTitle}</h3>
             <ul className="plain">
-              <li>版本：{SITE.apkVersion}</li>
-              <li>大小：{(SITE.apkSizeBytes / 1024 / 1024).toFixed(1)} MB</li>
+              <li>{t.version}{SITE.apkVersion}</li>
+              <li>{t.size}{(SITE.apkSizeBytes / 1024 / 1024).toFixed(1)} MB</li>
               <li>
                 SHA-256：<code style={{ wordBreak: "break-all" }}>{SITE.apkSha256}</code>
               </li>
@@ -33,33 +98,28 @@ export default function Download() {
               href={SITE.apkDownloadUrl + `?src=${downloadSource}`}
               download
             >
-              下载安装包
+              {t.downloadStable}
             </a>
           </>
         ) : (
           <>
-            <h3>Android 正式版尚未发布</h3>
+            <h3>{t.stableMissingTitle}</h3>
             <p className="muted">
-              我们正在打磨正式版安装包。系统要求：Android 8.0 及以上。
-              想第一时间知道发布消息，可以写信到{" "}
+              {t.stableMissing}
               <a href={`mailto:${SITE.contactEmail}`}>{SITE.contactEmail}</a>。
             </p>
           </>
         )}
       </div>
       <div className="card">
-        <h3>Android 测试版（Beta）</h3>
-        <p className="muted">
-          开发中的功能抢先体验。它与正式版是两个独立应用（桌面图标名「家人侠-测试版」），
-          可以同时安装、数据互不相通；签名与正式版不同，两者之间不能直接覆盖升级；
-          未做压缩优化，体积比正式版大。
-        </p>
+        <h3>{t.betaTitle}</h3>
+        <p className="muted">{t.betaIntro}</p>
         {APK_BETA.version ? (
           <>
             <ul className="plain">
-              <li>版本：{APK_BETA.version}</li>
-              <li>大小：{(APK_BETA.sizeBytes / 1024 / 1024).toFixed(1)} MB</li>
-              <li>系统要求：Android 8.0 及以上</li>
+              <li>{t.version}{APK_BETA.version}</li>
+              <li>{t.size}{(APK_BETA.sizeBytes / 1024 / 1024).toFixed(1)} MB</li>
+              <li>{t.requirement}</li>
               <li>
                 SHA-256：<code style={{ wordBreak: "break-all" }}>{APK_BETA.sha256}</code>
               </li>
@@ -69,22 +129,24 @@ export default function Download() {
               href={APK_BETA.file + `?src=${downloadSource}`}
               download
             >
-              下载测试版
+              {t.downloadBeta}
             </a>
           </>
         ) : (
-          <p className="muted">暂无测试版可下载。</p>
+          <p className="muted">{t.betaMissing}</p>
         )}
       </div>
       <p className="muted">
-        家人侠和守护侠的源代码以 GPL-3.0 协议公开：
-        <a href={SITE.sourceUrl} target="_blank" rel="noopener">家人侠</a>、
-        <a href={SITE.guardianSourceUrl} target="_blank" rel="noopener">守护侠</a>。
+        {t.sourcePre}
+        <a href={SITE.sourceUrl} target="_blank" rel="noopener">{t.sourceJrx}</a>
+        {lang === "en" ? ", " : "、"}
+        <a href={SITE.guardianSourceUrl} target="_blank" rel="noopener">{t.sourceShx}</a>
+        {t.sourcePost}
       </p>
       <p className="muted">
-        守护功能由独立应用「守护侠」提供（测试版，可在<Link to="/extensions">「小侠家族」</Link>页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先做一次「实机演练」走一遍流程，确认能响能拨，再放心交给它。
+        {t.gxPre}<Link to={to("/extensions")}>{t.gxLink}</Link>{t.gxPost}
       </p>
-      <p className="muted">家人侠完全免费：所有功能，包括导出表格和高清关系图，不收取任何费用。</p>
+      <p className="muted">{t.free}</p>
     </>
   );
 }

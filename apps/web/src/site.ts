@@ -57,6 +57,16 @@ export const EXTENSIONS = [
     file: `${DOWNLOAD_BASE}/shouhuxia-1.1.0.apk`,
     minAndroid: "8.0",
     note: "测试版：装好后请先按首页向导做一次「实机演练」，确认能响铃、能发短信、能拨通，再开启守护。目前仍在真机测试，暂不建议作为唯一的安全保障。",
+    en: {
+      name: "ShouHuXia",
+      stage: "Beta",
+      description:
+        "Installed on an elder's phone: if the phone sits untouched too long after lock, it first " +
+        "rings to ask them to confirm; with no answer it automatically calls emergency contacts — " +
+        "and can send a daily check-in text. Offline, no sign-up, settings stay on the phone.",
+      whatsNew: "Four-step home setup wizard + live drill; 1–3 emergency contacts; alerts send group texts first, then dial in turn",
+      note: "Beta: after installing, please run the live drill from the home wizard once to confirm it rings, texts and dials before enabling the guard. Still in real-device testing — do not rely on it as the only safety net yet.",
+    },
   },
   {
     id: "pengyouxia",
@@ -75,6 +85,15 @@ export const EXTENSIONS = [
     /** 安装包地址：下载服务按版本命名 */
     file: `${DOWNLOAD_BASE}/pengyouxia-1.0.0.apk`,
     minAndroid: "8.0",
+    en: {
+      name: "PengYouXia",
+      stage: "Beta",
+      description:
+        "JiaRenXia's sibling app — for friends instead of family. Record friends' birthdays, " +
+        "preferences and recent news; lunar and solar birthdays both work, with timely reminders " +
+        "to get in touch. Contacts import and encrypted backup included — data stays on your phone.",
+      whatsNew: "First release",
+    },
   },
   {
     id: "fantongxia",
@@ -91,5 +110,14 @@ export const EXTENSIONS = [
     sha256: "6bd661904b5418dfaae6d2b5990ca6f0663616f7bd84c838f21abe43da255f06",
     file: `${DOWNLOAD_BASE}/fantongxia-0.1.0.apk`,
     minAndroid: "8.0",
+    en: {
+      name: "FanTongXia",
+      stage: "Beta",
+      description:
+        "Can't decide what to eat? Let the wheel pick — cooking at home or eating out, even a " +
+        "specific buffet or grill place. The wheel is fully editable, meal-time reminders are " +
+        "included, and the result can be sent to a WeChat friend in one tap.",
+      whatsNew: "First release (spun off and renamed from \"ChiShenMe\")",
+    },
   },
 ] as const;

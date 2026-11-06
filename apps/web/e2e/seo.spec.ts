@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { canonicalFor, PAGES, SITE_URL } from "../src/seo";
+import { allIndexablePaths, canonicalFor, PAGES, seoFor, SITE_URL } from "../src/seo";
 
 // 搜索引擎抓取视角的自检。
 // 下面大部分用例走 request（纯 HTTP，不执行 JavaScript），正是百度、Bing 这类
@@ -15,18 +15,20 @@ test("robots.txt 放行全站并指向 sitemap", async ({ request }) => {
   expect(body).not.toMatch(/^\s*Disallow:\s*\/\s*$/m);
 });
 
-test("sitemap.xml 列出全部可收录页面", async ({ request }) => {
+test("sitemap.xml 列出全部可收录页面（中英双语）", async ({ request }) => {
   const res = await request.get("/sitemap.xml");
   expect(res.status()).toBe(200);
   expect(res.headers()["content-type"]).toContain("xml");
   const xml = await res.text();
-  for (const path of Object.keys(PAGES)) {
+  for (const path of allIndexablePaths()) {
     expect(xml, path).toContain(`<loc>${canonicalFor(path)}</loc>`);
+    expect(xml, path).toContain(`hreflang="x-default"`);
   }
 });
 
 test("每个页面的静态 HTML 都带标题、摘要、canonical 与正文", async ({ request }) => {
-  for (const [path, seo] of Object.entries(PAGES)) {
+  for (const path of allIndexablePaths()) {
+    const seo = seoFor(path);
     const res = await request.get(path);
     expect(res.status(), path).toBe(200);
     const html = await res.text();
@@ -34,6 +36,9 @@ test("每个页面的静态 HTML 都带标题、摘要、canonical 与正文", a
     expect(html, path).toContain(`<meta name="description" content="${seo.description}" />`);
     expect(html, path).toContain(`<link rel="canonical" href="${canonicalFor(path)}" />`);
     expect(html, path).toContain('<meta name="robots" content="index,follow" />');
+    // 中英互指 + x-default
+    expect(html, path).toContain('rel="alternate" hreflang="zh-CN"');
+    expect(html, path).toContain('rel="alternate" hreflang="en"');
     // 空壳 SPA 的特征；出现即说明预渲染没生效
     expect(html, path).not.toContain('<div id="root"></div>');
     // 导航与页脚属于每页都有的正文
@@ -62,6 +67,15 @@ test("分享卡片与站点图标齐全", async ({ request }) => {
     expect(res.status(), path).toBe(200);
     expect(res.headers()["content-type"], path).toContain(type);
   }
+});
+
+test("英文页 <html lang> 与 og:locale 正确", async ({ request }) => {
+  const en = await (await request.get("/en")).text();
+  expect(en).toContain('<html lang="en">');
+  expect(en).toContain('<meta property="og:locale" content="en_US" />');
+  const zh = await (await request.get("/")).text();
+  expect(zh).toContain('<html lang="zh-CN">');
+  expect(zh).toContain('<meta property="og:locale" content="zh_CN" />');
 });
 
 test("未知地址返回 404 且标记 noindex", async ({ request }) => {

@@ -21,9 +21,12 @@ export function render(path: string): string {
 }
 
 export {
+  allIndexablePaths,
   canonicalFor,
+  hreflangFor,
   isIndexable,
   jsonLdFor,
+  langOf,
   OG_IMAGE,
   PAGES,
   seoFor,

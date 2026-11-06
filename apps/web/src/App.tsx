@@ -1,4 +1,4 @@
-// 路由总表：纯静态站点，只保留公共页面。
+// 路由总表：纯静态站点，只保留公共页面。中文在根路径，英文整树挂在 /en 下。
 
 import { Route, Routes } from "react-router";
 import { PublicLayout } from "./layout";
@@ -14,13 +14,22 @@ import NotFound from "./pages/NotFound";
 export default function App() {
   return (
     <Routes>
-      <Route element={<PublicLayout />}>
+      <Route element={<PublicLayout lang="zh" />}>
         <Route path="/" element={<Home />} />
         <Route path="/download" element={<Download />} />
         <Route path="/extensions" element={<Extensions />} />
         <Route path="/help" element={<Help />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/terms" element={<Terms />} />
+        <Route path="*" element={<NotFound />} />
+      </Route>
+      <Route path="/en" element={<PublicLayout lang="en" />}>
+        <Route index element={<Home />} />
+        <Route path="download" element={<Download />} />
+        <Route path="extensions" element={<Extensions />} />
+        <Route path="help" element={<Help />} />
+        <Route path="privacy" element={<Privacy />} />
+        <Route path="terms" element={<Terms />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

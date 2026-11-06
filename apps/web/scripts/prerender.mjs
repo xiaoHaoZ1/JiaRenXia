@@ -22,7 +22,8 @@ if (!existsSync(entry)) {
   process.exit(1);
 }
 const {
-  render, PAGES, OG_IMAGE, SITE_NAME, SITE_URL, SITE, EXTENSIONS, canonicalFor, isIndexable, jsonLdFor, seoFor,
+  render, OG_IMAGE, SITE_NAME, SITE_URL, SITE, EXTENSIONS,
+  allIndexablePaths, canonicalFor, hreflangFor, isIndexable, jsonLdFor, langOf, seoFor,
 } = await import(pathToFileURL(entry).href);
 
 const template = readFileSync(join(DIST, "index.html"), "utf8");
@@ -39,6 +40,7 @@ function esc(s) {
 function headFor(path) {
   const seo = seoFor(path);
   const url = canonicalFor(path);
+  const lang = langOf(path);
   const tags = [
     `<title>${esc(seo.title)}</title>`,
     `<meta name="description" content="${esc(seo.description)}" />`,
@@ -46,7 +48,7 @@ function headFor(path) {
     `<link rel="canonical" href="${esc(url)}" />`,
     `<meta property="og:type" content="website" />`,
     `<meta property="og:site_name" content="${esc(SITE_NAME)}" />`,
-    `<meta property="og:locale" content="zh_CN" />`,
+    `<meta property="og:locale" content="${lang === "en" ? "en_US" : "zh_CN"}" />`,
     `<meta property="og:title" content="${esc(seo.title)}" />`,
     `<meta property="og:description" content="${esc(seo.description)}" />`,
     `<meta property="og:url" content="${esc(url)}" />`,
@@ -59,6 +61,12 @@ function headFor(path) {
     `<meta name="twitter:description" content="${esc(seo.description)}" />`,
     `<meta name="twitter:image" content="${esc(SITE_URL + OG_IMAGE.path)}" />`,
   ];
+  // 中英文互指 + x-default：只给可收录页面发
+  if (isIndexable(path)) {
+    for (const { hreflang, href } of hreflangFor(path)) {
+      tags.push(`<link rel="alternate" hreflang="${hreflang}" href="${esc(href)}" />`);
+    }
+  }
   for (const ld of jsonLdFor(path)) {
     // JSON 里的 < 一律转义，避免提前闭合 </script>
     const json = JSON.stringify(ld).replace(/</g, "\\u003c");
@@ -77,6 +85,8 @@ function page(path) {
   html = html.includes("<!--app-html-->")
     ? html.replace("<!--app-html-->", body)
     : html.replace('<div id="root"></div>', `<div id="root">${body}</div>`);
+  // 英文页把 <html lang> 从模板的 zh-CN 换成 en
+  if (langOf(path) === "en") html = html.replace('lang="zh-CN"', 'lang="en"');
   if (!html.includes("<title>")) throw new Error(`预渲染失败：${path} 没能写入 <title>`);
   if (html.includes('<div id="root"></div>')) throw new Error(`预渲染失败：${path} 首屏仍是空壳`);
   return html;
@@ -90,8 +100,11 @@ function write(relPath, content) {
 }
 
 const written = [];
-for (const path of Object.keys(PAGES)) {
-  written.push(write(path === "/" ? "index.html" : `${path.slice(1)}.html`, page(path)));
+for (const path of allIndexablePaths()) {
+  const rel = path === "/" ? "index.html"
+    : path === "/en" ? "en/index.html"
+    : `${path.slice(1)}.html`;
+  written.push(write(rel, page(path)));
 }
 // 未知路径用它兜底（serve.mjs 以 404 状态返回），内容是"找不到页面"且 noindex
 written.push(write("404.html", page("/404")));
@@ -132,25 +145,30 @@ written.push(
   )
 );
 
-// sitemap.xml：只列可收录页面
+// sitemap.xml：只列可收录页面（中英双语，每条 url 带 xhtml:link 语言互指）
 const today = new Date().toISOString().slice(0, 10);
-const urls = Object.entries(PAGES)
-  .map(([path, seo]) =>
-    [
+const urls = allIndexablePaths()
+  .map((path) => {
+    const seo = seoFor(path);
+    const alternates = hreflangFor(path)
+      .map((a) => `    <xhtml:link rel="alternate" hreflang="${a.hreflang}" href="${a.href}" />`)
+      .join("\n");
+    return [
       "  <url>",
       `    <loc>${canonicalFor(path)}</loc>`,
+      alternates,
       `    <lastmod>${today}</lastmod>`,
       `    <changefreq>${seo.changefreq}</changefreq>`,
       `    <priority>${seo.priority}</priority>`,
       "  </url>",
-    ].join("\n")
-  )
+    ].join("\n");
+  })
   .join("\n");
 written.push(
   write(
     "sitemap.xml",
     '<?xml version="1.0" encoding="UTF-8"?>\n' +
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' +
       `${urls}\n</urlset>\n`
   )
 );
