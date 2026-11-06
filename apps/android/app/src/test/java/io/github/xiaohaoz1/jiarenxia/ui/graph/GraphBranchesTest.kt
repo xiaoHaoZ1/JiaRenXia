@@ -115,13 +115,29 @@ class GraphBranchesTest {
             val unconnected = ov.graph.persons.count { it.id !in allGens.keys }
             assertEquals(1, unconnected)
         }
-        // 父系分支不含母系祖辈
+        // 父系分支含父亲一支并带上母亲（另一侧家长），不含母系祖辈与配偶
         val fatherGens = GraphBranches.filter(
             allGens, ov, GraphBranch.FATHER
         )
         assertTrue(fatherGens.containsKey("杨建国"))
-        assertFalse(fatherGens.containsKey("王秀兰"))
+        assertTrue(fatherGens.containsKey("王秀兰"))
+        assertFalse(fatherGens.containsKey("王德福"))
         assertFalse(fatherGens.containsKey("李雪"))
+    }
+
+    @Test
+    fun 单侧分支带上另一侧家长() {
+        val gens = KinshipEngine().generations(ov.graph, ov.self.person.id)
+        // 母系带父亲；子孙带配偶；兄弟姐妹带父母
+        assertTrue(GraphBranches.filter(gens, ov, GraphBranch.MOTHER).containsKey("杨建国"))
+        assertTrue(GraphBranches.filter(gens, ov, GraphBranch.DESCENDANTS).containsKey("李雪"))
+        val sib = GraphBranches.filter(gens, ov, GraphBranch.SIBLINGS)
+        assertTrue(sib.containsKey("杨建国"))
+        assertTrue(sib.containsKey("王秀兰"))
+        // 互补家长不带其原生家庭：母系的舅舅一家不进父系
+        val father = GraphBranches.filter(gens, ov, GraphBranch.FATHER)
+        assertFalse(father.containsKey("王志刚"))
+        assertFalse(father.containsKey("王德福"))
     }
 
     @Test
@@ -148,20 +164,20 @@ class GraphBranchesTest {
             assertTrue("$it missing in SPOUSE", spouse.containsKey(it))
         }
         assertFalse(spouse.containsKey("杨帆"))
-        // 配偶父系：只有父亲一支 + 配偶本人锚点
+        // 配偶父系：父亲一支 + 配偶本人锚点 + 配偶的母亲（另一侧家长）
         val sf = GraphBranches.filter(gens, ov, GraphBranch.SPOUSE_FATHER)
         assertTrue(sf.containsKey("李雪"))
         assertTrue(sf.containsKey("李国强"))
         assertTrue(sf.containsKey("李国平"))
-        assertFalse(sf.containsKey("陈美华"))
+        assertTrue(sf.containsKey("陈美华"))
         assertFalse(sf.containsKey("李强"))
         assertFalse(sf.containsKey("杨小明"))
-        // 配偶母系
+        // 配偶母系 + 配偶的父亲
         val sm = GraphBranches.filter(gens, ov, GraphBranch.SPOUSE_MOTHER)
         assertTrue(sm.containsKey("李雪"))
         assertTrue(sm.containsKey("陈美华"))
         assertTrue(sm.containsKey("陈美玲"))
-        assertFalse(sm.containsKey("李国强"))
+        assertTrue(sm.containsKey("李国强"))
     }
 
     @Test

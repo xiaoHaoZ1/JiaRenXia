@@ -252,4 +252,43 @@ class GraphFamilyScopeTest : RepoTestBase() {
             }
         }
     }
+
+    @Test
+    fun 单侧分支在父母未记夫妻时仍带上另一侧家长() {
+        fun p(id: String, name: String, gender: Gender, self: Boolean = false) =
+            Person(id, name, gender, isSelf = self)
+        fun r(s: String, t: String, type: RelationshipType) =
+            Relationship("$s-$t", s, t, type)
+        val graph = FamilyGraph(
+            listOf(
+                p("me", "我", Gender.MALE, self = true),
+                p("dad", "父亲", Gender.MALE), p("mom", "母亲", Gender.FEMALE),
+                p("wife", "配偶", Gender.FEMALE),
+                p("fil", "岳父", Gender.MALE), p("mil", "岳母", Gender.FEMALE),
+                p("son", "儿子", Gender.MALE)
+            ),
+            // 父母之间、岳父母之间都没有 SPOUSE 边（老备份/导入缺口）
+            listOf(
+                r("dad", "me", RelationshipType.PARENT),
+                r("mom", "me", RelationshipType.PARENT),
+                r("me", "wife", RelationshipType.SPOUSE),
+                r("fil", "wife", RelationshipType.PARENT),
+                r("mil", "wife", RelationshipType.PARENT),
+                r("me", "son", RelationshipType.PARENT)
+            )
+        )
+        val titles = KinshipEngine().resolveAll(graph, "me")
+        val byId = graph.persons.associate {
+            it.id to PersonOverview(it, titles.getValue(it.id), emptyList())
+        }
+        val ov = FamilyOverview(byId.getValue("me"), graph, byId, emptyList(), emptyList())
+        fun ids(branch: GraphBranch) = GraphFamilyScope.visibleIds(ov, branch)
+
+        assertTrue(ids(GraphBranch.FATHER).contains("mom"))
+        assertTrue(ids(GraphBranch.MOTHER).contains("dad"))
+        assertTrue(ids(GraphBranch.SPOUSE_FATHER).contains("mil"))
+        assertTrue(ids(GraphBranch.SPOUSE_MOTHER).contains("fil"))
+        // 血亲的配偶照常带上（我的配偶在父系图中），但互补家长不带其原生支系
+        assertEquals(setOf("me", "dad", "mom", "son", "wife"), ids(GraphBranch.FATHER))
+    }
 }

@@ -293,13 +293,13 @@ class ShareTest : RepoTestBase() {
     fun 部分分享_只含所选人物且引用完整() = runTest {
         seedFamily()
         val scope = motherScope()
-        assertEquals(9, scope.size)
-        // 集合内（王秀兰）与集合外（杨建国）各挂一个头像
+        assertEquals(10, scope.size)
+        // 集合内（王秀兰）与集合外（杨帆）各挂一个头像
         val avatarDir = File(ctx.filesDir, "avatars").apply { mkdirs() }
         File(avatarDir, "in.jpg").writeBytes(byteArrayOf(1, 1, 1))
         File(avatarDir, "out.jpg").writeBytes(byteArrayOf(2, 2, 2))
         db.personDao().updateAvatar(ids.getValue("王秀兰"), "avatars/in.jpg", 1)
-        db.personDao().updateAvatar(ids.getValue("杨建国"), "avatars/out.jpg", 1)
+        db.personDao().updateAvatar(ids.getValue("杨帆"), "avatars/out.jpg", 1)
 
         val out = ByteArrayOutputStream()
         val summary = backup.exportShare(
@@ -318,20 +318,21 @@ class ShareTest : RepoTestBase() {
         assertTrue(plan.importantDates.all { it.personId in scope })
         val dateIds = plan.importantDates.map { it.id }.toSet()
         assertTrue(plan.prefs.all { it.first.importantDateId in dateIds })
-        // 内容抽查：妈的手机号在；爸（集合外）的生日与夫妻关系都不在
+        // 内容抽查：妈的手机号在；爸如今在集合内（另一侧家长），
+        // 他的生日、结婚纪念日与两条关系（爸→我、爸妈夫妻）都随之进包
         assertEquals(setOf("00000000001"), plan.phones.map { it.number }.toSet())
-        assertEquals(8, plan.relationships.size)
-        // 我/妈/王磊三人的生日各带一条提醒偏好与提前天数
-        assertEquals(3, plan.importantDates.size)
-        assertEquals(3, plan.prefs.size)
+        assertEquals(10, plan.relationships.size)
+        // 我/妈/王磊/爸四人生日 + 爸的结婚纪念日，各带一条提醒偏好与提前天数
+        assertEquals(5, plan.importantDates.size)
+        assertEquals(5, plan.prefs.size)
         assertTrue(plan.prefs.all { it.second.isNotEmpty() })
         // 头像只打包集合内的
         assertEquals(setOf("in.jpg"), plan.avatars.keys)
         // 汇总计数按过滤后数据
-        assertEquals(9, summary.persons)
-        assertEquals(8, summary.relationships)
-        assertEquals(3, summary.birthdays)
-        assertEquals(0, summary.anniversaries)
+        assertEquals(10, summary.persons)
+        assertEquals(10, summary.relationships)
+        assertEquals(4, summary.birthdays)
+        assertEquals(1, summary.anniversaries)
         assertEquals(1, summary.avatars)
         assertEquals(0, summary.tasks)
         assertEquals(TestFamily.SELF_NAME, summary.selfName)
@@ -387,7 +388,7 @@ class ShareTest : RepoTestBase() {
         val scope = motherScope()
         val selfId = ids.getValue(TestFamily.SELF_NAME)
         // sharedBy 不在人选内
-        assertShareFails(ids.getValue("杨建国"), scope)
+        assertShareFails(ids.getValue("杨帆"), scope)
         assertShareFails(selfId, scope - selfId)
         // 整份分享不受人选约束（对照组：能正常导出）
         val ok = ByteArrayOutputStream()

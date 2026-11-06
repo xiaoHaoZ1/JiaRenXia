@@ -36,16 +36,16 @@ class ShareScopeTest {
     }
 
     @Test
-    fun 母系预设_我与母系一支() {
+    fun 母系预设_我与母系一支带上父亲() {
         val m = ShareScope.preset(overview, GraphBranch.MOTHER)
-        // “我” + 母亲及其父母、舅舅一家
+        // “我” + 母亲及其父母、舅舅一家 + 另一侧家长“父亲”
         assertEquals(
-            setOf("杨明", "王秀兰", "王德福", "赵淑珍", "王志刚", "孙丽",
+            setOf("杨明", "杨建国", "王秀兰", "王德福", "赵淑珍", "王志刚", "孙丽",
                 "王磊", "陈晨", "王小宝"),
             m
         )
-        // 不含父系、兄弟姐妹、配偶方、子孙与未关联者
-        assertFalse(m.contains("杨建国"))
+        // 不含父系一支、兄弟姐妹、配偶方、子孙与未关联者
+        assertFalse(m.contains("杨福生"))
         assertFalse(m.contains("杨帆"))
         assertFalse(m.contains("李雪"))
         assertFalse(m.contains("杨小明"))
