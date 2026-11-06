@@ -81,6 +81,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DateTile
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.EmptyState
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxLink
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageTitleBlock
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SealLabel
@@ -311,7 +312,11 @@ fun FamilyContent(
                 item { JiashuGraphRow(onOpenGraph) }
 
                 // 5. 至亲（排序沿用 FamilyOrdering，单列行、不放头像）
-                item { JiashuSectionTitle("至亲", "${ov.core.size} 位") }
+                item {
+                    SectionHeader(
+                        "至亲", countLabel = "${ov.core.size} 位",
+                        modifier = Modifier.padding(horizontal = 24.dp))
+                }
                 if (ov.core.isEmpty()) {
                     item {
                         Text(
@@ -338,7 +343,9 @@ fun FamilyContent(
                 FamilyGrouping.group(ov.others, ov.byId)
                     .forEach { (group, members) ->
                         item {
-                            JiashuSectionTitle(group.label, "${members.size} 位")
+                            SectionHeader(
+                                group.label, countLabel = "${members.size} 位",
+                                modifier = Modifier.padding(horizontal = 24.dp))
                         }
                         items(members, key = { it.person.id }) { o ->
                             JiashuKinRow(
@@ -866,7 +873,7 @@ private fun JiashuTodayBlock(
                 )
                 val number = st.defaultNumbers[todayFirst.person.id]
                 if (number != null && !todayFirst.person.isSelf) {
-                    QingLink("打个电话") {
+                    JrxLink("打个电话") {
                         onDial(todayFirst.person, promptLabel(todayFirst), number)
                     }
                 }
@@ -924,7 +931,7 @@ private fun JiashuTodayBlock(
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 if (number != null) {
-                    QingLink("打个电话") {
+                    JrxLink("打个电话") {
                         onDial(o.person, promptLabel(o), number)
                     }
                 }
@@ -934,22 +941,6 @@ private fun JiashuTodayBlock(
     HorizontalDivider(
         Modifier.padding(horizontal = 24.dp),
         color = MaterialTheme.colorScheme.outlineVariant
-    )
-}
-
-/** 墨青文字链（打个电话）：粗体 + 下划线。 */
-@Composable
-private fun QingLink(label: String, onClick: () -> Unit) {
-    Text(
-        label,
-        fontSize = 13.sp,
-        fontWeight = FontWeight.Bold,
-        color = MaterialTheme.colorScheme.primary,
-        textDecoration = TextDecoration.Underline,
-        modifier = Modifier
-            .clip(MaterialTheme.shapes.small)
-            .clickable(onClick = onClick)
-            .padding(4.dp)
     )
 }
 
@@ -996,31 +987,6 @@ private fun JiashuGraphRow(onClick: () -> Unit) {
         HorizontalDivider(
             Modifier.padding(horizontal = 24.dp),
             color = MaterialTheme.colorScheme.outlineVariant
-        )
-    }
-}
-
-/** 「家书」区块标题（至亲 / 分组）：20sp 粗体 + 淡色「N 位」。 */
-@Composable
-private fun JiashuSectionTitle(title: String, count: String) {
-    Row(
-        Modifier.fillMaxWidth()
-            .padding(start = 24.dp, end = 24.dp, top = 14.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        Text(
-            title,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.semantics { heading() }
-        )
-        Spacer(Modifier.width(10.dp))
-        Text(
-            count,
-            fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.outline
         )
     }
 }

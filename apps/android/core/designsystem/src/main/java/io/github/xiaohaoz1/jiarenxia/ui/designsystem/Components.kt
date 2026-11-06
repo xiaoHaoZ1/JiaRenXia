@@ -80,26 +80,46 @@ fun JrxCard(
     }
 }
 
-/** 区块标题：左标题 + 可选右侧文字按钮。 */
+/**
+ * 区块标题：左标题 + 可选淡色计数（「家书」“至亲 8 位”样式，[countLabel]）+
+ * 可选右侧文字按钮。
+ */
 @Composable
 fun SectionHeader(
     title: String,
     modifier: Modifier = Modifier,
     actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    onAction: (() -> Unit)? = null,
+    countLabel: String? = null
 ) {
     Row(
         modifier = modifier.fillMaxWidth().padding(top = 16.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Bottom
     ) {
-        // 区块标题标记为 heading，TalkBack 可按标题导航；「家书」用 20sp/700，经典 16sp/600
-        Text(
-            title,
-            style = if (LocalJrxStyle.current == JrxStyle.JIASHU)
-                MaterialTheme.typography.titleLarge
-            else MaterialTheme.typography.titleMedium,
-            modifier = Modifier.weight(1f).semantics { heading() }
-        )
+        if (LocalJrxStyle.current == JrxStyle.JIASHU) {
+            // 区块标题标记为 heading，TalkBack 可按标题导航；「家书」20sp/700
+            Text(
+                title,
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.semantics { heading() }
+            )
+            if (countLabel != null) {
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    countLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+            Spacer(Modifier.weight(1f))
+        } else {
+            // 经典 16sp/600
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f).semantics { heading() }
+            )
+        }
         if (actionLabel != null) {
             TextButton(onClick = { onAction?.invoke() }) { Text(actionLabel) }
         }

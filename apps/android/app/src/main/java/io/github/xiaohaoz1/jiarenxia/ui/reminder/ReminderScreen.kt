@@ -80,6 +80,7 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
@@ -90,10 +91,16 @@ import io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat
 import io.github.xiaohaoz1.jiarenxia.domain.DateRow
 import io.github.xiaohaoz1.jiarenxia.reminder.BirthdayRow
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskTemplates
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.EmptyState
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxLink
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SectionHeader
+import io.github.xiaohaoz1.jiarenxia.ui.designsystem.TitleChip
+import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
+import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 import java.time.LocalDate
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
@@ -220,10 +227,14 @@ fun ReminderScreen(
         contentWindowInsets = WindowInsets(0)
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
+            val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
             AffairsHeader(
                 subtitle = reminderSubtitle(st),
                 onExport = { exportRangeOpen = true },
-                onReminderSettings = onReminderSettings
+                onReminderSettings = onReminderSettings,
+                onNewTask = if (jiashu) {
+                    { templatePickerOpen = true }
+                } else null
             )
             Box(Modifier.fillMaxSize()) {
                 ReminderContent(
@@ -256,7 +267,8 @@ fun ReminderScreen(
                     onOpenTask = onOpenTask,
                     onMarkDone = viewModel::markDone
                 )
-                ExtendedFloatingActionButton(
+                // 「家书」新建已收到右上，不再用悬浮按钮
+                if (!jiashu) ExtendedFloatingActionButton(
                     onClick = { templatePickerOpen = true },
                     modifier = Modifier.align(Alignment.BottomEnd)
                         .padding(end = 20.dp, bottom = 20.dp)
@@ -292,6 +304,8 @@ fun ReminderContent(
     var expandedSections by rememberSaveable { mutableStateOf(setOf<String>()) }
     // “记一次联系”面板目标（联系提醒）
     var contactLogFor by remember { mutableStateOf<String?>(null) }
+    // 「家书」行式时间线（LazyColumn scope 里读不了 CompositionLocal，提前取）
+    val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -320,39 +334,40 @@ fun ReminderContent(
             item {
                 EmptyState(
                     title = "未来 30 天内没有生日和事项",
-                    message = "填写生日或点“新建事项”后，这里会按时间排好"
+                    message = if (jiashu)
+                        "填写生日或点右上角“新建”后，这里会按时间排好"
+                    else "填写生日或点“新建事项”后，这里会按时间排好"
                 )
             }
         }
         // ---------- 合并时间线：今天（逾期→生日→今天事项）+ 未来 30 天 ----------
         val overdueTasks = st.tasksToday.filter { it.daysUntil < 0 }
         val dueTodayTasks = st.tasksToday.filter { it.daysUntil == 0 }
-        if (overdueTasks.isNotEmpty() || st.today.isNotEmpty() ||
-            dueTodayTasks.isNotEmpty() || st.contactDue.isNotEmpty() ||
-            st.dateRowsToday.isNotEmpty()
-        ) {
-            item {
-                Text(
-                    "今天", style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
-            }
-            item {
-                JrxCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    var index = 0
-                    fun divider(): Boolean = index++ > 0
-                    overdueTasks.forEach { row ->
-                        CardRow(divider(), 0.dp) { TaskLine(row, onOpenTask, onMarkDone) }
-                    }
-                    // 联系提醒：该联系的放“今天”（记一次打开方式+备注面板）
-                    st.contactDue.forEach { row ->
-                        CardRow(divider(), 0.dp) {
-                            ContactLine(row, onOpenPerson) { contactLogFor = row.personId }
+        if (jiashu) {
+            // 「家书」：两段去卡片，行间发丝线（2.22 第③批）
+            val todayCount = overdueTasks.size + st.contactDue.size +
+                st.today.size + st.dateRowsToday.size + dueTodayTasks.size
+            if (todayCount > 0) {
+                item {
+                    SectionHeader(
+                        "今天", countLabel = "$todayCount 件",
+                        modifier = Modifier.padding(horizontal = 24.dp))
+                }
+                item {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                        overdueTasks.forEach { row ->
+                            JiashuTaskLine(row, onOpenTask, onMarkDone)
+                            HairLine()
                         }
-                    }
-                    st.today.forEach { row ->
-                        CardRow(divider(), 0.dp) {
-                            TodayBirthdayLine(
+                        // 联系提醒：该联系的放“今天”（记一次打开方式+备注面板）
+                        st.contactDue.forEach { row ->
+                            JiashuContactLine(row, onOpenPerson) {
+                                contactLogFor = row.personId
+                            }
+                            HairLine()
+                        }
+                        st.today.forEach { row ->
+                            JiashuTodayBirthdayLine(
                                 row = row,
                                 number = st.defaultNumbers[row.person.id],
                                 onOpenPerson = onOpenPerson,
@@ -364,13 +379,71 @@ fun ReminderContent(
                                         n)
                                 }
                             )
+                            HairLine()
+                        }
+                        st.dateRowsToday.forEach { row ->
+                            JiashuDateLine(row, onOpenPerson)
+                            HairLine()
+                        }
+                        dueTodayTasks.forEach { row ->
+                            JiashuTaskLine(row, onOpenTask, onMarkDone)
+                            HairLine()
                         }
                     }
-                    st.dateRowsToday.forEach { row ->
-                        CardRow(divider(), 0.dp) { DateLine(row, onOpenPerson) }
-                    }
-                    dueTodayTasks.forEach { row ->
-                        CardRow(divider(), 0.dp) { TaskLine(row, onOpenTask, onMarkDone) }
+                }
+            }
+        } else {
+            if (overdueTasks.isNotEmpty() || st.today.isNotEmpty() ||
+                dueTodayTasks.isNotEmpty() || st.contactDue.isNotEmpty() ||
+                st.dateRowsToday.isNotEmpty()
+            ) {
+                item {
+                    Text(
+                        "今天", style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    )
+                }
+                item {
+                    JrxCard(Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        var index = 0
+                        fun divider(): Boolean = index++ > 0
+                        overdueTasks.forEach { row ->
+                            CardRow(divider(), 0.dp) {
+                                TaskLine(row, onOpenTask, onMarkDone) }
+                        }
+                        // 联系提醒：该联系的放“今天”（记一次打开方式+备注面板）
+                        st.contactDue.forEach { row ->
+                            CardRow(divider(), 0.dp) {
+                                ContactLine(row, onOpenPerson) {
+                                    contactLogFor = row.personId
+                                }
+                            }
+                        }
+                        st.today.forEach { row ->
+                            CardRow(divider(), 0.dp) {
+                                TodayBirthdayLine(
+                                    row = row,
+                                    number = st.defaultNumbers[row.person.id],
+                                    onOpenPerson = onOpenPerson,
+                                    onDial = { n ->
+                                        onPersonDial(
+                                            row.person,
+                                            row.title?.takeUnless { it.isBlank() }
+                                                ?: row.person.name,
+                                            n)
+                                    }
+                                )
+                            }
+                        }
+                        st.dateRowsToday.forEach { row ->
+                            CardRow(divider(), 0.dp) {
+                                DateLine(row, onOpenPerson) }
+                        }
+                        dueTodayTasks.forEach { row ->
+                            CardRow(divider(), 0.dp) {
+                                TaskLine(row, onOpenTask, onMarkDone) }
+                        }
                     }
                 }
             }
@@ -381,27 +454,63 @@ fun ReminderContent(
             st.tasksNext30.map { TimelineItem.Task(it) })
             .sortedWith(compareBy({ it.date }, { it is TimelineItem.Task }))
         if (next30.isNotEmpty()) {
-            item {
-                Text(
-                    "未来 30 天（" + next30.size + "）",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
-                )
-            }
-            item {
-                JrxCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
-                    next30.forEachIndexed { i, entry ->
-                        CardRow(i > 0, DateLineIndent) {
-                            DatedRow(
+            if (jiashu) {
+                item {
+                    SectionHeader(
+                        "未来 30 天", countLabel = "${next30.size} 件",
+                        modifier = Modifier.padding(horizontal = 24.dp))
+                }
+                item {
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+                        next30.forEachIndexed { i, entry ->
+                            JiashuCalItem(
                                 date = entry.date,
-                                showDate = i == 0 || next30[i - 1].date != entry.date
+                                showDate = i == 0 ||
+                                    next30[i - 1].date != entry.date
                             ) {
                                 when (entry) {
                                     is TimelineItem.Bday ->
-                                        UpcomingBirthdayLine(entry.row, onOpenPerson)
-                                    is TimelineItem.DateItem -> DateLine(entry.row, onOpenPerson)
+                                        JiashuUpcomingBirthdayLine(
+                                            entry.row, onOpenPerson)
+                                    is TimelineItem.DateItem ->
+                                        JiashuDateLine(entry.row, onOpenPerson)
                                     is TimelineItem.Task ->
-                                        TaskLine(entry.row, onOpenTask, onMarkDone)
+                                        JiashuTaskLine(
+                                            entry.row, onOpenTask, onMarkDone)
+                                }
+                            }
+                            HairLine()
+                        }
+                    }
+                }
+            } else {
+                item {
+                    Text(
+                        "未来 30 天（" + next30.size + "）",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp)
+                    )
+                }
+                item {
+                    JrxCard(Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)) {
+                        next30.forEachIndexed { i, entry ->
+                            CardRow(i > 0, DateLineIndent) {
+                                DatedRow(
+                                    date = entry.date,
+                                    showDate = i == 0 ||
+                                        next30[i - 1].date != entry.date
+                                ) {
+                                    when (entry) {
+                                        is TimelineItem.Bday ->
+                                            UpcomingBirthdayLine(
+                                                entry.row, onOpenPerson)
+                                        is TimelineItem.DateItem ->
+                                            DateLine(entry.row, onOpenPerson)
+                                        is TimelineItem.Task ->
+                                            TaskLine(entry.row, onOpenTask,
+                                                onMarkDone)
+                                    }
                                 }
                             }
                         }
@@ -426,7 +535,11 @@ fun ReminderContent(
                     ) { expandedSections = expandedSections.toggleKey("later") }
                 }
                 if ("later" in expandedSections) {
-                    item { TaskDatedCard(st.tasksLater, onOpenTask, onMarkDone) }
+                    item {
+                        if (jiashu) JiashuTaskDatedList(
+                            st.tasksLater, onOpenTask, onMarkDone)
+                        else TaskDatedCard(st.tasksLater, onOpenTask, onMarkDone)
+                    }
                 }
             }
             if (st.tasksDone.isNotEmpty()) {
@@ -437,14 +550,20 @@ fun ReminderContent(
                     ) { expandedSections = expandedSections.toggleKey("done") }
                 }
                 if ("done" in expandedSections) {
-                    item { TaskDatedCard(st.tasksDone, onOpenTask, onMarkDone) }
+                    item {
+                        if (jiashu) JiashuTaskDatedList(
+                            st.tasksDone, onOpenTask, onMarkDone)
+                        else TaskDatedCard(st.tasksDone, onOpenTask, onMarkDone)
+                    }
                 }
             }
             if (!anyTasks && !emptyTimeline) {
                 item {
                     EmptyState(
                         title = "还没有家庭事项",
-                        message = "点右下角“新建事项”，记录缴费、认证、证件到期等家里要办的事"
+                        message = if (jiashu)
+                            "点右上角“新建”，记录缴费、认证、证件到期等家里要办的事"
+                        else "点右下角“新建事项”，记录缴费、认证、证件到期等家里要办的事"
                     )
                 }
             }
@@ -897,5 +1016,259 @@ private fun offsetsLabel(offsets: Set<Int>): String {
     if (0 in days) parts += "当天"
     if (ahead.isNotEmpty()) parts += "提前 " + ahead.joinToString("、") + " 天"
     return parts.joinToString("、") + "提醒"
+}
+
+// ---------- 「家书」行式时间线（2.22 第③批） ----------
+
+/** 行间发丝线。 */
+@Composable
+private fun HairLine() {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** 实心朱砂印（逾期）：朱砂底 + 纸色字，2dp 圆角。 */
+@Composable
+private fun SealStamp(text: String) {
+    val jrx = LocalJrxColors.current
+    Surface(color = jrx.seal, shape = androidx.compose.foundation.shape
+        .RoundedCornerShape(2.dp)) {
+        Text(
+            text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = jrx.onSeal,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp)
+        )
+    }
+}
+
+/** 「家书」家事行（无卡片）：标题 16sp/500 + 副文案 + 尾部控件；整行可点。 */
+@Composable
+private fun JiashuLine(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    titleAlpha: Float = 1f,
+    subtitleColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    trailing: @Composable () -> Unit = {}
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .semantics(mergeDescendants = true) {}
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                lineHeight = 22.sp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = titleAlpha)
+            )
+            if (subtitle.isNotEmpty()) {
+                Text(
+                    subtitle,
+                    fontSize = 12.sp,
+                    color = subtitleColor,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+        trailing()
+    }
+}
+
+/**
+ * 「家书」未来 30 天日期行：左 42dp 大号「日」+ M月 + 周X，竖线分隔。
+ * 同一天只首行显示日期（[showDate]），竖线照常。
+ */
+@Composable
+private fun JiashuCalItem(
+    date: LocalDate,
+    showDate: Boolean,
+    content: @Composable () -> Unit
+) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Column(
+            Modifier.width(42.dp).padding(top = 11.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (showDate) {
+                Text(
+                    date.dayOfMonth.toString(),
+                    fontSize = 25.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 28.sp
+                )
+                Text(
+                    date.monthValue.toString() + "月",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    weekdayLabel(date),
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Box(
+            Modifier.width(1.dp).fillMaxHeight()
+                .background(MaterialTheme.colorScheme.outlineVariant)
+        )
+        Box(Modifier.weight(1f).padding(start = 14.dp)) { content() }
+    }
+}
+
+/** 「家书」事项行：逾期=实心朱砂印、今天到期=朱砂空心印、以后=淡字倒计时；带“标记已办”。 */
+@Composable
+private fun JiashuTaskLine(
+    row: TaskRow,
+    onOpenTask: (String) -> Unit,
+    onMarkDone: (TaskRow) -> Unit
+) {
+    val done = row.task.done
+    JiashuLine(
+        title = row.task.title,
+        subtitle = taskSubtitle(row),
+        onClick = { onOpenTask(row.task.id) },
+        titleAlpha = if (done) 0.55f else 1f
+    ) {
+        if (!done) {
+            when {
+                row.daysUntil < 0 -> SealStamp("逾期 " + (-row.daysUntil) + " 天")
+                row.daysUntil == 0 -> TitleChip("今天", tone = ChipTone.CORE)
+                else -> Text(
+                    row.daysUntil.toString() + " 天后",
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = { onMarkDone(row) }) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription = "标记已办",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/** 「家书」联系提醒行：“该联系 X 了” + 距上次联系；尾部「记一次」墨青链。 */
+@Composable
+private fun JiashuContactLine(
+    row: ContactDueRow,
+    onOpenPerson: (String) -> Unit,
+    onLogContact: () -> Unit
+) {
+    JiashuLine(
+        title = "该联系" + row.label + "了",
+        subtitle = if (row.daysSinceLast == null) "还没有联系记录"
+        else row.daysSinceLast.toString() + " 天没联系",
+        onClick = { onOpenPerson(row.personId) }
+    ) {
+        JrxLink("记一次", onClick = onLogContact)
+    }
+}
+
+/** 「家书」今日生日行：“今天是…的生日” + 日期；尾部朱砂「今天」+ 拨号。 */
+@Composable
+private fun JiashuTodayBirthdayLine(
+    row: BirthdayRow,
+    number: String?,
+    onOpenPerson: (String) -> Unit,
+    onDial: (String) -> Unit
+) {
+    JiashuLine(
+        title = (if (row.title == null) "今天是你的生日"
+        else "今天是" + row.title + row.person.name + "的生日") +
+            if (row.merged) "（阳历和农历同一天）" else "",
+        subtitle = listOfNotNull(row.lunarText, monthDay(row.nextSolar))
+            .joinToString(" · "),
+        onClick = { onOpenPerson(row.person.id) }
+    ) {
+        Text(
+            "今天",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = LocalJrxColors.current.seal
+        )
+        if (number != null) {
+            IconButton(onClick = { onDial(number) }) {
+                Icon(
+                    Icons.Rounded.Call,
+                    contentDescription = "拨打",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+    }
+}
+
+/** 「家书」未来生日行：“{称谓}过生日” + 姓名/农历/提醒状态；尾部朱砂倒计时。 */
+@Composable
+private fun JiashuUpcomingBirthdayLine(
+    row: BirthdayRow,
+    onOpenPerson: (String) -> Unit
+) {
+    val label = row.title ?: row.person.name
+    JiashuLine(
+        title = label + "过生日",
+        subtitle = listOfNotNull(
+            row.person.name,
+            if (row.merged) "阳历·农历同日" else row.lunarText,
+            if (!row.reminderEnabled) "提醒已关闭" else null
+        ).joinToString(" · "),
+        onClick = { onOpenPerson(row.person.id) }
+    ) {
+        Text(
+            row.daysUntil.toString() + " 天后",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = LocalJrxColors.current.seal
+        )
+    }
+}
+
+/** 「家书」纪念日/忌日行：名称 + 农历等副文案；年数用藤黄字。 */
+@Composable
+private fun JiashuDateLine(row: DateRow, onOpenPerson: (String) -> Unit) {
+    JiashuLine(
+        title = row.label,
+        subtitle = row.lunarText.orEmpty(),
+        onClick = { onOpenPerson(row.personId) }
+    ) {
+        if (row.yearLabel != null) {
+            Text(
+                row.yearLabel,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+        }
+    }
+}
+
+/** 「家书」以后的事项 / 已办：行式列表，每行带日期列与发丝线。 */
+@Composable
+private fun JiashuTaskDatedList(
+    rows: List<TaskRow>,
+    onOpenTask: (String) -> Unit,
+    onMarkDone: (TaskRow) -> Unit
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
+        rows.forEachIndexed { i, row ->
+            JiashuCalItem(
+                date = row.dueDate,
+                showDate = i == 0 || rows[i - 1].dueDate != row.dueDate
+            ) {
+                JiashuTaskLine(row, onOpenTask, onMarkDone)
+            }
+            HairLine()
+        }
+    }
 }
 

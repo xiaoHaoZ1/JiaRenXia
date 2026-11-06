@@ -1476,6 +1476,10 @@ class ScreenShotsTest {
                         nextSolar = LocalDate.of(2026, 10, 20))
                 ),
                 defaultNumbers = mapOf("mom" to "13912345678"),
+                contactDue = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.reminder.ContactDueRow(
+                        "gmd", "奶奶李桂英", 23, 9)
+                ),
                 tasksToday = listOf(
                     taskRow("t-od", "爷爷的养老金资格认证", -2, "爷爷"),
                     taskRow("t-td", "妈妈的居民医保缴费", 0, "妈妈", amountFen = 38000,
@@ -1498,15 +1502,21 @@ class ScreenShotsTest {
     }
 
     @Test
-    fun reminder() = shot("reminder", content = reminderSampleContent())
-        .also {
-            assertTexts("今天", "王秀兰", "未来 30 天（3）", "已逾期 2 天", "380 元")
-            assertDescs("标记已办")
-        }
+    fun reminder() = shot(
+        "reminder",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+        content = reminderSampleContent()
+    ).also {
+        assertTexts("今天", "王秀兰", "未来 30 天（3）", "已逾期 2 天", "380 元")
+        assertDescs("标记已办")
+    }
 
-    /** 家事页整屏（A6 后）：页头 + 铃铛/更多行 + 提醒时间线，不再有分段 tab。 */
+    /** 家事页整屏·经典（A6 后）：页头 + 铃铛/更多行 + 卡片时间线。 */
     @Test
-    fun affairsTimeline() = shot("affairs_timeline") {
+    fun affairsTimeline() = shot(
+        "affairs_timeline",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
         val sample = reminderSampleContent()
         Column(Modifier.fillMaxSize()) {
             io.github.xiaohaoz1.jiarenxia.ui.reminder.AffairsHeader(
@@ -1518,6 +1528,25 @@ class ScreenShotsTest {
     }.also {
         assertTexts("家事", "未来 30 天（3）", "王秀兰", "10/05")
         assertNoTexts("人情", "保障")
+        assertDescs("提醒设置", "更多")
+    }
+
+    /** 家事页整屏·家书：去卡片行式时间线 + 大号日左列 + 朱砂印 + 右上「新建」。 */
+    @Test
+    fun affairsJiashu() = shot("affairs_timeline_js") {
+        val sample = reminderSampleContent()
+        Column(Modifier.fillMaxSize()) {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.AffairsHeader(
+                subtitle = "未来 30 天有 2 个生日、3 件事",
+                onExport = {},
+                onNewTask = {}
+            )
+            Box(Modifier.weight(1f)) { sample() }
+        }
+    }.also {
+        assertTexts("家事", "今天", "逾期 2 天", "记一次", "该联系奶奶李桂英了",
+            "未来 30 天", "3 天后", "18 天后", "9 天后", "新建")
+        assertNoTexts("已逾期", "人情", "保障")
         assertDescs("提醒设置", "更多")
     }
 

@@ -1,6 +1,7 @@
 package io.github.xiaohaoz1.jiarenxia.ui.designsystem
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -135,6 +137,22 @@ fun SealLabel(text: String, modifier: Modifier = Modifier) {
         fontWeight = FontWeight.Bold,
         letterSpacing = 3.sp,
         modifier = modifier.semantics { heading() }
+    )
+}
+
+/** 墨青文字链（打个电话 / 记一次）：粗体 + 下划线。 */
+@Composable
+fun JrxLink(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        label,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        textDecoration = TextDecoration.Underline,
+        modifier = modifier
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onClick)
+            .padding(4.dp)
     )
 }
 
