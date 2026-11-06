@@ -7,12 +7,12 @@ import type { IconName } from "../icons";
 import type { ReactNode } from "react";
 import { SITE } from "../site";
 import homeShot from "../assets/shots/home.png";
-import graphShot from "../assets/shots/graph.png";
 import heroFam1200 from "../assets/photos/hero-family-1200.webp";
 import heroFam760 from "../assets/photos/hero-family-760.webp";
 import dinner1536 from "../assets/photos/dinner-1536.webp";
 import dinner900 from "../assets/photos/dinner-900.webp";
 import shouhuxiaIcon from "../assets/shouhuxia-icon.png";
+import FamilyGraphDemo from "./FamilyGraphDemo";
 import "./home.css";
 
 /** 按标点（、，；。：？）拆成短语，只在短语之间换行，避免句中断开或末尾单独剩一个字。 */
@@ -204,7 +204,7 @@ function Scenes() {
 }
 
 const FAMILY_POINTS: [IconName, string, string][] = [
-  ["tree", "关系图", "可以只看父系、母系或配偶一支，也能导出图片发到家里群。"],
+  ["tree", "真实的一家人", "不是临时输入关系链；录入一次，父母两边和配偶两边都留在图里。"],
   ["title", "称谓", "信息不够不乱猜；家里叫法不同，可以自己改。"],
   ["share", "分享给家人", "把家人档案发过去，对方选“我是谁”，称谓换成他的叫法。"],
 ];
@@ -213,11 +213,14 @@ function Family() {
   return (
     <section className="home-family" aria-labelledby="family-h">
       <div className="family-copy">
-        <span className="kicker"><Icon name="tree" size={16} />一家人</span>
-        <h2 id="family-h"><Phrases text="一家人，都在这张图里" /></h2>
-        <p className="family-lead">
-          <Phrases text="谁是谁、该怎么叫，打开就知道。全家按辈分排开，称谓自动算好；分享给家里人，换成他自己的叫法。" />
-        </p>
+        <div className="family-intro">
+          <span className="kicker"><Icon name="tree" size={16} />一家人</span>
+          <h2 id="family-h"><Phrases text="家里谁是谁，一张图认全" /></h2>
+          <p className="family-lead">
+            <Phrases text="父母两边、配偶两边、兄弟姐妹和孩子，按辈分排在一起。点到谁，就能看见名字、称谓和他在家里的位置。" />
+          </p>
+          <Link className="family-more" to="/help#kinship">看看称谓是怎么算的 →</Link>
+        </div>
         <ul className="feature-list">
           {FAMILY_POINTS.map(([icon, t, d]) => (
             <li key={t}>
@@ -229,12 +232,8 @@ function Family() {
             </li>
           ))}
         </ul>
-        <Link className="family-more" to="/help#kinship">看看称谓是怎么算的 →</Link>
       </div>
-      <div className="family-visual">
-        <Phone className="phone-sm" src={graphShot}
-               alt="家庭关系图截图：按辈分排开的家人，含父母、舅舅、岳父岳母、兄弟姐妹、配偶和子女" />
-      </div>
+      <FamilyGraphDemo />
     </section>
   );
 }

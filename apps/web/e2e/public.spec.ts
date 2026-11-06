@@ -64,6 +64,35 @@ test("桌面导航不显示折叠按钮", async ({ page, isMobile }) => {
   await expect(page.getByRole("button", { name: "展开菜单" })).toBeHidden();
 });
 
+test("首页关系图可切换分支并查看人物称谓", async ({ page }, testInfo) => {
+  await page.goto("/");
+  const demo = page.locator(".family-demo");
+
+  const maternal = demo.getByRole("tab", { name: "母系", exact: true });
+  await maternal.click();
+  await expect(maternal).toHaveAttribute("aria-selected", "true");
+  await expect(demo.getByText("当前查看 · 母系")).toBeVisible();
+
+  await demo.getByRole("button", { name: "郭子兴，姥爷" }).click();
+  await expect(demo.getByText("我 → 母亲的父亲")).toBeVisible();
+
+  await demo.getByRole("tab", { name: "配偶父系", exact: true }).click();
+  await expect(demo.getByRole("button", { name: "徐达，岳父" })).toBeVisible();
+  await expect(demo.getByText("我 → 妻子的父亲")).toBeVisible();
+
+  for (const branch of ["配偶父系", "配偶母系"] as const) {
+    await demo.getByRole("tab", { name: branch, exact: true }).click();
+    const [selfBox, wifeBox] = await Promise.all([
+      demo.getByRole("button", { name: "朱棣，我" }).boundingBox(),
+      demo.getByRole("button", { name: "徐皇后，妻子" }).boundingBox(),
+    ]);
+    expect(selfBox).not.toBeNull();
+    expect(wifeBox).not.toBeNull();
+    expect(selfBox?.y).toBe(wifeBox?.y);
+  }
+  await shot(page, testInfo, "interactive-family-graph");
+});
+
 test("直接访问与刷新", async ({ page }) => {
   for (const path of ["/", "/download", "/help"] as const) {
     const resp = await page.goto(path);
