@@ -75,7 +75,10 @@ object GraphBranches {
      * - “全部”收起配偶一系、只留配偶本人（配偶全家在配偶方/配偶父系/配偶母系看）；
      * - “配偶方”是配偶全家视图：三条配偶支线（含配偶本人）+ 夫妻双方共同的子女；
      * - “配偶父系/配偶母系”保留配偶本人作锚点；
-     * - 其余分支只显示本支线的人；“我”在任何视图都在。
+     * - 其余分支只显示本支线的人；“我”在任何视图都在；
+     * - 单侧分支再带上另一侧家长（[complements]）：父系含母亲、母系含父亲，
+     *   子孙含配偶、兄弟姐妹含父母，配偶父/母系含配偶的另一方家长——
+     *   分享或碰一碰时孩子是父母双方的，缺了会断在单边。
      */
     fun visibleIds(overview: FamilyOverview, branch: GraphBranch): Set<String> {
         val selfId = overview.self.person.id
@@ -96,7 +99,48 @@ object GraphBranches {
                 else -> b == branch
             }
             if (shown) id else null
-        }.toSet()
+        }.toSet() + complements(overview, branch)
+    }
+
+    /**
+     * “另一侧家长”补充人选：分支视角里不可缺少的配偶/父母角色，
+     * 他们自身属于别的支线，但不带上会让本支孩子没有双亲。
+     */
+    private fun complements(overview: FamilyOverview, branch: GraphBranch): Set<String> {
+        val self = overview.self.person.id
+        val rels = overview.graph.relationships
+        fun parentIds(id: String) = rels.mapNotNull { r ->
+            when {
+                r.type == RelationshipType.PARENT && r.targetPersonId == id -> r.sourcePersonId
+                r.type == RelationshipType.CHILD && r.sourcePersonId == id -> r.targetPersonId
+                else -> null
+            }
+        }
+        fun parentsOf(id: String, gender: Gender?) =
+            parentIds(id).filter { pid ->
+                pid != id && (gender == null ||
+                    overview.byId[pid]?.person?.gender == gender)
+            }
+        val spouseIds = rels.filter { it.type == RelationshipType.SPOUSE }
+            .mapNotNull { when (self) {
+                it.sourcePersonId -> it.targetPersonId
+                it.targetPersonId -> it.sourcePersonId
+                else -> null
+            } }.distinct()
+        val ids = when (branch) {
+            GraphBranch.FATHER -> parentsOf(self, Gender.FEMALE)
+            GraphBranch.MOTHER -> parentsOf(self, Gender.MALE)
+            // 只经共同父母相连的隐式兄妹没有直接边，缺了父母会断开
+            GraphBranch.SIBLINGS -> parentsOf(self, null)
+            // 孩子们的另一位家长
+            GraphBranch.DESCENDANTS -> spouseIds
+            GraphBranch.SPOUSE_FATHER ->
+                spouseIds.flatMap { parentsOf(it, Gender.FEMALE) }
+            GraphBranch.SPOUSE_MOTHER ->
+                spouseIds.flatMap { parentsOf(it, Gender.MALE) }
+            else -> emptyList()
+        }
+        return ids.filter { it in overview.byId }.toSet()
     }
 
     /** 夫妻双方共同的子女 id（“配偶方”视图附带显示）。 */

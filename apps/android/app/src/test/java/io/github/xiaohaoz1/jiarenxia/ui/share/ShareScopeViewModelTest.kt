@@ -101,7 +101,7 @@ class ShareScopeViewModelTest : RepoTestBase() {
             GraphBranch.MOTHER
         )
         assertEquals(expected, vm.ui.value.selected)
-        assertEquals(9, vm.ui.value.selected.size)
+        assertEquals(10, vm.ui.value.selected.size)
         assertEquals(GraphBranch.MOTHER, vm.ui.value.branch)
         // 列表条目是全部人物（可勾选的范围不受分支筛选限制）
         assertEquals(ids.size, vm.ui.value.items.size)

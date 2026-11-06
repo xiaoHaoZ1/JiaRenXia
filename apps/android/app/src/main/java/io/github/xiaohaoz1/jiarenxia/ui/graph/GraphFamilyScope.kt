@@ -87,6 +87,26 @@ object GraphFamilyScope {
         descendants(hand + anchor, 2)
         val visible = blood.toMutableSet()
         blood.forEach { visible += spouses(graph, it) }
+        // 单侧分支补上另一侧家长：父系带母亲、母系带父亲（两人未记夫妻时同样
+        // 保留，她仍是本支孩子的家长）。“桥孩子”是锚点孩子中与“我”同侧者：
+        // 父/母系是我，配偶父/母系是我的配偶。
+        val bridge = when (branch) {
+            GraphBranch.FATHER, GraphBranch.MOTHER -> self
+            GraphBranch.SPOUSE_FATHER, GraphBranch.SPOUSE_MOTHER ->
+                spouses(graph, self).firstOrNull {
+                    anchor in GraphStructure.parentsOf(graph, it)
+                }
+            else -> null
+        }
+        val complementGender = when (branch) {
+            GraphBranch.FATHER, GraphBranch.SPOUSE_FATHER -> Gender.FEMALE
+            GraphBranch.MOTHER, GraphBranch.SPOUSE_MOTHER -> Gender.MALE
+            else -> null
+        }
+        if (bridge != null && complementGender != null) {
+            visible += GraphStructure.parentsOf(graph, bridge)
+                .filter { overview.byId[it]?.person?.gender == complementGender }
+        }
         return visible.filterTo(linkedSetOf()) { it in overview.byId }
     }
 
