@@ -266,7 +266,7 @@ fun MineContent(
                     SettingsNavRow(
                         icon = Icons.Rounded.TextFields,
                         title = "外观与字号",
-                        value = appearanceSummary(themeMode, themeStyle, fontScaleFactor),
+                        subtitle = appearanceSummary(themeMode, themeStyle, fontScaleFactor),
                         onClick = onAppearance
                     )
                     RowDivider()
