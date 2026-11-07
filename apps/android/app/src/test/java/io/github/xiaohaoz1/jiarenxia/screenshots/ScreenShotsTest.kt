@@ -784,6 +784,46 @@ class ScreenShotsTest {
         assertTexts("换个年代", "1969", "1965", "1960")
     }
 
+    /** 完整对话框（含标题与按钮）的年份页：回归 2026-11-08 的「换个年代」残影
+     * ——YearPickerContent 未包 Column 时在 AlertDialog text 槽位重叠绘制，
+     * 按钮文字从年份色块缝隙透出。单列截图覆盖不到，必须走 AlertDialog。 */
+    @Test
+    @Config(qualifiers = "w412dp-h915dp-xxhdpi")
+    fun personEditYearDialog() = shot("person_edit_year_dialog") {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("选择年份 · 2020年代") },
+            text = {
+                io.github.xiaohaoz1.jiarenxia.ui.person.YearPickerContent(
+                    decade = 2020, selectedYear = null,
+                    from = 1900, to = 2026,
+                    onDecade = {}, onYear = {}
+                )
+            },
+            confirmButton = { TextButton(onClick = {}) { Text("取消") } }
+        )
+    }.also {
+        assertTexts("换个年代", "2026", "2020")
+    }
+
+    /** 同对话框 1.3 倍大字号。 */
+    @Test
+    @Config(qualifiers = "w412dp-h915dp-xxhdpi")
+    fun personEditYearDialogLarge() = shotLarge("person_edit_year_dialog", scale = 1.3f) {
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("选择年份 · 2020年代") },
+            text = {
+                io.github.xiaohaoz1.jiarenxia.ui.person.YearPickerContent(
+                    decade = 2020, selectedYear = null,
+                    from = 1900, to = 2026,
+                    onDecade = {}, onYear = {}
+                )
+            },
+            confirmButton = { TextButton(onClick = {}) { Text("取消") } }
+        )
+    }
+
     // ---------- 阶段A·电话录入改版场景（标准 + 大字号各一张） ----------
 
     private fun phoneEditState(phones: List<PhoneRowState>) = PersonEditUiState(

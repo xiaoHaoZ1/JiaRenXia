@@ -256,17 +256,21 @@ internal fun YearPickerContent(
             }
         }
     } else {
-        TextButton(onClick = { onDecade(null) }) { Text("‹ 换个年代") }
-        Spacer(Modifier.height(4.dp))
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            for (y in minOf(decade + 9, to) downTo maxOf(decade, from)) {
-                PickChip(
-                    text = y.toString(), width = 56.dp,
-                    selected = y == selectedYear
-                ) { onYear(y) }
+        // 必须包一层 Column：直接并列发射时，在 AlertDialog 的 text 槽位里会与
+        // FlowRow 重叠绘制，「换个年代」的文字从色块缝隙透出残影
+        Column {
+            TextButton(onClick = { onDecade(null) }) { Text("‹ 换个年代") }
+            Spacer(Modifier.height(4.dp))
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                for (y in minOf(decade + 9, to) downTo maxOf(decade, from)) {
+                    PickChip(
+                        text = y.toString(), width = 56.dp,
+                        selected = y == selectedYear
+                    ) { onYear(y) }
+                }
             }
         }
     }
