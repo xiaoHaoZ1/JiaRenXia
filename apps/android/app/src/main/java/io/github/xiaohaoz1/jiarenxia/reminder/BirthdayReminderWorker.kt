@@ -133,15 +133,38 @@ class BirthdayReminderWorker @AssistedInject constructor(
         if (dues.isEmpty()) return
         ensureChannel()
         ensureAnnivChannel()
+        // 「发祝福」动作要默认号码：仅当存在生日当天提醒时才查
+        val numbers = if (dues.any { it.kind.isBirthday && it.daysBefore == 0 })
+            repository.observeDefaultNumbers().first() else emptyMap()
         val nm = NotificationManagerCompat.from(context)
         dues.forEach { d ->
             val key = "date:" + d.kind.name + ":" + d.personId + ":" + d.daysBefore +
                 (d.milestoneDays?.let { ":" + it } ?: "")
             if (key in posted) return@forEach
             val isSelf = overview.byId[d.personId]?.person?.isSelf == true
-            runCatching { nm.notify(notificationId(d), build(d, isSelf)) }
+            val blessing = blessingFor(d, isSelf, numbers, overview)
+            runCatching { nm.notify(notificationId(d), build(d, isSelf, blessing = blessing)) }
                 .onSuccess { posted += key }
         }
+    }
+
+    /**
+     * 生日当天「发祝福」动作（FAMILY_AFFAIRS 22）：仅生日当天（daysBefore == 0）、
+     * 非本人、有默认号码时附带；返回 (号码, 预填正文)。提前提醒与纪念日不加。
+     */
+    private fun blessingFor(
+        d: DueReminder, isSelf: Boolean,
+        numbers: Map<String, String>,
+        overview: io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
+    ): Pair<String, String>? {
+        if (!d.kind.isBirthday || d.daysBefore != 0 || isSelf) return null
+        val number = numbers[d.personId] ?: return null
+        val o = overview.byId[d.personId] ?: return null
+        val label = d.title ?: o.person.name
+        val elder = io.github.xiaohaoz1.jiarenxia.domain.BirthdayBlessing
+            .isElder(o.result)
+        return number to io.github.xiaohaoz1.jiarenxia.domain.BirthdayBlessing
+            .defaultText(label, elder)
     }
 
     private fun notificationId(d: DueReminder): Int =
@@ -149,7 +172,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 (d.milestoneDays?.let { ":" + it } ?: "")).hashCode()
 
     private fun build(
-        d: DueReminder, isSelf: Boolean, channel: String? = null
+        d: DueReminder, isSelf: Boolean, channel: String? = null,
+        blessing: Pair<String, String>? = null
     ): android.app.Notification {
         val text = ReminderPlanner.text(d, isSelf)
         val resolved = channel ?: if (d.kind.isBirthday) CHANNEL_ID else ANNIV_CHANNEL_ID
@@ -168,7 +192,7 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 else -> "家人侠：有家人的生日提醒"
             })
             .build()
-        return NotificationCompat.Builder(context, resolved)
+        val builder = NotificationCompat.Builder(context, resolved)
             .setSmallIcon(R.drawable.ic_stat_notify)
             .setContentTitle("家人侠")
             .setContentText(text)
@@ -176,7 +200,18 @@ class BirthdayReminderWorker @AssistedInject constructor(
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
             .setContentIntent(intent)
-            .build()
+        if (blessing != null) {
+            // 「发祝福」：打开短信应用并预填正文，由用户自己点发送
+            builder.addAction(
+                0, "发祝福",
+                PendingIntent.getActivity(
+                    context, ("bless:" + d.personId).hashCode(),
+                    smsIntent(blessing.first, blessing.second),
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+            )
+        }
+        return builder.build()
     }
 
     /**

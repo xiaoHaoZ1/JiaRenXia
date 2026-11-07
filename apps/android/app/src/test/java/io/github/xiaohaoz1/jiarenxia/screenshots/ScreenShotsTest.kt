@@ -1511,7 +1511,8 @@ class ScreenShotsTest {
         content = reminderSampleContent()
     ).also {
         assertTexts("今天", "王秀兰", "未来 30 天（3）", "已逾期 2 天", "380 元")
-        assertDescs("标记已办")
+        // 今天生日行（他人+有号码）：发祝福与拨号两个图标
+        assertDescs("发祝福", "拨打", "标记已办")
     }
 
     /** 家事页整屏·经典（A6 后）：页头 + 铃铛/更多行 + 卡片时间线。 */
@@ -1550,7 +1551,7 @@ class ScreenShotsTest {
         assertTexts("家事", "今天", "逾期 2 天", "记一次", "该联系奶奶李桂英了",
             "未来 30 天", "3 天后", "18 天后", "9 天后", "新建")
         assertNoTexts("已逾期", "人情", "保障")
-        assertDescs("提醒设置", "更多")
+        assertDescs("提醒设置", "更多", "发祝福", "拨打")
     }
 
     /** 家事页·深色。 */
@@ -2967,5 +2968,86 @@ class ScreenShotsTest {
     fun elderConfirmDialogClassic() = elderConfirmShot(
         "elder_confirm_classic",
         io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC)
+
+    // ---------- 生日祝福对话框（FAMILY_AFFAIRS 22） ----------
+
+    /**
+     * 祝福对话框截图：AlertDialog 弹层无法被截图，渲染同款卡片内容
+     * （同 customTitleDialog / elderConfirmShot 的做法）。
+     */
+    private fun blessingDialogShot(
+        name: String,
+        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle,
+        number: String?
+    ) {
+        shot(name, style = style) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text(
+                            "给妈妈发祝福",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        io.github.xiaohaoz1.jiarenxia.ui.reminder
+                            .BlessingDialogBody(
+                                number = number,
+                                text = io.github.xiaohaoz1.jiarenxia.domain
+                                    .BirthdayBlessing.defaultText("妈妈", true),
+                                onTextChange = {}
+                            )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (number != null) {
+                                TextButton(onClick = {}) { Text("复制") }
+                            }
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(onClick = {}) {
+                                Text(if (number != null) "发短信" else "复制")
+                            }
+                        }
+                    }
+                }
+            }
+        }.also {
+            assertTexts("给妈妈发祝福", "生日快乐", "取消")
+        }
+    }
+
+    @Test
+    fun blessingDialog() = blessingDialogShot(
+        "blessing_dialog",
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+        number = "13912345678")
+
+    @Test
+    fun blessingDialogClassic() = blessingDialogShot(
+        "blessing_dialog_classic",
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+        number = "13912345678")
+
+    @Test
+    fun blessingDialogNoPhone() = blessingDialogShot(
+        "blessing_dialog_nophone",
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+        number = null)
+
+    @Test
+    fun blessingDialogNoPhoneClassic() = blessingDialogShot(
+        "blessing_dialog_nophone_classic",
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+        number = null)
 
 }

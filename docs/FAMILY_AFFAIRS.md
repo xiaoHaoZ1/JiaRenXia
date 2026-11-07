@@ -587,3 +587,14 @@
 - **深链与分享**：人物通知深链在长辈模式下打开 `elder/person/{id}`（已故/不存在由详情页守卫退回首页）；事项/标签深链直接消费丢弃；收到家人共享文件或文本分享时不进接收流程，弹「收到家人资料，请先长按页面最下方『退出长辈模式』3 秒，再重新打开这个文件」并消费 pending。
 - **长辈首页**（`ui/elder/`，无底部导航）：页头“我的家人”+ 日期行（公历 + 星期 + 农历，`LunarCalendar.fromSolar` + `LunarFormat`）；「最近的日子」合并今天起 30 天内的生日（`UpcomingBirthdays.build`）、纪念日/忌日（`AffairTimeline.dateRows`）与上坟日（`TombCalendar.events`，窗口 30 天、`tombRemindersEnabled` 开时才产出，prefs 取设置），按日期排序、同日 生日 → 纪念日/忌日 → 上坟（`domain/elder/ElderHome.kt` 纯逻辑）。行 = 左 72dp 日期列（今天/明天/后天/N天后 + M月D日）+ 标题 + 副标题；今天生日且有默认号码时行尾「打电话」（ACTION_DIAL，不记联系）。「家人」列在世、非本人的全部家人（`overview.core + others` 顺序，UNRELATED 也列、标签用姓名），56dp 头像 + 称谓/姓名，有默认号码时行尾 56dp 圆形拨号钮（ACTION_DIAL，不弹「联系上了吗」、不记联系记录）；点行进只读详情。页尾居中描边控件「退出长辈模式（长按 3 秒）」：按住 3 秒进度条走满自动 `setElderMode(false)`，轻点/中途松手归零无动作。
 - **只读详情**：仅返回箭头 + 居中 96dp 头像 + 称谓/姓名；「电话」卡列全部有效号码（主号码在前、停用不显示，行尾「打电话」→ ACTION_DIAL，无号码显示“没有记电话”）；「生日」卡每条一行（阳历/农历 + 年份，行尾“今天”/“还有 N 天”）。不显示编辑、删除、事项、联系记录、关系入口；人物不存在或已故自动返回首页。
+
+---
+
+## 22. 生日一键发祝福（2026-11-07 确定）
+
+给家人过生日时一键打开短信、内容已填好，用户自己点发送；不申请任何短信权限、不自动发送。没记电话时可以复制祝福语去微信粘贴。
+
+- **默认文案**（`domain/BirthdayBlessing.kt` 纯 JVM）：`defaultText(label, elder)`——长辈「{称谓}，生日快乐！祝您身体健康，福寿安康！」，非长辈「{称谓}，生日快乐！祝你天天开心，万事顺意！」；label 为称谓（无称谓用姓名）。长辈判定 `isElder`：称谓路径净向上（PARENT 步数 > CHILD 步数，SPOUSE/SIBLING/COUSIN 不计代）——父母、祖父母、配偶父母、姑姑辈为长辈，配偶、兄弟姐妹、堂表亲、子女、孙辈不是；`elderIds(overview)` 批量取总览里的长辈 id。
+- **家事页入口**：经典 `TodayBirthdayLine` 与家书 `JiashuTodayBirthdayLine` 行尾在拨号按钮之前加「发祝福」图标（`Icons.Rounded.Sms`，contentDescription“发祝福”，家书 tint 用 primary），只在 `!person.isSelf` 时显示、有无电话都显示。点击开 `BlessingDialog`（`ui/reminder/`）：标题「给{称谓}发祝福」，多行输入框预填默认文案可改（≤200 字）；有电话时 confirm「发短信」（`smsIntent` = ACTION_SENDTO `smsto:` + `sms_body` extra，由用户点发送）+ dismiss 区「复制」「取消」；没电话时 confirm「复制」+「取消」。「复制」写剪贴板、关框并 Snackbar「已复制，可以粘贴到微信」。长辈判定用 `ReminderViewModel` 产出的 `elderIds`（`BirthdayBlessing.elderIds(overview)`）。
+- **通知动作**：`BirthdayReminderWorker` 构建生日通知时，`daysBefore == 0`（当天，提前提醒不加）、非本人、有默认号码（`observeDefaultNumbers().first()`，仅当存在当天生日才查询）才 `addAction(0, "发祝福", PendingIntent)`——PendingIntent requestCode 为 `("bless:" + personId).hashCode()`，intent 为同一 `smsIntent`；label 用通知里的称谓（无称谓用姓名），elder 用总览里该人的 KinshipResult。双生日合并、纪念日/上坟/回家/事项通知均不加；不加 `<queries>`、不做 resolveActivity 检查。
+- **长辈首页打磨**（同批）：今天生日行的「打电话」按钮挪到标题/副标题下方（右侧内容列、副标题下 8dp、左对齐），经典不再挤折行标题，两种风格一致；家书风格 `PageHeader` 水平内边距改 24dp 与下方内容对齐（经典保持默认 20dp）。

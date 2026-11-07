@@ -1,5 +1,8 @@
 package io.github.xiaohaoz1.jiarenxia.ui.reminder
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Sms
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -92,6 +96,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat
 import io.github.xiaohaoz1.jiarenxia.domain.DateRow
 import io.github.xiaohaoz1.jiarenxia.reminder.BirthdayRow
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskTemplates
+import io.github.xiaohaoz1.jiarenxia.reminder.smsIntent
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
@@ -190,6 +195,32 @@ fun ReminderScreen(
         )
     }
 
+    // 生日祝福对话框目标（今天生日行的“发祝福”图标）
+    var blessingFor by remember { mutableStateOf<BirthdayRow?>(null) }
+    blessingFor?.let { row ->
+        val label = row.title ?: row.person.name
+        val number = st.defaultNumbers[row.person.id]
+        BlessingDialog(
+            label = label,
+            elder = row.person.id in st.elderIds,
+            number = number,
+            onSendSms = { text ->
+                number?.let {
+                    context.startActivity(smsIntent(it, text))
+                }
+                blessingFor = null
+            },
+            onCopy = { text ->
+                (context.getSystemService(Context.CLIPBOARD_SERVICE)
+                    as ClipboardManager).setPrimaryClip(
+                    ClipData.newPlainText("生日祝福", text))
+                viewModel.snack.value = "已复制，可以粘贴到微信" to false
+                blessingFor = null
+            },
+            onDismiss = { blessingFor = null }
+        )
+    }
+
     val scope = rememberCoroutineScope()
 
     // 导出表格（只导家事提醒）：CreateDocument 保存，初始目录在“下载”
@@ -279,7 +310,8 @@ fun ReminderScreen(
                     onMarkDone = viewModel::markDone,
                     onOpenTombSettings = onOpenTombSettings,
                     onOpenHomeSettings = onOpenHomeSettings,
-                    onHomeVisitLogged = viewModel::logHomeVisit
+                    onHomeVisitLogged = viewModel::logHomeVisit,
+                    onBless = { blessingFor = it }
                 )
                 // 「家书」新建已收到右上，不再用悬浮按钮
                 if (!jiashu) ExtendedFloatingActionButton(
@@ -318,7 +350,9 @@ fun ReminderContent(
     /** 回家看看行点击：跳回家看看设置页。 */
     onOpenHomeSettings: () -> Unit = {},
     /** “回家了”：记一次回家（给该家有效成员各插一条见面记录）。 */
-    onHomeVisitLogged: (String) -> Unit = {}
+    onHomeVisitLogged: (String) -> Unit = {},
+    /** 今天生日行“发祝福”图标（本人不显示该图标）。 */
+    onBless: (BirthdayRow) -> Unit = {}
 ) {
     /** “以后的事项”“已办”折叠状态（默认收起，横竖屏/进程存活期间保留）。 */
     var expandedSections by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -408,7 +442,9 @@ fun ReminderContent(
                                         row.title?.takeUnless { it.isBlank() }
                                             ?: row.person.name,
                                         n)
-                                }
+                                },
+                                onBless = if (row.person.isSelf) null
+                                else ({ onBless(row) })
                             )
                             HairLine()
                         }
@@ -477,7 +513,9 @@ fun ReminderContent(
                                             row.title?.takeUnless { it.isBlank() }
                                                 ?: row.person.name,
                                             n)
-                                    }
+                                    },
+                                    onBless = if (row.person.isSelf) null
+                                    else ({ onBless(row) })
                                 )
                             }
                         }
@@ -811,13 +849,14 @@ private fun AffairLine(
     }
 }
 
-/** 「今天」的生日行：“今天是…的生日” + 日期；有电话时带拨号。 */
+/** 「今天」的生日行：“今天是…的生日” + 日期；有电话时带拨号，非本人带“发祝福”。 */
 @Composable
 private fun TodayBirthdayLine(
     row: BirthdayRow,
     number: String?,
     onOpenPerson: (String) -> Unit,
-    onDial: (String) -> Unit
+    onDial: (String) -> Unit,
+    onBless: (() -> Unit)? = null
 ) {
     AffairLine(
         icon = Icons.Rounded.Cake,
@@ -832,6 +871,11 @@ private fun TodayBirthdayLine(
         onClick = { onOpenPerson(row.person.id) },
         trailing = {
             CountdownBadge(row.daysUntil)
+            if (onBless != null) {
+                IconButton(onClick = onBless) {
+                    Icon(Icons.Rounded.Sms, contentDescription = "发祝福")
+                }
+            }
             if (number != null) {
                 IconButton(onClick = { onDial(number) }) {
                     Icon(Icons.Rounded.Call, contentDescription = "拨打")
@@ -1298,13 +1342,14 @@ private fun JiashuHomeVisitLine(
     }
 }
 
-/** 「家书」今日生日行：“今天是…的生日” + 日期；尾部朱砂「今天」+ 拨号。 */
+/** 「家书」今日生日行：“今天是…的生日” + 日期；尾部朱砂「今天」+ 发祝福 + 拨号。 */
 @Composable
 private fun JiashuTodayBirthdayLine(
     row: BirthdayRow,
     number: String?,
     onOpenPerson: (String) -> Unit,
-    onDial: (String) -> Unit
+    onDial: (String) -> Unit,
+    onBless: (() -> Unit)? = null
 ) {
     JiashuLine(
         title = (if (row.title == null) "今天是你的生日"
@@ -1320,6 +1365,15 @@ private fun JiashuTodayBirthdayLine(
             fontWeight = FontWeight.Bold,
             color = LocalJrxColors.current.seal
         )
+        if (onBless != null) {
+            IconButton(onClick = onBless) {
+                Icon(
+                    Icons.Rounded.Sms,
+                    contentDescription = "发祝福",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
         if (number != null) {
             IconButton(onClick = { onDial(number) }) {
                 Icon(

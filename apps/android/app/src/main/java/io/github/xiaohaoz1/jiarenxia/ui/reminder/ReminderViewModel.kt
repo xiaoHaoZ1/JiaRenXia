@@ -60,6 +60,8 @@ data class ReminderUiState(
     /** 未来 30 天的上坟日（并入时间线）。 */
     val tombNext30: List<TombEvent> = emptyList(),
     val defaultNumbers: Map<String, String> = emptyMap(),
+    /** 长辈人物 id 集合（生日祝福语用“您”）。 */
+    val elderIds: Set<String> = emptySet(),
     /** 今天要办（含逾期，逾期置顶）；未来 30 天；以后；已办。 */
     val tasksToday: List<TaskRow> = emptyList(),
     /** 今天该联系的家人（逾期的联系提醒，联系提醒）。 */
@@ -138,7 +140,9 @@ class ReminderViewModel @Inject constructor(
             upcoming = res.upcoming,
             dateRows = dNext30,
             dateRowsToday = dToday,
-            defaultNumbers = numbers
+            defaultNumbers = numbers,
+            elderIds = io.github.xiaohaoz1.jiarenxia.domain.BirthdayBlessing
+                .elderIds(overview)
         ) to StageAux(titles, names, overview, dates)
     }.combine(tombPrefs) { (base, aux), tp ->
         // 上坟日：仅总开关开时产出；窗口与事项一致（今天起 30 天）

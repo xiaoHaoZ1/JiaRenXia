@@ -41,17 +41,20 @@ private class FakeRepo(
     private val self: Person,
     private val entries: List<BirthdayEntry>,
     private val dateEntries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry> = emptyList(),
-    extraPersons: List<Person> = emptyList()
+    extraPersons: List<Person> = emptyList(),
+    private val rels: List<io.github.xiaohaoz1.jiarenxia.core.model.Relationship> =
+        emptyList(),
+    private val numbers: Map<String, String> = emptyMap()
 ) : FamilyRepository {
     private val graph = FamilyGraph(
-        listOf(self) + extraPersons, emptyList(), emptyMap(),
+        listOf(self) + extraPersons, rels, emptyMap(),
         birthdayValues = entries.groupBy({ it.person.id }, { it.birthday })
     )
     override fun observeSelf() = flowOf<Person?>(self)
     override fun observeFamilyGraph() = flowOf(graph)
     override fun observePersonDetail(personId: String) = flowOf(null)
     override fun observeBirthdayEntries() = flowOf(entries)
-    override fun observeDefaultNumbers() = flowOf(emptyMap<String, String>())
+    override fun observeDefaultNumbers() = flowOf(numbers)
     override suspend fun getBirthdayEntries() = entries
     override suspend fun createSelf(draft: PersonDraft) = FamilyResult.Success("x")
     override suspend fun createRelative(d: PersonDraft, a: String, r: RelationRole) = FamilyResult.Success("x")
@@ -213,14 +216,18 @@ class WorkerTest {
             io.github.xiaohaoz1.jiarenxia.data.FakeHomeVisitRepository(),
         clock: TimeSource = FakeClock(LocalDate.now().atTime(12, 0)),
         dateEntries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry> = emptyList(),
-        spouse: Person? = null
+        spouse: Person? = null,
+        extraPersons: List<Person> = emptyList(),
+        extraEntries: List<BirthdayEntry> = emptyList(),
+        numbers: Map<String, String> = emptyMap(),
+        rels: List<io.github.xiaohaoz1.jiarenxia.core.model.Relationship> = emptyList()
     ): BirthdayReminderWorker {
         val self = Person(id = "me", name = "我", gender = Gender.MALE, isSelf = true)
         val entries = listOf(
             BirthdayEntry(self, BirthdayValue(PartialDate(1990, LocalDate.now().monthValue, LocalDate.now().dayOfMonth)), true)
-        )
+        ) + extraEntries
         val repo = FakeRepo(self, entries, dateEntries,
-            listOfNotNull(spouse))
+            listOfNotNull(spouse) + extraPersons, rels, numbers)
         val overview = ObserveFamilyOverview(repo, KinshipEngine())
         return TestListenableWorkerBuilder<BirthdayReminderWorker>(context)
             .setInputData(
@@ -329,6 +336,96 @@ class WorkerTest {
         return org.robolectric.Shadows.shadowOf(nm).allNotifications.mapNotNull { n ->
             n.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)?.toString()
         }
+    }
+
+    private fun postedNotifications(): List<android.app.Notification> {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE)
+            as android.app.NotificationManager
+        return org.robolectric.Shadows.shadowOf(nm).allNotifications.toList()
+    }
+
+    private fun hasBlessAction(n: android.app.Notification): Boolean =
+        n.actions?.any { it.title?.toString() == "发祝福" } == true
+
+    // ---------- 生日祝福动作（FAMILY_AFFAIRS 22） ----------
+
+    /** 妈妈（“我”的母亲）：今天/明天生日的条目与 PARENT 关系。 */
+    private val blessingMom = Person(
+        id = "mom", name = "王秀兰", gender = Gender.FEMALE)
+    private val momIsParent = io.github.xiaohaoz1.jiarenxia.core.model
+        .Relationship(
+            id = "r-mom", sourcePersonId = "mom", targetPersonId = "me",
+            type = io.github.xiaohaoz1.jiarenxia.core.model
+                .RelationshipType.PARENT)
+
+    private fun momBirthdayEntry(dayOffset: Int) = BirthdayEntry(
+        blessingMom,
+        BirthdayValue(PartialDate(
+            LocalDate.now().plusDays(dayOffset.toLong()).year,
+            LocalDate.now().plusDays(dayOffset.toLong()).monthValue,
+            LocalDate.now().plusDays(dayOffset.toLong()).dayOfMonth)),
+        true)
+
+    @Test
+    fun 生日当天有号码_通知带发祝福动作() = runTest {
+        val settings = FakeSettings()
+        buildWorker(
+            settings,
+            extraPersons = listOf(blessingMom),
+            extraEntries = listOf(momBirthdayEntry(0)),
+            numbers = mapOf("mom" to "13912345678", "me" to "13800000000"),
+            rels = listOf(momIsParent)
+        ).doWork()
+        val notifications = postedNotifications()
+        // 妈妈的生日通知带 1 个「发祝福」动作
+        val momNotif = notifications.first {
+            it.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)
+                ?.toString()?.contains("王秀兰") == true
+        }
+        assertTrue(hasBlessAction(momNotif))
+        // 本人（“我”）今天也生日且有号码：通知不带动作
+        val selfNotif = notifications.first {
+            it.extras.getCharSequence(android.app.Notification.EXTRA_TEXT)
+                ?.toString()?.contains("你的生日") == true
+        }
+        assertTrue(selfNotif.actions.isNullOrEmpty())
+    }
+
+    @Test
+    fun 生日提前一天_无发祝福动作() = runTest {
+        val settings = FakeSettings()
+        buildWorker(
+            settings,
+            extraPersons = listOf(blessingMom),
+            extraEntries = listOf(momBirthdayEntry(1)),
+            numbers = mapOf("mom" to "13912345678"),
+            rels = listOf(momIsParent)
+        ).doWork()
+        // 明天生日的提前提醒照发，但不带动作
+        assertTrue(postedTexts().any { it.contains("明天是") && it.contains("生日") })
+        assertTrue(postedNotifications().none(::hasBlessAction))
+    }
+
+    @Test
+    fun 生日当天无号码_无发祝福动作() = runTest {
+        val settings = FakeSettings()
+        buildWorker(
+            settings,
+            extraPersons = listOf(blessingMom),
+            extraEntries = listOf(momBirthdayEntry(0)),
+            rels = listOf(momIsParent)
+        ).doWork()
+        assertTrue(postedTexts().any { it.contains("王秀兰") && it.contains("生日") })
+        assertTrue(postedNotifications().none(::hasBlessAction))
+    }
+
+    @Test
+    fun 生日当天本人有号码_仍无发祝福动作() = runTest {
+        val settings = FakeSettings()
+        // 只有“我”生日（buildWorker 基础夹具）+ 本人号码 → 不加动作
+        buildWorker(settings, numbers = mapOf("me" to "13800000000")).doWork()
+        assertTrue(postedTexts().any { it.contains("你的生日") })
+        assertTrue(postedNotifications().none(::hasBlessAction))
     }
 
     @Test

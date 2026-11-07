@@ -105,7 +105,14 @@ fun ElderHomeContent(
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
             item {
-                PageHeader {
+                PageHeader(
+                    // 「家书」页头与下方内容左对齐（24dp）；「经典」保持默认 20dp
+                    contentPadding = if (jiashu) PaddingValues(
+                        start = 24.dp, end = 24.dp, top = 16.dp, bottom = 16.dp
+                    ) else PaddingValues(
+                        start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp
+                    )
+                ) {
                     Column {
                         Text(
                             "我的家人",
@@ -261,12 +268,16 @@ private fun ElderUpcomingLine(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-        }
-        if (showCall) {
-            FilledTonalButton(onClick = onCall) {
-                Icon(Icons.Rounded.Call, contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text("打电话")
+            // 生日“打电话”放副标题下方，避免挤占标题宽度（两种风格一致）
+            if (showCall) {
+                FilledTonalButton(
+                    onClick = onCall,
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Icon(Icons.Rounded.Call, contentDescription = null)
+                    Spacer(Modifier.width(6.dp))
+                    Text("打电话")
+                }
             }
         }
     }
