@@ -4,7 +4,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
-    <meta name="theme-color" content="#fdf8f2" />
+    <meta name="theme-color" content="#F3EDE2" />
+    <!-- 主题记忆：选过「经典」写 localStorage("jrx-theme")="classic" 并加 data-theme；
+         默认（含未选过）是「家书」。样式见 src/theme-jiashu.css -->
+    <script>
+      try {
+        if (localStorage.getItem("jrx-theme") === "classic")
+          document.documentElement.dataset.theme = "classic";
+      } catch (e) {}
+    </script>
     <!-- 百度移动适配提示：同一套页面同时适配电脑与手机 -->
     <meta name="applicable-device" content="pc,mobile" />
     <!-- 位图图标是给不认 SVG 的一方准备的（百度/360 的搜索结果、微信、旧浏览器） -->

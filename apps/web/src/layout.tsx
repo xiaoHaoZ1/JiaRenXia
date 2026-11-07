@@ -7,6 +7,7 @@ import { applyHead } from "./head";
 import { SITE } from "./site";
 import { Modal } from "./ui";
 import { alternateLangPath, LangContext, localizedPath, type Lang } from "./i18n";
+import { ThemeSwitch } from "./theme";
 
 const NAV = [
   ["/", { zh: "首页", en: "Home" }],
@@ -108,6 +109,7 @@ export function PublicLayout({ lang }: { lang: Lang }) {
                  aria-label={t.langSwitchLabel}>
                 {t.langSwitch}
               </a>
+              <ThemeSwitch lang={lang} />
             </nav>
           </div>
         </header>

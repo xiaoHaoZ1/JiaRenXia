@@ -1,0 +1,279 @@
+/* 「家书」主题：默认启用；页头主题切换器选「经典」时给 <html> 加
+   data-theme="classic"，本文件全部规则随之失效，回到 styles.css 的经典版。
+   与 App 2.3.0 家书同源：纸色底、墨色字、朱砂管喜事与印章、墨青管可点的操作；
+   信纸横线、卡片顶部双线、称谓细框、方形小圆角。 */
+
+html:not([data-theme="classic"]) {
+
+  /* ---------- 令牌（覆盖 styles.css 的 :root） ---------- */
+  --primary: #0C4247;          /* 墨青：可点操作 */
+  --on-primary: #F3EDE2;
+  --primary-bg: #E3EBE8;
+  --on-primary-bg: #0C4247;
+  --secondary: #776F63;
+  --secondary-bg: #EFE7D6;
+  --on-secondary-bg: #3A3226;
+  --tertiary: #57755B;
+  --tertiary-bg: #EAF0E9;
+  --bg: #F3EDE2;               /* 纸色（与 App 一致） */
+  --card: #FBF7EE;             /* 信纸亮面 */
+  --card-alt: #F1E9DA;
+  --surface: #EDE4D2;
+  --surface-high: #E6DCC6;
+  --text: #1F2A29;             /* 墨色 */
+  --text-2: #776F63;
+  --border: #D9CFBE;           /* 发丝线 */
+  --outline: #857B6E;
+  --radius: 4px;
+  --warm: #EAE0CB;
+  --warm-bg: #F4EDDD;
+  /* 家书专用 */
+  --seal: #B23E2D;             /* 朱砂：印章、喜事 */
+  --seal-fg: #F8EDE0;
+  --seal-line: #C9705F;
+  --rule2: #2B3432;            /* 双线 */
+  --huang: #A87B12;            /* 藤黄：纪念日 */
+}
+
+/* ---------- 页面底：纸色 + 淡淡的信纸横线 ---------- */
+html:not([data-theme="classic"]) body {
+  background:
+    repeating-linear-gradient(to bottom,
+      transparent 0 34px,
+      color-mix(in srgb, var(--border) 50%, transparent) 34px 35px),
+    var(--bg);
+}
+
+/* ---------- 标题字距：家书标题靠字号、粗细与字距 ---------- */
+html:not([data-theme="classic"]) h1,
+html:not([data-theme="classic"]) h2 { letter-spacing: 0.06em; }
+html:not([data-theme="classic"]) h3 { letter-spacing: 0.03em; }
+
+/* ---------- 按钮与小件：统一 4px 方角 ---------- */
+html:not([data-theme="classic"]) :is(
+  .btn, .btn-lg, .btn-big, .nav a, .nav-btn, .menu-btn,
+  input, select, textarea,
+  .card, .modal, .note, .ok, .err, .copybox-text, .invite-code, .donate-qr,
+  .tag, .scene-card, .sc-card, .sc-msg-bub, .sc-done, .cal,
+  .gxia-card, .home-privacy, .privacy-points li,
+  .feature-list li, .feature-ico,
+  .family-demo, .family-demo-tabs button, .family-demo-viewport,
+  .family-demo-node, .family-demo-detail, .family-demo-cta,
+  .kin-stage, .kin-chip, .float-card, .ext-qr img, .ext-ico, .ext-appicon,
+  .admin-nav a, .theme-switch
+) { border-radius: 4px; }
+
+html:not([data-theme="classic"]) .btn { font-weight: 600; letter-spacing: 1px; }
+html:not([data-theme="classic"]) .btn-primary.btn-lg { box-shadow: none; }
+html:not([data-theme="classic"]) .btn-soft { border-color: var(--border); }
+
+/* ---------- 页头：平底发丝线；导航选中 = 朱砂下划线 ---------- */
+html:not([data-theme="classic"]) .site-header {
+  box-shadow: 0 1px 0 var(--border);
+}
+html:not([data-theme="classic"]) .nav a.active {
+  background: none;
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--seal);
+}
+html:not([data-theme="classic"]) .nav a.nav-lang { border-radius: 2px; }
+
+/* ---------- 主题切换器（样式同时是两主题的活示例） ---------- */
+.theme-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 0.4em;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+.theme-switch button {
+  appearance: none;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13.5px;
+  color: var(--text-2);
+  padding: 0.32em 0.85em;
+  min-height: 34px;
+  border-radius: 999px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+}
+.theme-switch button.on {
+  background: var(--primary-bg);
+  color: var(--on-primary-bg);
+  font-weight: 600;
+}
+@media (max-width: 720px) {
+  .nav .theme-switch { margin: 0.4em 0 0; align-self: center; }
+}
+
+html:not([data-theme="classic"]) .theme-switch button { border-radius: 3px; }
+html:not([data-theme="classic"]) .theme-switch button.on {
+  background: transparent;
+  color: var(--text);
+  font-weight: 700;
+  box-shadow: inset 0 -2px 0 var(--seal);
+}
+
+/* ---------- 便笺：内容卡顶部一条细双线 ---------- */
+html:not([data-theme="classic"]) :is(.card, .scene-card, .home-privacy, .gxia-card, .family-demo) {
+  position: relative;
+}
+html:not([data-theme="classic"]) :is(.card, .scene-card, .home-privacy, .gxia-card, .family-demo)::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 6px;
+  height: 3px;
+  border-top: 1px solid var(--rule2);
+  border-bottom: 1px solid var(--rule2);
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---------- kicker：朱砂小字签，不再用胶囊底 ---------- */
+html:not([data-theme="classic"]) .kicker {
+  background: transparent;
+  color: var(--seal);
+  font-weight: 700;
+  letter-spacing: 3px;
+  padding-left: 0;
+  border-radius: 0;
+}
+html:not([data-theme="classic"]) .kicker svg { color: var(--seal); }
+
+/* ---------- 首屏：左栏一封信 ---------- */
+html:not([data-theme="classic"]) .home-hero .hero-copy {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: clamp(24px, 3vw, 44px) clamp(22px, 3vw, 46px) 76px;
+}
+/* 信封式双线压顶 */
+html:not([data-theme="classic"]) .home-hero .hero-copy::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 9px;
+  height: 4px;
+  border-top: 1px solid var(--rule2);
+  border-bottom: 1px solid var(--rule2);
+  opacity: 0.5;
+  pointer-events: none;
+}
+/* 标题纯墨色；第二行尾盖一枚朱砂「家」印 */
+html:not([data-theme="classic"]) .hero-copy h1 .accent { color: var(--text); }
+html:not([data-theme="classic"]) .hero-copy h1 .accent::after {
+  content: "家";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.95em;
+  height: 0.95em;
+  margin-left: 0.25em;
+  background: var(--seal);
+  color: var(--seal-fg);
+  font-size: 0.55em;
+  font-weight: 700;
+  border-radius: 3px;
+  transform: rotate(-4deg);
+  vertical-align: 0.45em;
+}
+/* 信末落款：手写体签名 */
+html:not([data-theme="classic"]) .home-hero .hero-copy::after {
+  content: "家人侠 敬上";
+  position: absolute;
+  right: 30px;
+  bottom: 20px;
+  font-family: "KaiTi", "STKaiti", "Kaiti SC", "BiauKai", serif;
+  font-size: 17px;
+  letter-spacing: 3px;
+  color: var(--text-2);
+  transform: rotate(-2deg);
+}
+html:not([data-theme="classic"]) .hero-status .dot,
+html:not([data-theme="classic"]) .hero-status.is-ok .dot {
+  background: var(--seal);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--seal) 16%, transparent);
+}
+/* 手机外框换成墨框 */
+html:not([data-theme="classic"]) .phone { background: #33302B; }
+
+/* ---------- 场景卡 ---------- */
+html:not([data-theme="classic"]) .sc-msg-av {
+  border-radius: 4px;
+  background: var(--secondary-bg);
+  color: var(--text-2);
+}
+html:not([data-theme="classic"]) .scene-tags .tag {
+  background: transparent;
+  color: var(--seal);
+  border: 1px solid var(--seal-line);
+}
+
+/* ---------- 称谓/标签细框 ---------- */
+html:not([data-theme="classic"]) .tag {
+  border-radius: 2px;
+  background: transparent;
+  color: var(--seal);
+  border-color: var(--seal-line);
+}
+
+/* ---------- 隐私：朱砂方印做标记 ---------- */
+html:not([data-theme="classic"]) .privacy-mark {
+  border-radius: 4px;
+  background: var(--seal);
+  color: var(--seal-fg);
+  transform: rotate(-4deg);
+}
+
+/* ---------- 一家人演示 ---------- */
+html:not([data-theme="classic"]) .family-demo-tabs button.is-active {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--seal);
+  font-weight: 700;
+}
+html:not([data-theme="classic"]) .family-demo-eyebrow { color: var(--seal); }
+html:not([data-theme="classic"]) .family-demo-hint { border-radius: 2px; }
+html:not([data-theme="classic"]) .family-demo-viewport,
+html:not([data-theme="classic"]) .family-demo-stage { background: var(--card); }
+html:not([data-theme="classic"]) .family-demo-node {
+  box-shadow: none;
+}
+html:not([data-theme="classic"]) .family-demo-node.is-selected {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--node-tone) 25%, transparent);
+}
+html:not([data-theme="classic"]) .family-demo-surname { border-radius: 2px; }
+html:not([data-theme="classic"]) .family-demo-detail-name span { color: var(--seal); }
+html:not([data-theme="classic"]) .family-demo .tone-self { --node-tone: var(--seal); }
+
+/* ---------- 称谓推导演示（帮助页） ---------- */
+html:not([data-theme="classic"]) .kin-chip[aria-pressed="true"] {
+  background: transparent;
+  color: var(--seal);
+  border-color: var(--seal);
+  font-weight: 700;
+}
+html:not([data-theme="classic"]) .kin-node.is-me {
+  background: var(--seal);
+  color: var(--seal-fg);
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4.5px var(--seal);
+}
+html:not([data-theme="classic"]) .kin-node.is-target {
+  box-shadow: 0 0 0 2px var(--card), 0 0 0 4.5px var(--primary);
+}
+
+/* ---------- 表单：只留方角，手感不变 ---------- */
+html:not([data-theme="classic"]) :focus-visible {
+  outline-color: var(--seal);
+}

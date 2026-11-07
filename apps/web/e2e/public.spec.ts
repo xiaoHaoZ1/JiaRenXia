@@ -165,7 +165,8 @@ test("系统深色模式下官网仍为浅色", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/");
   const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  expect(bg).toBe("rgb(253, 248, 242)");
+  // 默认「家书」主题，纸色底
+  expect(bg).toBe("rgb(243, 237, 226)");
 });
 
 test("页脚有源代码链接", async ({ page }) => {

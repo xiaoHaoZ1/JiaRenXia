@@ -3,6 +3,7 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import App from "./App";
 import "./styles.css";
+import "./theme-jiashu.css";
 
 const root = document.getElementById("root")!;
 const app = (
