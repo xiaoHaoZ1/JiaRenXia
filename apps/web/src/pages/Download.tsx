@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { downloadSourceFromSearch, type WebDownloadSource } from "../downloadSource";
 import { useLang, useTo } from "../i18n";
-import { APK_BETA, SITE } from "../site";
+import { APK_BETA, APK_DEMO, SITE } from "../site";
 
 const T = {
   zh: {
@@ -25,6 +25,16 @@ const T = {
     requirement: "系统要求：Android 8.0 及以上",
     downloadBeta: "下载测试版",
     betaMissing: "暂无测试版可下载。",
+    demoTitle: "Android 演示版（预装示例家谱）",
+    demoIntro:
+      "打开就能看到一份完整的明朝示例家谱，不用先录数据就能试用全部功能。" +
+      "它是独立应用（图标名「家人侠-演示版」），与正式版、测试版可同时安装；" +
+      "碰一碰只能和演示版配对；「我的 → 重置演示数据」随时恢复初始数据。",
+    demoPick:
+      "一台手机试用装「朱棣」（家人更多）；拍「碰一碰结为夫妻」时：" +
+      "一部手机装朱棣，另一部装徐皇后。",
+    downloadDemoGroom: "下载演示版 · 朱棣",
+    downloadDemoBride: "下载演示版 · 徐皇后",
     sourcePre: "家人侠和守护侠的源代码以 GPL-3.0 协议公开：",
     sourceJrx: "家人侠",
     sourceShx: "守护侠",
@@ -54,6 +64,17 @@ const T = {
     requirement: "Requirement: Android 8.0+",
     downloadBeta: "Download beta",
     betaMissing: "No beta build available right now.",
+    demoTitle: "Android demo build (sample family included)",
+    demoIntro:
+      "Opens to a complete Ming-dynasty sample family — try every feature " +
+      "without entering data first. It's a separate app (\"JiaRenXia Demo\") " +
+      "that installs alongside the release and beta; tap-to-pair only works " +
+      "between demo builds; \"Me → Reset demo data\" restores the initial data anytime.",
+    demoPick:
+      "For a single phone, pick \"Zhu Di\" (more relatives). To film " +
+      "\"tap to become spouses\": install Zhu Di on one phone and Empress Xu on the other.",
+    downloadDemoGroom: "Download demo · Zhu Di",
+    downloadDemoBride: "Download demo · Empress Xu",
     sourcePre: "The source code of JiaRenXia and ShouHuXia is published under GPL-3.0: ",
     sourceJrx: "JiaRenXia",
     sourceShx: "ShouHuXia",
@@ -136,6 +157,42 @@ export default function Download() {
           <p className="muted">{t.betaMissing}</p>
         )}
       </div>
+      {APK_DEMO.version && (
+        <div className="card">
+          <h3>{t.demoTitle}</h3>
+          <p className="muted">{t.demoIntro}</p>
+          <ul className="plain">
+            <li>{t.version}{APK_DEMO.version}</li>
+            <li>{t.size}{(APK_DEMO.groom.sizeBytes / 1024 / 1024).toFixed(1)} MB</li>
+            <li>{t.requirement}</li>
+            <li>
+              SHA-256（{APK_DEMO.groom.label}）：
+              <code style={{ wordBreak: "break-all" }}>{APK_DEMO.groom.sha256}</code>
+            </li>
+            <li>
+              SHA-256（{APK_DEMO.bride.label}）：
+              <code style={{ wordBreak: "break-all" }}>{APK_DEMO.bride.sha256}</code>
+            </li>
+          </ul>
+          <p className="muted">{t.demoPick}</p>
+          <p>
+            <a
+              className="btn btn-soft btn-big"
+              href={APK_DEMO.groom.file + `?src=${downloadSource}`}
+              download
+            >
+              {t.downloadDemoGroom}
+            </a>{" "}
+            <a
+              className="btn btn-soft btn-big"
+              href={APK_DEMO.bride.file + `?src=${downloadSource}`}
+              download
+            >
+              {t.downloadDemoBride}
+            </a>
+          </p>
+        </div>
+      )}
       <p className="muted">
         {t.sourcePre}
         <a href={SITE.sourceUrl} target="_blank" rel="noopener">{t.sourceJrx}</a>

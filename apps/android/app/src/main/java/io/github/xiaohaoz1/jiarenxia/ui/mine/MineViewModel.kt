@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
+import io.github.xiaohaoz1.jiarenxia.data.demo.DemoSeed
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
@@ -56,8 +57,12 @@ class MineViewModel @Inject constructor(
     private val scheduler: ReminderScheduler,
     private val clearAll: ClearAllDataUseCase,
     private val backup: io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager,
-    private val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents
+    private val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
+    private val demoSeed: DemoSeed
 ) : ViewModel() {
+
+    /** 演示版「我」的展示名；非演示版为 null（「我的」页不显示重置入口）。 */
+    val demoDisplayName: String? = demoSeed.displayName()
 
     // ---------- 备份 / 恢复 ----------
 
@@ -179,6 +184,24 @@ class MineViewModel @Inject constructor(
         viewModelScope.launch {
             clearAll.run()
             cleared.value = true
+        }
+    }
+
+    // ---------- 演示版重置 ----------
+
+    private val _demoResetDone = MutableStateFlow(false)
+
+    /** 重置演示数据成功的一次性事件（界面收到后回到家庭标签）。 */
+    val demoResetDone: StateFlow<Boolean> = _demoResetDone
+
+    fun onDemoResetDone() { _demoResetDone.value = false }
+
+    /** 「我的 → 重置演示数据」：清空并重新导入内置演示家庭。 */
+    fun resetDemoData() {
+        viewModelScope.launch {
+            val ok = demoSeed.resetDemo()
+            message.value = if (ok) "已恢复演示数据" else "恢复失败，请重试"
+            if (ok) _demoResetDone.value = true
         }
     }
 }

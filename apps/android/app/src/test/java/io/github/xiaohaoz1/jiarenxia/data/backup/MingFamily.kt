@@ -29,7 +29,7 @@ internal object MingFamily {
     const val PASSWORD = "test1234"
     const val SELF_NAME = "朱棣"
 
-    private data class Spec(
+    data class Spec(
         val name: String,
         val gender: Gender,
         val birthday: PartialDate? = null,          // 公历
@@ -40,7 +40,7 @@ internal object MingFamily {
     )
 
     // 注意：anchor 必须先于本人出现（创建顺序即依赖顺序）
-    private val specs = listOf(
+    val specs = listOf(
         // ---------- 父母与祖辈 ----------
         Spec("朱元璋", Gender.MALE, PartialDate(1328, 10, 21), PartialDate(1398, 6, 24),
             "明太祖，年号洪武", anchor = "朱棣", role = RelationRole.FATHER),
@@ -181,7 +181,7 @@ internal object MingFamily {
     )
 
     /** 补边的三元组：addRelationship(anchor, person, role) 语义为“person 是 anchor 的 role”。 */
-    private val extraEdges = listOf(
+    val extraEdges = listOf(
         // 父母、岳父母互为夫妻（PARENT 边只指向孩子，夫妻需显式 SPOUSE）
         Triple("马皇后", "朱元璋", RelationRole.HUSBAND),
         Triple("谢氏", "徐达", RelationRole.HUSBAND),
@@ -290,7 +290,7 @@ internal object MingFamily {
 
     // ---------- 纯图构建 ----------
 
-    private fun relOf(person: String, anchor: String, role: RelationRole): Relationship {
+    fun relOf(person: String, anchor: String, role: RelationRole): Relationship {
         val spec = role.toRelationshipSpec(person, anchor)
         return Relationship(
             id = "r-$person-$anchor-${spec.type}",
@@ -301,8 +301,13 @@ internal object MingFamily {
         )
     }
 
-    /** 与真库一致的纯 FamilyGraph（姓名即 id）。 */
-    fun graph(): FamilyGraph {
+    /**
+     * 与真库一致的纯 FamilyGraph（姓名即 id）。
+     * [keep] 非空时只保留名单内的人物与两端都在名单内的补边
+     * （演示版新郎家庭 = 全量规格裁掉妻族与儿女孙辈两支）。
+     */
+    fun graph(keep: Set<String>? = null): FamilyGraph {
+        val active = specs.filter { keep == null || it.name in keep }
         val persons = mutableListOf(
             Person(
                 id = SELF_NAME, name = SELF_NAME, gender = Gender.MALE,
@@ -312,7 +317,7 @@ internal object MingFamily {
         val rels = mutableListOf<Relationship>()
         val birthdays = mutableMapOf<String, PartialDate>()
         birthdays[SELF_NAME] = PartialDate(1360, 5, 2)
-        for (sp in specs) {
+        for (sp in active) {
             persons += Person(
                 id = sp.name, name = sp.name, gender = sp.gender,
                 // 有卒年者为已故；无卒年者演示中按在世处理
@@ -322,7 +327,11 @@ internal object MingFamily {
             sp.birthday?.let { birthdays[sp.name] = it }
             rels += relOf(sp.name, sp.anchor, sp.role)
         }
-        extraEdges.forEach { (anchor, person, role) -> rels += relOf(person, anchor, role) }
+        extraEdges.forEach { (anchor, person, role) ->
+            if (keep == null || (anchor in keep && person in keep)) {
+                rels += relOf(person, anchor, role)
+            }
+        }
         return FamilyGraph(persons, rels, birthdays)
     }
 
@@ -337,7 +346,13 @@ internal object MingFamily {
      * 明代年份超出表单的 1800..今年 校验，故生卒/结婚日期一律直写 important_dates
      * （与下方家事任务同样绕过 UI 层校验——本文件就是测试夹具，不走表单）。
      */
-    suspend fun seed(repo: FamilyRepositoryImpl, db: AppDatabase): Map<String, String> {
+    suspend fun seed(
+        repo: FamilyRepositoryImpl,
+        db: AppDatabase,
+        /** 非空时只建名单内人物；补边两端都在名单内才保留（见 [graph]）。 */
+        keep: Set<String>? = null
+    ): Map<String, String> {
+        val active = specs.filter { keep == null || it.name in keep }
         val ids = mutableMapOf<String, String>()
         ids[SELF_NAME] = repo.createSelf(
             PersonDraft(
@@ -345,7 +360,10 @@ internal object MingFamily {
                 note = "明成祖，年号永乐"
             )
         ).ok()
-        for (sp in specs) {
+        for (sp in active) {
+            require(ids.containsKey(sp.anchor)) {
+                "anchor ${sp.anchor} 不在保留名单内（${sp.name}）"
+            }
             val draft = PersonDraft(
                 name = sp.name, gender = sp.gender,
                 note = sp.note,
@@ -355,7 +373,9 @@ internal object MingFamily {
             ids[sp.name] = repo.createRelative(draft, ids[sp.anchor]!!, sp.role).ok()
         }
         for ((anchor, person, role) in extraEdges) {
-            repo.addRelationship(ids[anchor]!!, ids[person]!!, role).ok()
+            if (keep == null || (anchor in keep && person in keep)) {
+                repo.addRelationship(ids[anchor]!!, ids[person]!!, role).ok()
+            }
         }
 
         // 全部日期直写表：生日 BIRTHDAY_SOLAR、忌日 DEATH_ANNIVERSARY、
@@ -373,7 +393,7 @@ internal object MingFamily {
             dateEntity("d-zd-b", SELF_NAME, ImportantDateType.BIRTHDAY_SOLAR,
                 PartialDate(1360, 5, 2))
         )
-        specs.forEachIndexed { i, sp ->
+        active.forEachIndexed { i, sp ->
             sp.birthday?.let {
                 dateDao.insert(
                     dateEntity("d-$i-b", sp.name, ImportantDateType.BIRTHDAY_SOLAR, it)
@@ -385,36 +405,40 @@ internal object MingFamily {
                 )
             }
         }
-        dateDao.insert(
-            dateEntity("d-xu-wed", "徐皇后", ImportantDateType.WEDDING_ANNIVERSARY,
-                PartialDate(1376, 3, 1))
-        )
+        if (keep == null || "徐皇后" in keep) {
+            dateDao.insert(
+                dateEntity("d-xu-wed", "徐皇后", ImportantDateType.WEDDING_ANNIVERSARY,
+                    PartialDate(1376, 3, 1))
+            )
+        }
 
-        // 一条演示家事：给父皇备祭
-        val today = java.time.LocalDate.now()
-        val taskId = "task-ming-xiaoling"
-        db.familyTaskDao().insertAll(
-            listOf(
-                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
-                    id = taskId, personId = ids["朱元璋"],
-                    kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CUSTOM.name,
-                    title = "筹备明孝陵祭礼",
-                    anchorEpochDay = today.plusDays(12).toEpochDay(),
-                    repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE.name,
-                    periodIndex = 0, lastDoneEpochDay = null,
-                    done = false, amountFen = null,
-                    note = "供果仪程已拟",
-                    enabled = true, createdAt = 1, updatedAt = 1
+        // 一条演示家事：给父皇备祭（朱元璋不在保留名单时跳过）
+        ids["朱元璋"]?.let { fatherId ->
+            val today = java.time.LocalDate.now()
+            val taskId = "task-ming-xiaoling"
+            db.familyTaskDao().insertAll(
+                listOf(
+                    io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
+                        id = taskId, personId = fatherId,
+                        kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CUSTOM.name,
+                        title = "筹备明孝陵祭礼",
+                        anchorEpochDay = today.plusDays(12).toEpochDay(),
+                        repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE.name,
+                        periodIndex = 0, lastDoneEpochDay = null,
+                        done = false, amountFen = null,
+                        note = "供果仪程已拟",
+                        enabled = true, createdAt = 1, updatedAt = 1
+                    )
                 )
             )
-        )
-        db.familyTaskOffsetDao().insertAll(
-            listOf(
-                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
-                    taskId + "-o0", taskId, 0
+            db.familyTaskOffsetDao().insertAll(
+                listOf(
+                    io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
+                        taskId + "-o0", taskId, 0
+                    )
                 )
             )
-        )
+        }
 
         return ids
     }

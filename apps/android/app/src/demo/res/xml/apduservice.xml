@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 演示版专用碰一碰 AID：F04A52580002。
+     与正式版/测试版的 F04A52580001 错开——演示版常与装了正式版的手机
+     同机共存，同 AID 会被系统路由到正式版；演示版只与另一份演示版互碰。 -->
+<host-apdu-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/tap_service_desc"
+    android:requireDeviceUnlock="false"
+    android:apduServiceBanner="@drawable/ic_launcher_foreground">
+    <aid-group android:category="other" android:description="@string/tap_aid_desc">
+        <aid-filter android:name="F04A52580002" />
+    </aid-group>
+</host-apdu-service>

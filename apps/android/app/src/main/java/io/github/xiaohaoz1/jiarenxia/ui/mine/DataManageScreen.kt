@@ -137,7 +137,9 @@ fun DataManageScreen(
 
     DataManageContent(
         lastBackupAt = st.lastBackupAt,
-        testToolsVisible = BuildConfig.DEBUG || testToolsEnabled,
+        // 演示版（DEMO_ROLE 非空）整体隐藏测试工具，避免演示时入镜
+        testToolsVisible = (BuildConfig.DEBUG || testToolsEnabled) &&
+            BuildConfig.DEMO_ROLE.isEmpty(),
         onBack = onBack,
         onBackup = viewModel.backupExport::start,
         onRestore = { restoreLauncher.launch(arrayOf("*/*")) },
@@ -297,7 +299,8 @@ fun DataManageContent(
                 onImportDemo = onImportDemo
             )
         }
-        if (BuildConfig.DEBUG) {
+        // 调试组同样对演示版隐藏（demo 变体 DEBUG 为真也不入镜）
+        if (BuildConfig.DEBUG && BuildConfig.DEMO_ROLE.isEmpty()) {
             SettingsGroup("调试（仅 debug 构建）") {
                 SettingsNavRow(
                     icon = Icons.Rounded.NotificationsActive,
