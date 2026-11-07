@@ -2765,7 +2765,7 @@ class ScreenShotsTest {
         }
         return io.github.xiaohaoz1.jiarenxia.ui.elder.ElderUiState(
             loading = false,
-            headerLine = "11月7日 星期六 · 农历十月廿七",
+            headerLine = "11月7日 星期六 · 农历九月廿九",
             upcoming = upcoming,
             members = members,
             defaultNumbers = mapOf("dad" to "13800001111", "mom" to "13900002222",

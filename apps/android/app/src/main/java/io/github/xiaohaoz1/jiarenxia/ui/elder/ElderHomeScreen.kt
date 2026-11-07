@@ -93,6 +93,8 @@ fun ElderHomeContent(
     modifier: Modifier = Modifier
 ) {
     val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
+    // 与家事页一致的水平边距：「经典」卡片外边距 16dp，「家书」行内容 24dp
+    val sidePad = if (jiashu) 24.dp else 16.dp
     val today = LocalDate.now()
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -104,25 +106,36 @@ fun ElderHomeContent(
         ) {
             item {
                 PageHeader {
-                    Text(
-                        "我的家人",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    if (state.headerLine.isNotEmpty()) {
+                    Column {
                         Text(
-                            state.headerLine,
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 4.dp)
+                            "我的家人",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
                         )
+                        if (state.headerLine.isNotEmpty()) {
+                            Text(
+                                state.headerLine,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            item { SectionHeader("最近的日子") }
             item {
-                ElderCard(jiashu) {
+                SectionHeader(
+                    "最近的日子",
+                    modifier = Modifier.padding(horizontal = sidePad))
+            }
+            item {
+                ElderCard(
+                    jiashu,
+                    Modifier.padding(
+                        horizontal = sidePad,
+                        vertical = if (jiashu) 0.dp else 6.dp)
+                ) {
                     if (state.upcoming.isEmpty()) {
                         Text(
                             "最近 30 天没有要记的日子",
@@ -146,11 +159,15 @@ fun ElderHomeContent(
                 }
             }
 
-            item { SectionHeader("家人") }
+            item {
+                SectionHeader(
+                    "家人",
+                    modifier = Modifier.padding(horizontal = sidePad))
+            }
             itemsIndexed(state.members, key = { _, m -> m.personId }) { i, member ->
                 val phone = state.defaultNumbers[member.personId]
                 if (jiashu) {
-                    Column {
+                    Column(Modifier.padding(horizontal = sidePad)) {
                         if (i > 0) ElderHairline()
                         ElderMemberRow(
                             member = member,
@@ -162,7 +179,9 @@ fun ElderHomeContent(
                     }
                 } else {
                     JrxCard(
-                        modifier = Modifier.padding(bottom = 8.dp),
+                        modifier = Modifier
+                            .padding(horizontal = sidePad)
+                            .padding(bottom = 8.dp),
                         onClick = { onOpenPerson(member.personId) }
                     ) {
                         ElderMemberRow(
@@ -176,18 +195,26 @@ fun ElderHomeContent(
                 }
             }
 
-            item { ElderExitHold(onExit = onExit) }
+            item {
+                ElderExitHold(
+                    onExit = onExit,
+                    modifier = Modifier.padding(horizontal = sidePad))
+            }
         }
     }
 }
 
 /** 「家书」发丝线裸列 / 「经典」JrxCard 的统一容器。 */
 @Composable
-internal fun ElderCard(jiashu: Boolean, content: @Composable ColumnScope.() -> Unit) {
+internal fun ElderCard(
+    jiashu: Boolean,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
     if (jiashu) {
-        Column(content = content)
+        Column(modifier = modifier, content = content)
     } else {
-        JrxCard { Column(content = content) }
+        JrxCard(modifier = modifier) { Column(content = content) }
     }
 }
 
@@ -197,7 +224,7 @@ internal fun ElderHairline() {
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
-/** “最近的日子”一行：左 72dp 日期列 + 标题/副标题 +（生日今天）打电话。 */
+/** “最近的日子”一行：左 96dp 日期列 + 标题/副标题 +（生日今天）打电话。 */
 @Composable
 private fun ElderUpcomingLine(
     row: ElderHome.UpcomingRow,
@@ -209,17 +236,19 @@ private fun ElderUpcomingLine(
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.width(72.dp)) {
+        Column(Modifier.width(96.dp)) {
             Text(
                 row.dayLabel,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
             )
             Text(
                 row.date.monthValue.toString() + "月" + row.date.dayOfMonth + "日",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1
             )
         }
         Spacer(Modifier.width(12.dp))
@@ -294,7 +323,7 @@ internal fun ElderMemberRow(
  * 视觉为居中描边按钮 + 细进度条。
  */
 @Composable
-private fun ElderExitHold(onExit: () -> Unit) {
+private fun ElderExitHold(onExit: () -> Unit, modifier: Modifier = Modifier) {
     var holding by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
     LaunchedEffect(holding) {
@@ -312,7 +341,7 @@ private fun ElderExitHold(onExit: () -> Unit) {
     }
     Box(
         contentAlignment = Alignment.Center,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
             .padding(top = 28.dp, bottom = 8.dp)
             .clip(RoundedCornerShape(20.dp))
             .border(

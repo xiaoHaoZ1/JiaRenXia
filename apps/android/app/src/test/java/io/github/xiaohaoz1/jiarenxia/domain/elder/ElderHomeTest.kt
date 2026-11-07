@@ -236,8 +236,9 @@ class ElderHomeTest {
 
     @Test
     fun 页头行含公历星期与农历() {
-        // 2026-11-07 是周六；农历以 IcuLunarCalendar 实际换算为准
-        val line = ElderHome.headerLine(today, lunar)
-        assertTrue(line.startsWith("11月7日 星期六 · 农历"))
+        // 2026-11-07 是周六，农历九月廿九
+        assertEquals(
+            "11月7日 星期六 · 农历九月廿九",
+            ElderHome.headerLine(today, lunar))
     }
 }
