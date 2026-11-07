@@ -89,6 +89,14 @@ interface SettingsRepository {
     val homeVisitHolidayNudge: Flow<Boolean>
     suspend fun setHomeVisitHolidayNudge(enabled: Boolean)
 
+    /**
+     * 长辈模式：只看家人、打电话和最近的日子，字号放大，不能改资料。默认关。
+     * 本机偏好，**不进备份**（避免在别的手机恢复时意外进入长辈模式）；
+     * 接口提供默认实现，测试假类无需逐个补。
+     */
+    val elderMode: Flow<Boolean> get() = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun setElderMode(enabled: Boolean) {}
+
     /** 是否已申请过通知权限（用于“先说明用途再申请”的引导）。 */
     val notificationPermissionRequested: Flow<Boolean>
     suspend fun setNotificationPermissionRequested(requested: Boolean)
@@ -228,6 +236,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyTombZhongyuanDay = intPreferencesKey("tomb_zhongyuan_day")
     private val keyTombExcluded = stringSetPreferencesKey("tomb_excluded_person_ids")
     private val keyHomeVisitNudge = booleanPreferencesKey("home_visit_holiday_nudge")
+    private val keyElderMode = booleanPreferencesKey("elder_mode")
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
     private val keyThemeStyle = stringPreferencesKey("theme_style")
@@ -362,6 +371,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
         dataStore.edit { it[keyHomeVisitNudge] = enabled }
+    }
+
+    override val elderMode: Flow<Boolean> =
+        dataStore.data.map { it[keyElderMode] ?: false }
+
+    override suspend fun setElderMode(enabled: Boolean) {
+        dataStore.edit { it[keyElderMode] = enabled }
     }
 
     override val notificationPermissionRequested: Flow<Boolean> =

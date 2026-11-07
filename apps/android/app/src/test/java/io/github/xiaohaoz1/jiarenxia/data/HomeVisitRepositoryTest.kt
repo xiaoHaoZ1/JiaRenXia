@@ -68,6 +68,15 @@ class HomeVisitRepositoryTest : RepoTestBase() {
     }
 
     @Test
+    fun updateMembers对不存在的计划静默返回() = runTest {
+        val (_, dad, _) = family()
+        // 计划已被并发删除：不抛异常，也不写成员行
+        homes.updateMembers("no-such-plan", listOf(dad))
+        assertTrue(homes.getHomes().isEmpty())
+        assertTrue(db.homeVisitMemberDao().getAll().isEmpty())
+    }
+
+    @Test
     fun logHomeVisit只给有效成员插见面记录() = runTest {
         val (me, dad, mom) = family()
         // 已故成员不记；本人不记（爷爷锚在爸爸下，避免“两个爸爸”）

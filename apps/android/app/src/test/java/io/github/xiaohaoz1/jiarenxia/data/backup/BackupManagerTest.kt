@@ -129,6 +129,10 @@ class BackupManagerTest : RepoTestBase() {
         override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
             homeVisitHolidayNudge.value = enabled
         }
+        override val elderMode = kotlinx.coroutines.flow.MutableStateFlow(false)
+        override suspend fun setElderMode(enabled: Boolean) {
+            elderMode.value = enabled
+        }
         override val lastBackupAt = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
         override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
         override suspend fun clear() {}
@@ -511,6 +515,37 @@ class BackupManagerTest : RepoTestBase() {
         assertEquals(7 * 60, fakeSettings.reminderMinuteOfDay.first())
         assertEquals(6 * 60, fakeSettings.taskReminderMinuteOfDay.first())
         assertEquals(22 * 60, fakeSettings.contactReminderMinuteOfDay.first())
+    }
+
+    /** 长辈模式是本机偏好：开启状态也不进备份，恢复也不改动它。 */
+    @Test
+    fun 长辈模式不进备份() = runTest {
+        seed()
+        fakeSettings.setElderMode(true)
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        val plain = BackupCrypto.decrypt(out.toByteArray(), pw)
+
+        // 直接检查 backup.json：settings 与顶层都不得出现 elder 相关键
+        val files = mutableMapOf<String, ByteArray>()
+        java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(plain)).use { z ->
+            var e = z.nextEntry
+            while (e != null) { files[e.name] = z.readBytes(); e = z.nextEntry }
+        }
+        val root = org.json.JSONObject(files["backup.json"]!!.decodeToString())
+        val settingsObj = root.getJSONObject("settings")
+        val keys = settingsObj.keys().asSequence().toList() +
+            root.keys().asSequence().toList()
+        assertTrue(
+            "备份 JSON 不应包含 elder 相关键: " +
+                keys.filter { it.contains("elder", ignoreCase = true) },
+            keys.none { it.contains("elder", ignoreCase = true) }
+        )
+
+        // 恢复流程同样不触碰 elderMode（BackupSettings 无此字段）
+        val plan = BackupJson.parsePlan(plain)
+        backup.restore(plan)
+        assertEquals(true, fakeSettings.elderMode.first())
     }
 
     @Test

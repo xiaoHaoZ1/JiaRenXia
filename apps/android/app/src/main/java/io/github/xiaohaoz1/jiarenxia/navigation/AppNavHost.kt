@@ -12,11 +12,14 @@ import androidx.compose.runtime.getValue
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import androidx.navigation.NavType
 import androidx.navigation.compose.currentBackStackEntryAsState
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -69,6 +72,11 @@ object Routes {
     const val SETTINGS_TOMB = "settings/tomb"
     /** 提醒设置 → 回家看看（家与周期、节前提醒）。 */
     const val SETTINGS_HOME = "settings/home"
+    /** 长辈模式：首页（只读）。 */
+    const val ELDER_HOME = "elder/home"
+    /** 长辈模式：人物只读详情。 */
+    const val ELDER_PERSON = "elder/person/{personId}"
+    fun elderPerson(id: String) = "elder/person/" + id
     const val PERSON = "person/{personId}"
     const val PERSON_EDIT = "person/{personId}/edit"
     const val PERSON_RELATE = "person/{personId}/relate"
@@ -120,6 +128,8 @@ fun taskEdit(
 @Composable
 fun AppNavHost(
     startRoute: String,
+    /** 长辈模式开关（MainActivity 收集 settings.elderMode）；true 且已有“我”时走独立长辈导航。 */
+    elderMode: StateFlow<Boolean> = kotlinx.coroutines.flow.MutableStateFlow(false),
     pendingPersonId: StateFlow<String?>,
     onPendingConsumed: () -> Unit,
     pendingTaskId: StateFlow<String?> = kotlinx.coroutines.flow.MutableStateFlow(null),
@@ -156,6 +166,27 @@ fun AppNavHost(
     val appNavViewModel: AppNavViewModel = hiltViewModel()
     /** 详情页 → 底部标签切换请求（“查看全部”去家事页）。 */
     val tabRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
+
+    // 长辈模式：已有“我”时整站切换为只读长辈导航（不渲染 MainShell 与编辑/设置路由）；
+    // 退出（elderMode=false）自动回到正常主界面
+    val elder by elderMode.collectAsStateWithLifecycle()
+    val hasSelf by appNavViewModel.hasSelfFlow.collectAsStateWithLifecycle()
+    if (elder && hasSelf) {
+        ElderNavHost(
+            appNavViewModel = appNavViewModel,
+            pendingPersonId = pendingPersonId,
+            onPendingConsumed = onPendingConsumed,
+            pendingTaskId = pendingTaskId,
+            onTaskPendingConsumed = onTaskPendingConsumed,
+            pendingTab = pendingTab,
+            onTabPendingConsumed = onTabPendingConsumed,
+            pendingShareUri = pendingShareUri,
+            onSharePendingConsumed = onSharePendingConsumed,
+            pendingShareText = pendingShareText,
+            onShareTextPendingConsumed = onShareTextPendingConsumed
+        )
+        return
+    }
 
     // 通知深链：路由完成（已有“我”）后，从任意页面跳到对应人物详情；
     // 启动页/欢迎页/引导页期间不消费
@@ -668,4 +699,13 @@ class AppNavViewModel @javax.inject.Inject constructor(
     /** 是否已有“我”（共享文件消费策略：新装允许直接进导入页）。 */
     suspend fun hasSelf(): Boolean =
         repository.observeSelf().first() != null
+
+    /** “我”是否存在的持续流（长辈模式导航门控；清空数据后自动退出长辈导航）。 */
+    val hasSelfFlow: kotlinx.coroutines.flow.StateFlow<Boolean> =
+        repository.observeSelf()
+            .map { it != null }
+            .stateIn(
+                viewModelScope,
+                kotlinx.coroutines.flow.SharingStarted.Eagerly, true
+            )
 }

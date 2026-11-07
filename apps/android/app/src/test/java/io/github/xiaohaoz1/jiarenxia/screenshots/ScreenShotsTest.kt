@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -71,6 +72,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.unit.dp
 import io.github.xiaohaoz1.jiarenxia.ui.person.CustomTitleDialog
 import io.github.xiaohaoz1.jiarenxia.ui.person.CustomTitleDialogBody
@@ -1876,10 +1878,11 @@ class ScreenShotsTest {
             themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
             widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
             fontScaleFactor = 1.0f,
+            elderMode = false,
             onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
-            onFontScale = {}, onBack = {}
+            onFontScale = {}, onElderMode = {}, onBack = {}
         )
-    }.also { assertTexts("家书", "经典", "浅色", "字号 100%", "桌面插件配色") }
+    }.also { assertTexts("家书", "经典", "浅色", "字号 100%", "桌面插件配色", "长辈模式") }
 
     /** 外观页·经典：分段按钮保持不变。 */
     @Test
@@ -1892,10 +1895,11 @@ class ScreenShotsTest {
             themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
             widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
             fontScaleFactor = 1.0f,
+            elderMode = false,
             onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
-            onFontScale = {}, onBack = {}
+            onFontScale = {}, onElderMode = {}, onBack = {}
         )
-    }.also { assertTexts("家书", "经典", "浅色", "字号 100%", "桌面插件配色") }
+    }.also { assertTexts("家书", "经典", "浅色", "字号 100%", "桌面插件配色", "长辈模式") }
 
     @Test
     fun about() = shot("about") {
@@ -2719,5 +2723,249 @@ class ScreenShotsTest {
     }.also {
         assertTexts("和我结为夫妻（合并两家）")
     }
+
+    // ---------- 长辈模式（FAMILY_AFFAIRS 21）：截图按 ×1.3 字号渲染（shotLarge） ----------
+
+    /** 长辈首页演示数据：今天孙子生日（有号码）、+5 天忌日、+20 天清明节；6 位家人。 */
+    private fun elderHomeState(
+        emptyUpcoming: Boolean = false
+    ): io.github.xiaohaoz1.jiarenxia.ui.elder.ElderUiState {
+        val t = java.time.LocalDate.now()
+        val upcoming = if (emptyUpcoming) emptyList()
+        else listOf(
+            io.github.xiaohaoz1.jiarenxia.domain.elder.ElderHome.UpcomingRow(
+                kind = io.github.xiaohaoz1.jiarenxia.domain.elder
+                    .ElderHome.UpcomingKind.BIRTHDAY,
+                date = t, dayLabel = "今天",
+                title = "孙子的生日", subtitle = "小宝 · 农历八月十五 · 6 岁",
+                personId = "sun"),
+            io.github.xiaohaoz1.jiarenxia.domain.elder.ElderHome.UpcomingRow(
+                kind = io.github.xiaohaoz1.jiarenxia.domain.elder
+                    .ElderHome.UpcomingKind.DATE,
+                date = t.plusDays(5), dayLabel = "5天后",
+                title = "爷爷的忌日", subtitle = "3 周年",
+                personId = "gf"),
+            io.github.xiaohaoz1.jiarenxia.domain.elder.ElderHome.UpcomingRow(
+                kind = io.github.xiaohaoz1.jiarenxia.domain.elder
+                    .ElderHome.UpcomingKind.TOMB,
+                date = t.plusDays(20), dayLabel = "20天后",
+                title = "清明节", subtitle = "给爷爷、奶奶上坟")
+        )
+        val members = listOf(
+            Triple("dad", "爸爸", "杨建国"),
+            Triple("mom", "妈妈", "李秀英"),
+            Triple("gf", "爷爷", "杨德福"),
+            Triple("gm", "奶奶", "王秀兰"),
+            Triple("sun", "孙子", "小宝"),
+            Triple("uncle", "杨国强", "杨国强")
+        ).mapIndexed { i, (id, label, name) ->
+            io.github.xiaohaoz1.jiarenxia.domain.elder.ElderHome.MemberRow(
+                personId = id, label = label, name = name,
+                hasTitle = i < 5, avatarPath = null)
+        }
+        return io.github.xiaohaoz1.jiarenxia.ui.elder.ElderUiState(
+            loading = false,
+            headerLine = "11月7日 星期六 · 农历十月廿七",
+            upcoming = upcoming,
+            members = members,
+            defaultNumbers = mapOf("dad" to "13800001111", "mom" to "13900002222",
+                "sun" to "13700003333")
+        )
+    }
+
+    @Test
+    fun elderHome() = shotLarge("elder_home") {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeState(), onOpenPerson = {}, onCall = {}, onExit = {})
+    }.also {
+        // 退出控件在长列表底部（1.3 倍字号下需滚动），不断言其存在
+        assertTexts("我的家人", "最近的日子", "孙子的生日", "爷爷的忌日",
+            "清明节", "爸爸", "孙子")
+    }
+
+    @Test
+    fun elderHomeClassic() = shotLarge(
+        "elder_home_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeState(), onOpenPerson = {}, onCall = {}, onExit = {})
+    }.also { assertTexts("我的家人", "孙子的生日", "打电话") }
+
+    @Test
+    fun elderHomeEmpty() = shotLarge("elder_home_empty") {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeState(emptyUpcoming = true),
+            onOpenPerson = {}, onCall = {}, onExit = {})
+    }.also { assertTexts("最近 30 天没有要记的日子") }
+
+    @Test
+    fun elderHomeEmptyClassic() = shotLarge(
+        "elder_home_empty_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeState(emptyUpcoming = true),
+            onOpenPerson = {}, onCall = {}, onExit = {})
+    }.also { assertTexts("最近 30 天没有要记的日子") }
+
+    @Test
+    fun elderPerson() = shotLarge("elder_person") {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPersonContent(
+            state = io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPersonUiState(
+                loading = false, invalid = false,
+                name = "杨秀英", label = "妈妈", hasTitle = true,
+                phones = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPhoneRow(
+                        "13900002222", true),
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPhoneRow(
+                        "13600004444", false)
+                ),
+                birthdays = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderBirthdayRow(
+                        "农历八月十五", "还有 42 天"),
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderBirthdayRow(
+                        "阳历 5月20日，1960 年生", "今天")
+                )
+            ),
+            onBack = {})
+    }.also {
+        assertTexts("妈妈", "杨秀英", "电话", "生日", "主号码", "打电话",
+            "农历八月十五", "阳历 5月20日，1960 年生")
+    }
+
+    @Test
+    fun elderPersonClassic() = shotLarge(
+        "elder_person_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPersonContent(
+            state = io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPersonUiState(
+                loading = false, invalid = false,
+                name = "杨秀英", label = "妈妈", hasTitle = true,
+                phones = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPhoneRow(
+                        "13900002222", true),
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderPhoneRow(
+                        "13600004444", false)
+                ),
+                birthdays = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderBirthdayRow(
+                        "农历八月十五", "还有 42 天"),
+                    io.github.xiaohaoz1.jiarenxia.ui.elder.ElderBirthdayRow(
+                        "阳历 5月20日，1960 年生", "今天")
+                )
+            ),
+            onBack = {})
+    }.also { assertTexts("妈妈", "电话", "生日") }
+
+    /** 外观与字号页（含长辈模式组）。 */
+    @Test
+    fun elderAppearance() = shotLarge("elder_appearance") {
+        io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
+            themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
+            themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+            widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
+            fontScaleFactor = 1.0f, elderMode = false,
+            onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
+            onFontScale = {}, onElderMode = {}, onBack = {})
+    }.also { assertTexts("长辈模式", "字体大小") }
+
+    @Test
+    fun elderAppearanceClassic() = shotLarge(
+        "elder_appearance_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
+            themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
+            themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+            widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
+            fontScaleFactor = 1.0f, elderMode = false,
+            onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
+            onFontScale = {}, onElderMode = {}, onBack = {})
+    }.also { assertTexts("长辈模式", "字体大小") }
+
+    /** 交互验证：点「长辈模式」行弹出确认框，「开启」回调 onElderMode(true)。 */
+    @Test
+    fun elderConfirmDialogOpens() {
+        var confirmed: Boolean? = null
+        composeRule.setContent {
+            JiaRenXiaTheme(
+                style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU
+            ) {
+                androidx.compose.material3.Surface(
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.background,
+                    contentColor = androidx.compose.material3.MaterialTheme.colorScheme.onBackground
+                ) {
+                    io.github.xiaohaoz1.jiarenxia.ui.mine.AppearanceContent(
+                        themeMode = io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode.LIGHT,
+                        themeStyle = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+                        widgetThemeMode = io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode.SYSTEM,
+                        fontScaleFactor = 1.0f, elderMode = false,
+                        onThemeMode = {}, onThemeStyle = {}, onWidgetThemeMode = {},
+                        onFontScale = {}, onElderMode = { confirmed = it }, onBack = {})
+                }
+            }
+        }
+        // 组标题与行标题同为“长辈模式”：点有点击动作的那行
+        composeRule.onNode(hasText("长辈模式") and hasClickAction()).performClick()
+        composeRule.onNodeWithText("开启长辈模式？").assertExists()
+        composeRule.onNodeWithText("开启").performClick()
+        composeRule.waitForIdle()
+        check(confirmed == true) { "点「开启」应回调 onElderMode(true)，实际: $confirmed" }
+    }
+
+    /** 长辈模式开启确认框截图：AlertDialog 弹层无法被截图，渲染同款卡片内容。 */
+    private fun elderConfirmShot(
+        name: String,
+        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+    ) {
+        // 同 customTitleDialog 的做法：遮罩 + 圆角卡片 + 标题/正文/按钮行
+        shotLarge(name, style = style) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text(
+                            "开启长辈模式？",
+                            style = MaterialTheme.typography.headlineSmall
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        io.github.xiaohaoz1.jiarenxia.ui.mine
+                            .ElderModeConfirmDialogBody()
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(onClick = {}) { Text("开启") }
+                        }
+                    }
+                }
+            }
+        }.also {
+            assertTexts("开启长辈模式？", "只保留看家人", "退出长辈模式",
+                "取消", "开启")
+        }
+    }
+
+    @Test
+    fun elderConfirmDialog() = elderConfirmShot(
+        "elder_confirm",
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU)
+
+    @Test
+    fun elderConfirmDialogClassic() = elderConfirmShot(
+        "elder_confirm_classic",
+        io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC)
 
 }

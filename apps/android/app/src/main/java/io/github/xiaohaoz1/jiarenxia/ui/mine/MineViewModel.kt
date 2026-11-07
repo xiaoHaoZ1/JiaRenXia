@@ -32,6 +32,8 @@ data class MineUiState(
     val widgetThemeMode: WidgetThemeMode = WidgetThemeMode.SYSTEM,
     /** 应用内字号系数（相对系统字号），默认 1.0。 */
     val fontScaleFactor: Float = 1.0f,
+    /** 长辈模式开关（只读界面 + 大字号），默认关。 */
+    val elderMode: Boolean = false,
     val cleared: Boolean = false,
     /** 生日与纪念日提醒时刻（一天内分钟数，默认 09:00）。 */
     val reminderMinuteOfDay: Int = io.github.xiaohaoz1.jiarenxia.reminder.ReminderTiming.DEFAULT_MINUTE_OF_DAY,
@@ -107,6 +109,7 @@ class MineViewModel @Inject constructor(
         .combine(settings.lastBackupAt) { st, t -> st.copy(lastBackupAt = t) }
         .combine(message) { st, m -> st.copy(message = m) }
         .combine(settings.weddingWords) { st, w -> st.copy(weddingWords = w) }
+        .combine(settings.elderMode) { st, e -> st.copy(elderMode = e) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MineUiState())
 
     fun setRemindersEnabled(enabled: Boolean) {
@@ -121,6 +124,11 @@ class MineViewModel @Inject constructor(
     /** 联系提醒总开关。 */
     fun setContactRemindersEnabled(enabled: Boolean) {
         viewModelScope.launch { settings.setContactRemindersEnabled(enabled) }
+    }
+
+    /** 长辈模式开关（外观与字号页入口；退出在长辈模式页底部长按）。 */
+    fun setElderMode(enabled: Boolean) {
+        viewModelScope.launch { settings.setElderMode(enabled) }
     }
 
     /** 婚礼祝词（左词/右词）；落库前由 settings 归一化。 */

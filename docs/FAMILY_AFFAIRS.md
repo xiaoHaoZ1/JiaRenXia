@@ -574,3 +574,16 @@
 - **设置与备份**：`SettingsRepository` 新增 `homeVisitHolidayNudge`（默认开，`clear()` 清除）。备份新增可选键 `homeVisits`（`{id, intervalDays, createdAt, updatedAt, memberIds[]}`）与 settings 的 `homeVisitHolidayNudge`，均不升 schemaVersion、旧备份缺键按空/默认处理；恢复时丢弃指向不存在人物的成员。家人共享导出与碰一碰导入不含回家看看（私密数据不外发）。
 - **界面**：提醒设置页在「上坟提醒」组后加「回家看看」入口 → `settings/home`（摘要“家名 周期；…”，无家“未设置”）。`HomeVisitScreen` 每个家一组：家里有谁（选人对话框，新增第一个家时预勾选在世父母）、多久回去一次（五档周期）、上次回家、删除（确认后保留见面记录）；可再添加；「节前提醒」开关；页尾说明只有“见面”记录算回过家、提醒跟随「联系家人」。家事页「今天」段在联系家人之后显示到期的家（`HomeDueRow`，只在 `contactRemindersEnabled` 时计算，与联系提醒的显示门控一致），副标题加“N 个家该回去看看了”；经典行 `HomeVisitLine`（Home 图标 + “回家了”按钮）、家书 `JiashuHomeVisitLine`。点“回家了”给该家每位有效成员各记一条 VISIT 联系记录（同一事务），随后 Snackbar“已记下回家，{成员称谓}各记一次见面”。
 
+
+---
+
+## 21. 长辈模式（2026-11-07 确定）
+
+年轻人录资料、老人主要看：子女在老人手机上经「分享 → 接收 → 合并」导入家人资料（“我是谁”选老人，称谓按老人视角），然后开启长辈模式——只看家人、打电话、看最近的日子，字更大，不能改资料。
+
+- **设置**：`SettingsRepository.elderMode`（默认关，`clear()` 清除）。**不进备份**——避免在别的手机恢复时意外进入长辈模式。入口在「我的 → 外观与字号」页尾新增「长辈模式」组，点行弹确认框（说明适用场景与退出方式）→ `setElderMode(true)`。
+- **字号**：`MainActivity` 收集 elderMode；有效系数 = 长辈模式下 `max(用户系数, 1.3)`、否则用户系数（纯函数 `domain/FontFactor.kt` 的 `effectiveFontFactor`），再照旧乘系统 fontScale、上限 2.0。
+- **导航**：elderMode 为 true 且已有“我”时，`AppNavHost` 改用独立长辈导航（`navigation/ElderNavHost.kt`），只有 `elder/home` 与 `elder/person/{personId}` 两条只读路由，不渲染 MainShell 与任何编辑/设置页；elderMode 变 false（或清空数据使“我”消失）自动回到正常主界面。系统返回键在首页走默认行为退出 App。
+- **深链与分享**：人物通知深链在长辈模式下打开 `elder/person/{id}`（已故/不存在由详情页守卫退回首页）；事项/标签深链直接消费丢弃；收到家人共享文件或文本分享时不进接收流程，弹「收到家人资料，请先长按页面最下方『退出长辈模式』3 秒，再重新打开这个文件」并消费 pending。
+- **长辈首页**（`ui/elder/`，无底部导航）：页头“我的家人”+ 日期行（公历 + 星期 + 农历，`LunarCalendar.fromSolar` + `LunarFormat`）；「最近的日子」合并今天起 30 天内的生日（`UpcomingBirthdays.build`）、纪念日/忌日（`AffairTimeline.dateRows`）与上坟日（`TombCalendar.events`，窗口 30 天、`tombRemindersEnabled` 开时才产出，prefs 取设置），按日期排序、同日 生日 → 纪念日/忌日 → 上坟（`domain/elder/ElderHome.kt` 纯逻辑）。行 = 左 72dp 日期列（今天/明天/后天/N天后 + M月D日）+ 标题 + 副标题；今天生日且有默认号码时行尾「打电话」（ACTION_DIAL，不记联系）。「家人」列在世、非本人的全部家人（`overview.core + others` 顺序，UNRELATED 也列、标签用姓名），56dp 头像 + 称谓/姓名，有默认号码时行尾 56dp 圆形拨号钮（ACTION_DIAL，不弹「联系上了吗」、不记联系记录）；点行进只读详情。页尾居中描边控件「退出长辈模式（长按 3 秒）」：按住 3 秒进度条走满自动 `setElderMode(false)`，轻点/中途松手归零无动作。
+- **只读详情**：仅返回箭头 + 居中 96dp 头像 + 称谓/姓名；「电话」卡列全部有效号码（主号码在前、停用不显示，行尾「打电话」→ ACTION_DIAL，无号码显示“没有记电话”）；「生日」卡每条一行（阳历/农历 + 年份，行尾“今天”/“还有 N 天”）。不显示编辑、删除、事项、联系记录、关系入口；人物不存在或已故自动返回首页。

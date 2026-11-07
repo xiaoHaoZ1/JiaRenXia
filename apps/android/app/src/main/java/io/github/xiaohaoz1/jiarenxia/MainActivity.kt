@@ -64,6 +64,9 @@ class MainActivity : ComponentActivity() {
     /** 应用内字号系数（默认 1.0，与 themeMode 同样的 StateFlow 方式避免闪屏）。 */
     private val fontFactor = MutableStateFlow(1.0f)
 
+    /** 长辈模式（默认关）：字号下限 1.3 + 独立只读导航。 */
+    private val elderMode = MutableStateFlow(false)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splash = installSplashScreen()
         // 路由未就绪前保持系统启动页；就绪后按 startRoute 直达首页或进入启动动画
@@ -77,10 +80,12 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch { settings.themeMode.collect { themeMode.value = it } }
         lifecycleScope.launch { settings.themeStyle.collect { themeStyle.value = it } }
         lifecycleScope.launch { settings.fontScaleFactor.collect { fontFactor.value = it } }
+        lifecycleScope.launch { settings.elderMode.collect { elderMode.value = it } }
         setContent {
             val mode by themeMode.collectAsStateWithLifecycle()
             val style by themeStyle.collectAsStateWithLifecycle()
             val factor by fontFactor.collectAsStateWithLifecycle()
+            val elder by elderMode.collectAsStateWithLifecycle()
             val dark = isJrxDarkTheme(mode)
             // 系统栏图标对比度随实际深浅切换（edge-to-edge 下状态栏/导航栏透明）
             androidx.compose.runtime.SideEffect {
@@ -91,10 +96,14 @@ class MainActivity : ComponentActivity() {
                     else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 )
             }
-            // 应用内字号：在系统 fontScale 之上乘设置系数（上限 2.0）
+            // 应用内字号：在系统 fontScale 之上乘设置系数（长辈模式下限 1.3，上限 2.0）
             CompositionLocalProvider(
                 LocalDensity provides with(LocalDensity.current) {
-                    Density(density, (fontScale * factor).coerceAtMost(2.0f))
+                    Density(
+                        density,
+                        (fontScale * io.github.xiaohaoz1.jiarenxia.domain
+                            .effectiveFontFactor(factor, elder)).coerceAtMost(2.0f)
+                    )
                 }
             ) {
             JiaRenXiaTheme(mode = mode, style = style) {
@@ -102,6 +111,7 @@ class MainActivity : ComponentActivity() {
                 startRoute?.let { route ->
                     AppNavHost(
                         startRoute = route,
+                        elderMode = elderMode,
                         pendingPersonId = pendingPersonId,
                         onPendingConsumed = { pendingPersonId.value = null },
                         pendingTaskId = pendingTaskId,

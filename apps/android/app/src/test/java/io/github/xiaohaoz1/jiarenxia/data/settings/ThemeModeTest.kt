@@ -96,4 +96,24 @@ class ThemeModeTest {
             io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
             repo.themeStyle.first())
     }
+
+    @Test
+    fun 长辈模式默认关闭() = runBlocking {
+        assertEquals(false, repo.elderMode.first())
+    }
+
+    @Test
+    fun 长辈模式切换并持久化() = runBlocking {
+        repo.setElderMode(true)
+        assertEquals(true, repo.elderMode.first())
+        repo.setElderMode(false)
+        assertEquals(false, repo.elderMode.first())
+    }
+
+    @Test
+    fun 清空数据重置长辈模式() = runBlocking {
+        repo.setElderMode(true)
+        repo.clear()
+        assertEquals(false, repo.elderMode.first())
+    }
 }

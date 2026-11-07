@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -18,9 +19,13 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Elderly
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -52,10 +57,12 @@ fun AppearanceScreen(
         themeStyle = st.themeStyle,
         widgetThemeMode = st.widgetThemeMode,
         fontScaleFactor = st.fontScaleFactor,
+        elderMode = st.elderMode,
         onThemeMode = viewModel::setThemeMode,
         onThemeStyle = viewModel::setThemeStyle,
         onWidgetThemeMode = viewModel::setWidgetThemeMode,
         onFontScale = viewModel::setFontScaleFactor,
+        onElderMode = viewModel::setElderMode,
         onBack = onBack
     )
 }
@@ -66,13 +73,16 @@ fun AppearanceContent(
     themeStyle: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle,
     widgetThemeMode: WidgetThemeMode,
     fontScaleFactor: Float,
+    elderMode: Boolean,
     onThemeMode: (ThemeMode) -> Unit,
     onThemeStyle: (io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle) -> Unit,
     onWidgetThemeMode: (WidgetThemeMode) -> Unit,
     onFontScale: (Float) -> Unit,
+    onElderMode: (Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
+    var showElderConfirm by remember { mutableStateOf(false) }
     SettingsScaffold("外观与字号", onBack) {
         SettingsGroup("主题") {
             StyleOptions(
@@ -153,8 +163,46 @@ fun AppearanceContent(
             }
         }
         SettingsHint("字号对全 App 生效，不影响系统其他应用。")
+
+        SettingsGroup("长辈模式") {
+            SettingsNavRow(
+                icon = Icons.Rounded.Elderly,
+                title = "长辈模式",
+                subtitle = "只看家人、打电话和提醒，字更大，不能改资料",
+                arrow = false,
+                onClick = { showElderConfirm = true }
+            )
+        }
+        if (showElderConfirm) {
+            AlertDialog(
+                onDismissRequest = { showElderConfirm = false },
+                title = { Text("开启长辈模式？") },
+                text = { ElderModeConfirmDialogBody() },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showElderConfirm = false
+                        onElderMode(true)
+                    }) { Text("开启") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showElderConfirm = false }) {
+                        Text("取消")
+                    }
+                }
+            )
+        }
         Spacer(Modifier.height(16.dp))
     }
+}
+
+/** 长辈模式开启确认框的正文（截图测试直接渲染同款内容）。 */
+@Composable
+internal fun ElderModeConfirmDialogBody() {
+    Text(
+        "适合装在家里长辈的手机上：只保留看家人、打电话和最近的日子，" +
+            "字号放大，资料不能修改。\n\n" +
+            "要退出时，在长辈模式页面最下方长按「退出长辈模式」3 秒。"
+    )
 }
 
 /**

@@ -116,15 +116,14 @@ class HomeVisitRepositoryImpl @Inject constructor(
 
     override suspend fun updateMembers(id: String, memberIds: List<String>) {
         db.withTransaction {
+            // 先确认计划还在：并发删除后不写成员（避免撞外键）
+            val plan = planDao.get(id) ?: return@withTransaction
             memberDao.deleteForPlan(id)
             existingIds(memberIds).forEach { pid ->
                 memberDao.insertAll(
                     listOf(HomeVisitMemberEntity(planId = id, personId = pid)))
             }
-            // 计划行可能已被并发删除：成员写完后再确认计划还在
-            planDao.get(id)?.let {
-                planDao.update(it.copy(updatedAt = clock.now()))
-            }
+            planDao.update(plan.copy(updatedAt = clock.now()))
         }
     }
 
