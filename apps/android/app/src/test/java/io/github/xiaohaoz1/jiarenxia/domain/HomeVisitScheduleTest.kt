@@ -16,7 +16,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
 import io.github.xiaohaoz1.jiarenxia.data.HomePlan
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
@@ -28,13 +28,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** 回家看看提醒计算（Robolectric：节前候选要用 IcuLunarCalendar）。 */
+/** 回家看看提醒计算（节前候选要用农历查表）。 */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class HomeVisitScheduleTest {
 
     private val today: LocalDate = LocalDate.of(2026, 9, 18)
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
 
     private fun atNoon(d: LocalDate): Long =
         d.atTime(12, 0).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -315,17 +315,14 @@ class HomeVisitScheduleTest {
     @Test
     fun 节前_春节与国庆日期口径() {
         val ov = parentsOverview()
-        // 2027 春节：官方历法为 2027-02-06，但 IcuLunarCalendar（android.icu
-        // ChineseCalendar，与 App 内全部农历换算同一实现）该月朔算得
-        // 2027-02-07——此处按实现口径断言，偏差属平台历法层问题。
-        // today=2027-01-31 → target=2027-02-07 命中
-        val cnyToday = LocalDate.of(2027, 1, 31)
+        // 2027 春节 = 2027-02-06（天文台历表口径）；today=2027-01-30 → target=02-06 命中
+        val cnyToday = LocalDate.of(2027, 1, 30)
         val cnyHits = HomeVisitSchedule.preHoliday(
             freshHomeAt(ov, cnyToday, intervalDays = 90, elapsed = 60),
             ov, lunar, cnyToday)
         assertEquals(1, cnyHits.size)
-        assertEquals(LocalDate.of(2027, 2, 7), cnyHits.single().eventDate)
-        assertTrue(cnyHits.single().text.startsWith("春节快到了（2月7日）"))
+        assertEquals(LocalDate.of(2027, 2, 6), cnyHits.single().eventDate)
+        assertTrue(cnyHits.single().text.startsWith("春节快到了（2月6日）"))
 
         // 国庆 = 10 月 1 日：today=2026-09-24 → target=2026-10-01
         val natToday = LocalDate.of(2026, 9, 24)

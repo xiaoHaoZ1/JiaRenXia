@@ -17,7 +17,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
 import io.github.xiaohaoz1.jiarenxia.data.DateEntry
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.PersonOverview
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -32,7 +32,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class TombCalendarTest {
 
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
     private val prefs = TombPrefs()
 
     // ---------- 清明 / 冬至（寿星公式 2000–2099） ----------

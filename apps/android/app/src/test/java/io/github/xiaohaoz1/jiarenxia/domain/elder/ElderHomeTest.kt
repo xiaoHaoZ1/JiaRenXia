@@ -16,7 +16,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.Person
 import io.github.xiaohaoz1.jiarenxia.domain.DateRow
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.PersonOverview
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent
 import io.github.xiaohaoz1.jiarenxia.reminder.BirthdayRow
@@ -30,13 +30,13 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-/** 长辈模式首页纯逻辑：家人名单与“最近的日子”合成（Robolectric：农历要用 ICU）。 */
+/** 长辈模式首页纯逻辑：家人名单与“最近的日子”合成。 */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class ElderHomeTest {
 
     private val today = LocalDate.of(2026, 11, 7)
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
 
     private fun person(
         id: String, name: String, self: Boolean = false,
