@@ -17,7 +17,7 @@ import io.github.xiaohaoz1.jiarenxia.data.avatar.AvatarStorageImpl
 import io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager
 import io.github.xiaohaoz1.jiarenxia.data.db.AppDatabase
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.merge.SpousePairing
 import io.github.xiaohaoz1.jiarenxia.domain.merge.SpousePairingStore
 import io.github.xiaohaoz1.jiarenxia.nfc.TapSession
@@ -49,7 +49,7 @@ internal fun rebuildVm(p: TapPhone): Pair<TapViewModel, CountingPayloadFactory> 
         ObserveFamilyOverview(p.repo, KinshipEngine()),
         p.session,
         KinshipEngine(),
-        IcuLunarCalendar(),
+        TableLunarCalendar(),
         p.settings,
         p.pairing,
         payload,
@@ -143,7 +143,7 @@ internal suspend fun buildTapPhone(
             override fun newId() = selfName + "-" + (++seq)
         },
         clock = object : TimeSource { override fun now() = 1_700_000_000_000L },
-        lunar = IcuLunarCalendar()
+        lunar = TableLunarCalendar()
     )
     if (withSelf) {
         val selfId = prep.createSelf(
@@ -165,7 +165,7 @@ internal suspend fun buildTapPhone(
         ObserveFamilyOverview(prep, KinshipEngine()),
         session,
         KinshipEngine(),
-        IcuLunarCalendar(),
+        TableLunarCalendar(),
         settings,
         pairing,
         payload,

@@ -71,7 +71,7 @@ class ReminderOffsetsTest : RepoTestBase() {
         val p = personWithBirthday()
         repo.setReminderEnabled(p, true, ImportantDateType.BIRTHDAY_SOLAR)
         repo.setReminderOffsets(p, setOf(0, 3, 7), ImportantDateType.BIRTHDAY_SOLAR)
-        val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+        val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
         // 10月2日生日 → 9月25日（-7）、9月29日（-3）、10月2日（0）到期；相邻日不触发
         for ((date, want) in listOf(
             LocalDate.of(2026, 9, 24) to null,
@@ -100,7 +100,7 @@ class ReminderOffsetsTest : RepoTestBase() {
         ).ok()
         repo.setReminderEnabled(g, true, ImportantDateType.BIRTHDAY_LUNAR)
         repo.setReminderOffsets(g, setOf(0, 3), ImportantDateType.BIRTHDAY_LUNAR)
-        val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+        val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
         // 找出 2026 年农历八月十五对应的公历日期
         // 农历八月十五 → 下一次公历发生日（BirthdayMath 负责闰月换算）
         val birthday = repo.observePersonDetail(g).first()!!.birthday!!

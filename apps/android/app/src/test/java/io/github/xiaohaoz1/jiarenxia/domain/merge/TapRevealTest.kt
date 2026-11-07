@@ -9,7 +9,7 @@ import io.github.xiaohaoz1.jiarenxia.data.FakeSettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.FamilyResult
 import io.github.xiaohaoz1.jiarenxia.data.PersonDraft
 import io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import io.github.xiaohaoz1.jiarenxia.ui.tap.buildTapPhone
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -28,7 +28,7 @@ import org.robolectric.annotation.Config
 class TapRevealTest {
 
     private val engine = KinshipEngine()
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
     private val phones = mutableListOf<io.github.xiaohaoz1.jiarenxia.ui.tap.TapPhone>()
 
     @org.junit.After

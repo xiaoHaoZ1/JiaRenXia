@@ -11,7 +11,7 @@ import io.github.xiaohaoz1.jiarenxia.data.FakeSettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.PersonDraft
 import io.github.xiaohaoz1.jiarenxia.data.RepoTestBase
 import io.github.xiaohaoz1.jiarenxia.data.backup.BackupManager
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.Dispatchers
@@ -75,7 +75,7 @@ class ShareImportViewModelTest : RepoTestBase() {
         // 注入 plan 后再构造（init 里读取并清空 pendingSharePlan）
         vm = ShareImportViewModel(
             context = ctx, backup = backup, db = db, appEvents = appEvents,
-            engine = KinshipEngine(), lunar = IcuLunarCalendar(),
+            engine = KinshipEngine(), lunar = TableLunarCalendar(),
             savedStateHandle = SavedStateHandle()
         )
         return vm

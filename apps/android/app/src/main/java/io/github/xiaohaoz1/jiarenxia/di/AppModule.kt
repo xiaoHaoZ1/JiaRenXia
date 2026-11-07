@@ -72,7 +72,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideLunarCalendar(): io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar =
-        io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+        // 1900–2100 查天文台历表；表外的公历日期（如更早出生的长辈）仍按 ICU 推算
+        io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar(
+            fallback = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+        )
 
     @Provides
     @Singleton

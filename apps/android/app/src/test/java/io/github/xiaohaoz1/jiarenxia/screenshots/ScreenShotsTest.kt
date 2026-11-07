@@ -1995,13 +1995,13 @@ class ScreenShotsTest {
         val labels = io.github.xiaohaoz1.jiarenxia.domain.ShareImport
             .candidates(
                 plan, io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine(),
-                io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+                io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
             ).map { it.label }
         shot("share_pick_me") {
         val candidates = io.github.xiaohaoz1.jiarenxia.domain.ShareImport
             .candidates(
                 plan, io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine(),
-                io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+                io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
             )
         io.github.xiaohaoz1.jiarenxia.ui.share.ShareImportContent(
             st = io.github.xiaohaoz1.jiarenxia.ui.share.ShareImportUiState(
@@ -2041,7 +2041,7 @@ class ScreenShotsTest {
             .perspectivePreview(
                 plan, "me",
                 io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine(),
-                io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+                io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
             )
         io.github.xiaohaoz1.jiarenxia.ui.share.PerspectivePreviewBody(pv)
     }.also {
@@ -2426,7 +2426,7 @@ class ScreenShotsTest {
         val candidates = io.github.xiaohaoz1.jiarenxia.domain.ShareImport
             .candidates(
                 plan, io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine(),
-                io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+                io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
             )
         io.github.xiaohaoz1.jiarenxia.ui.share.ShareImportContent(
             st = io.github.xiaohaoz1.jiarenxia.ui.share.ShareImportUiState(

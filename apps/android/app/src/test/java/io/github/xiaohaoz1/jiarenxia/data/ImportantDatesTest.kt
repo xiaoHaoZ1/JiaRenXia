@@ -138,7 +138,7 @@ class ImportantDatesTest : RepoTestBase() {
     }
 
     private val lunarCal =
-        io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+        io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
 
     @Test
     fun 农历生日年龄换算() {

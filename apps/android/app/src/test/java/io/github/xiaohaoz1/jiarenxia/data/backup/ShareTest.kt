@@ -206,7 +206,7 @@ class ShareTest : RepoTestBase() {
         seedFamily()
         val plan = exportPlan()
         val engine = KinshipEngine()
-        val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+        val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
         val selfId = ids.getValue(TestFamily.SELF_NAME)
 
         val pv = ShareImport.perspectivePreview(

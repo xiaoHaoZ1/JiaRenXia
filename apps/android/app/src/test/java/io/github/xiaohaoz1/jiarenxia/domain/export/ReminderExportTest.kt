@@ -12,7 +12,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.TaskKind
 import io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat
 import io.github.xiaohaoz1.jiarenxia.data.BirthdayEntry
 import io.github.xiaohaoz1.jiarenxia.data.DateEntry
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -26,7 +26,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
 class ReminderExportTest {
 
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
     private val today = LocalDate.of(2026, 3, 1)
     private val from = today
     private val to = today.plusDays(30) // 2026-03-31

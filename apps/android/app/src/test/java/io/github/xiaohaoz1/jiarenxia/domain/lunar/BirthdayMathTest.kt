@@ -17,7 +17,7 @@ import java.time.LocalDate
 @Config(sdk = [Build.VERSION_CODES.UPSIDE_DOWN_CAKE])
 class BirthdayMathTest {
 
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
 
     private fun lunarB(month: Int, day: Int, year: Int? = null, leap: Boolean = false) =
         BirthdayValue(PartialDate(year, month, day), CalendarType.LUNAR, leap)

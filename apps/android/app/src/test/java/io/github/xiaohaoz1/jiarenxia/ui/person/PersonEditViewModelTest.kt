@@ -13,7 +13,7 @@ import io.github.xiaohaoz1.jiarenxia.data.RepoTestBase
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.SharedParents
 import io.github.xiaohaoz1.jiarenxia.domain.SiblingLineage
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -66,7 +66,7 @@ class PersonEditViewModelTest : RepoTestBase() {
             ),
             repo,
             ObserveFamilyOverview(repo, KinshipEngine()),
-            IcuLunarCalendar()
+            TableLunarCalendar()
         ).also(viewModels::add)
 
     @Test
@@ -504,7 +504,7 @@ class PersonEditViewModelTest : RepoTestBase() {
             ),
             repo,
             ObserveFamilyOverview(repo, KinshipEngine()),
-            IcuLunarCalendar()
+            TableLunarCalendar()
         ).also(viewModels::add)
 
     @Test
@@ -808,7 +808,7 @@ class PersonEditViewModelTest : RepoTestBase() {
             ),
             slowRepo,
             ObserveFamilyOverview(repo, KinshipEngine()),
-            IcuLunarCalendar()
+            TableLunarCalendar()
         ).also(viewModels::add)
         vm.init(PersonEditMode.NEW)
         vm.ui.first { it.loaded }

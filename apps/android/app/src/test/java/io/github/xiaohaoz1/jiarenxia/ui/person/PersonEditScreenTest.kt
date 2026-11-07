@@ -16,7 +16,7 @@ import androidx.lifecycle.SavedStateHandle
 import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipEngine
 import io.github.xiaohaoz1.jiarenxia.data.RepoTestBase
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JiaRenXiaTheme
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -51,7 +51,7 @@ class PersonEditScreenTest : RepoTestBase() {
         ),
         repo,
         ObserveFamilyOverview(repo, KinshipEngine()),
-        IcuLunarCalendar()
+        TableLunarCalendar()
     )
 
     /**
