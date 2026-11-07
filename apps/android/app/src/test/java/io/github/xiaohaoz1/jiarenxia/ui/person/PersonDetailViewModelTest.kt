@@ -19,7 +19,7 @@ import io.github.xiaohaoz1.jiarenxia.data.PersonFactRepositoryImpl
 import io.github.xiaohaoz1.jiarenxia.data.RepoTestBase
 import io.github.xiaohaoz1.jiarenxia.data.TimeSource
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -73,7 +73,7 @@ class PersonDetailViewModelTest : RepoTestBase() {
             tasks,
             KinshipEngine(),
             ObserveFamilyOverview(repo, KinshipEngine()),
-            IcuLunarCalendar(),
+            TableLunarCalendar(),
             PersonFactRepositoryImpl(
                 db,
                 object : IdGenerator { override fun newId() = "f-" + (++seq) },

@@ -1,6 +1,6 @@
 package io.github.xiaohaoz1.jiarenxia.domain.merge
 
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import io.github.xiaohaoz1.jiarenxia.nfc.TapProtocol
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -22,7 +22,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [34])
 class TapMemorialTest {
 
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
     private val today = LocalDate.of(2026, 10, 4)
 
     private fun wedding(year: Int, month: Int, day: Int) =

@@ -6,7 +6,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.Gender
 import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
 import io.github.xiaohaoz1.jiarenxia.core.model.PersonBirthdays
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationRole
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -29,7 +29,7 @@ class LunarSeniorityTest : RepoTestBase() {
             me, RelationRole.BROTHER
         ).ok()
         val graph = repo.observeFamilyGraph().first()
-        val solar = IcuLunarCalendar().toSolar(1985, 8, 15, false)!!
+        val solar = TableLunarCalendar().toSolar(1985, 8, 15, false)!!
         val bro = graph.persons.first { it.name == "哥" }
         assertEquals(
             PartialDate(solar.year, solar.monthValue, solar.dayOfMonth),

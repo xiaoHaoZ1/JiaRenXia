@@ -37,7 +37,7 @@ abstract class RepoTestBase {
             avatarStorage = storage,
             ids = object : IdGenerator { override fun newId() = "id-" + (++seq) },
             clock = object : TimeSource { override fun now() = now },
-            lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+            lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
         )
     }
 

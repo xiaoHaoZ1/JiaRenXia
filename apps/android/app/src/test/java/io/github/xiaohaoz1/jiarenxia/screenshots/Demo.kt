@@ -33,7 +33,7 @@ internal object Demo {
 // ---------- 演示数据 ----------
 
 val today = LocalDate.of(2026, 10, 2)
-val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar()
+val lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar()
 
 fun p(
     id: String, name: String, gender: Gender,

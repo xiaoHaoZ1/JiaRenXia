@@ -4,7 +4,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue
 import io.github.xiaohaoz1.jiarenxia.core.model.CalendarType
 import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import java.time.LocalDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -13,7 +13,7 @@ import org.junit.Test
 /** 年龄 / 享年（V0.8）。 */
 class AgeMathTest {
 
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
     private val today = LocalDate.of(2026, 10, 1)
 
     @Test

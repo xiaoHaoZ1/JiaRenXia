@@ -235,7 +235,7 @@ class WorkerTest {
                         appContext, params, repo, taskRepo,
                         io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository(),
                         homeRepo, settings, overview,
-                        io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar(),
+                        io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar(),
                         clock
                     )
             })

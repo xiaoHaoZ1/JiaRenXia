@@ -27,7 +27,7 @@ class ReminderPlannerTest {
             entry(p("b", "李四"), 5, 13),   // 明天
             entry(p("c", "王五"), 6, 1)     // 不到期
         )
-        val dues = ReminderPlanner.dueNotifications(entries, emptyMap(), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+        val dues = ReminderPlanner.dueNotifications(entries, emptyMap(), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals(listOf("a", "b"), dues.map { it.personId })
         assertEquals(listOf(0, 1), dues.map { it.daysBefore })
     }
@@ -36,7 +36,7 @@ class ReminderPlannerTest {
     fun 提醒关闭的不通知() {
         val today = LocalDate.of(2025, 5, 12)
         val dues = ReminderPlanner.dueNotifications(
-            listOf(entry(p("a"), 5, 12, enabled = false)), emptyMap(), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+            listOf(entry(p("a"), 5, 12, enabled = false)), emptyMap(), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals(emptyList<DueReminder>(), dues)
     }
 
@@ -44,11 +44,11 @@ class ReminderPlannerTest {
     fun 闰日_平年二月二十八算今天() {
         val today = LocalDate.of(2025, 2, 28)
         val e = entry(p("a"), 2, 29)
-        val dues = ReminderPlanner.dueNotifications(listOf(e), emptyMap(), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+        val dues = ReminderPlanner.dueNotifications(listOf(e), emptyMap(), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals(1, dues.size)
         assertEquals(0, dues[0].daysBefore)
         // 2-27 → 明天
-        val dues27 = ReminderPlanner.dueNotifications(listOf(e), emptyMap(), LocalDate.of(2025, 2, 27), io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+        val dues27 = ReminderPlanner.dueNotifications(listOf(e), emptyMap(), LocalDate.of(2025, 2, 27), io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals(1, dues27[0].daysBefore)
     }
 
@@ -57,12 +57,12 @@ class ReminderPlannerTest {
         val today = LocalDate.of(2025, 5, 12)
         val entries = listOf(entry(p("a"), 5, 12), entry(p("me", "我", self = true), 5, 12))
         val titles = mapOf("a" to "父亲", "me" to "我")
-        val dues = ReminderPlanner.dueNotifications(entries, titles, today, io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+        val dues = ReminderPlanner.dueNotifications(entries, titles, today, io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals("父亲", dues.first { it.personId == "a" }.title)
         assertEquals(null, dues.first { it.personId == "me" }.title)
         // 表中本来就 null（未关联）也保持 null
         val dues2 = ReminderPlanner.dueNotifications(
-            listOf(entry(p("x"), 5, 12)), mapOf("x" to null), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+            listOf(entry(p("x"), 5, 12)), mapOf("x" to null), today, io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals(null, dues2[0].title)
     }
 
@@ -111,7 +111,7 @@ class ReminderPlannerTest {
         val dues = ReminderPlanner.dueDateReminders(
             listOf(e), mapOf("dad" to "爸爸", "mom" to "妈妈"),
             today, io.github.xiaohaoz1.jiarenxia.domain.lunar
-                .IcuLunarCalendar())
+                .TableLunarCalendar())
         assertEquals(1, dues.size)
         assertEquals(
             "今天是爸爸妈妈的结婚纪念日（第 41 年）",
@@ -129,7 +129,7 @@ class ReminderPlannerTest {
             10, 18, null, partnerId = "w", partnerName = "李雪")
         val dues = ReminderPlanner.dueDateReminders(
             listOf(e), emptyMap(), today,
-            io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar())
+            io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar())
         assertEquals(
             "今天是你和李雪的结婚纪念日",
             ReminderPlanner.text(dues[0], true))
@@ -140,7 +140,7 @@ class ReminderPlannerTest {
     fun 周年_带去世年份() {
         // 今天恰好是忌日发生日
         val lunarCal = io.github.xiaohaoz1.jiarenxia.domain.lunar
-            .IcuLunarCalendar()
+            .TableLunarCalendar()
         val gp = p("gp", "杨福生")
         val e = dateEntry(
             gp,

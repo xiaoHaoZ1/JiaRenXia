@@ -11,7 +11,7 @@ import io.github.xiaohaoz1.jiarenxia.data.backup.BackupCrypto
 import io.github.xiaohaoz1.jiarenxia.data.backup.BackupError
 import io.github.xiaohaoz1.jiarenxia.data.backup.BackupJson
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
-import io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderPlanner
 import io.github.xiaohaoz1.jiarenxia.reminder.UpcomingBirthdays
 import java.time.LocalDate
@@ -32,7 +32,7 @@ import org.junit.Test
  */
 class DualBirthdayTest : RepoTestBase() {
 
-    private val lunar = IcuLunarCalendar()
+    private val lunar = TableLunarCalendar()
 
     /** 建一个有“我”的父亲，带双生日；返回 personId。 */
     private suspend fun dadWithBoth(

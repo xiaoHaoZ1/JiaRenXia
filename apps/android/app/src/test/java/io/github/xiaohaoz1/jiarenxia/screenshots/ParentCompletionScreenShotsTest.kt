@@ -76,7 +76,7 @@ class ParentCompletionScreenShotsTest {
                         loading = false, detail = io.github.xiaohaoz1.jiarenxia.data.PersonDetail(child, emptyList(), emptyMap(), emptyList()),
                         parentCompletion = ask),
                     today = java.time.LocalDate.of(2026, 10, 17),
-                    lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar(),
+                    lunar = io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar(),
                     snackbar = androidx.compose.material3.SnackbarHostState(),
                     onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {}, onDial = {},
                     onSetReminder = { _, _ -> }, onSetReminderOffsets = { _, _ -> },
