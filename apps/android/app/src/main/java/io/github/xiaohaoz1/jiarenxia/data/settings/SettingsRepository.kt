@@ -12,6 +12,8 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.github.xiaohaoz1.jiarenxia.domain.ceremony.WeddingWords
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +61,29 @@ interface SettingsRepository {
     /** 联系提醒的检查时间（一天内的分钟数），默认 540（09:00）。 */
     val contactReminderMinuteOfDay: Flow<Int>
     suspend fun setContactReminderMinuteOfDay(minute: Int)
+
+    /** 上坟提醒总开关，默认开启（FAMILY_AFFAIRS 19）。 */
+    val tombRemindersEnabled: Flow<Boolean>
+    suspend fun setTombRemindersEnabled(enabled: Boolean)
+
+    /** 上坟提醒的检查时间（一天内的分钟数），默认 540（09:00）。 */
+    val tombReminderMinuteOfDay: Flow<Int>
+    suspend fun setTombReminderMinuteOfDay(minute: Int)
+
+    /**
+     * 上坟提醒的日子集合（枚举名 string set），
+     * 默认 清明/中元/寒衣/忌日/做七（除夕与冬至默认关）。
+     */
+    val tombDays: Flow<Set<TombDay>>
+    suspend fun setTombDays(days: Set<TombDay>)
+
+    /** 中元节按农历七月十五（默认）还是十四；其他取值一律按十五。 */
+    val tombZhongyuanDay: Flow<Int>
+    suspend fun setTombZhongyuanDay(day: Int)
+
+    /** “给谁上坟”里被关掉的人（只影响节日名单；忌日与做七不受影响）。 */
+    val tombExcludedPersonIds: Flow<Set<String>>
+    suspend fun setTombExcludedPersonIds(ids: Set<String>)
 
     /** 是否已申请过通知权限（用于“先说明用途再申请”的引导）。 */
     val notificationPermissionRequested: Flow<Boolean>
@@ -193,6 +218,11 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyReminderMinute = intPreferencesKey("reminder_minute_of_day")
     private val keyTaskReminderMinute = intPreferencesKey("task_reminder_minute_of_day")
     private val keyContactReminderMinute = intPreferencesKey("contact_reminder_minute_of_day")
+    private val keyTombReminders = booleanPreferencesKey("tomb_reminders_enabled")
+    private val keyTombReminderMinute = intPreferencesKey("tomb_reminder_minute_of_day")
+    private val keyTombDays = stringSetPreferencesKey("tomb_days")
+    private val keyTombZhongyuanDay = intPreferencesKey("tomb_zhongyuan_day")
+    private val keyTombExcluded = stringSetPreferencesKey("tomb_excluded_person_ids")
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
     private val keyThemeStyle = stringPreferencesKey("theme_style")
@@ -278,6 +308,48 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         dataStore.edit { it[keyContactReminderMinute] = minute.coerceIn(0, 1439) }
+    }
+
+    override val tombRemindersEnabled: Flow<Boolean> =
+        dataStore.data.map { it[keyTombReminders] ?: true }
+
+    override suspend fun setTombRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { it[keyTombReminders] = enabled }
+    }
+
+    override val tombReminderMinuteOfDay: Flow<Int> =
+        dataStore.data.map { (it[keyTombReminderMinute] ?: 9 * 60).coerceIn(0, 1439) }
+            .distinctUntilChanged()
+
+    override suspend fun setTombReminderMinuteOfDay(minute: Int) {
+        dataStore.edit { it[keyTombReminderMinute] = minute.coerceIn(0, 1439) }
+    }
+
+    override val tombDays: Flow<Set<TombDay>> =
+        dataStore.data.map { p ->
+            // 键缺失 → 默认日子；键存在（含空集）→ 按存储值解析，未知枚举名丢弃
+            p[keyTombDays]?.mapNotNull { name ->
+                TombDay.entries.firstOrNull { it.name == name }
+            }?.toSet() ?: TombPrefs.DEFAULT_DAYS
+        }.distinctUntilChanged()
+
+    override suspend fun setTombDays(days: Set<TombDay>) {
+        dataStore.edit { it[keyTombDays] = days.mapTo(HashSet()) { d -> d.name } }
+    }
+
+    override val tombZhongyuanDay: Flow<Int> =
+        dataStore.data.map { p -> if (p[keyTombZhongyuanDay] == 14) 14 else 15 }
+            .distinctUntilChanged()
+
+    override suspend fun setTombZhongyuanDay(day: Int) {
+        dataStore.edit { it[keyTombZhongyuanDay] = if (day == 14) 14 else 15 }
+    }
+
+    override val tombExcludedPersonIds: Flow<Set<String>> =
+        dataStore.data.map { it[keyTombExcluded] ?: emptySet() }.distinctUntilChanged()
+
+    override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
+        dataStore.edit { it[keyTombExcluded] = ids }
     }
 
     override val notificationPermissionRequested: Flow<Boolean> =

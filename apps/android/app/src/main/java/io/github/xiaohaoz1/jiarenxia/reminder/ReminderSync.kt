@@ -14,8 +14,8 @@ import kotlinx.coroutines.launch
 
 /**
  * 提醒同步器（DEVELOPMENT_PLAN 2.5）：应用启动时 reconcile 一次，
- * 随后每当生日/纪念日数据、事项数据、联系计划与记录、三类开关或
- * 各自的提醒时刻变化（防抖 500ms）重新调度。
+ * 随后每当生日/纪念日数据、事项数据、联系计划与记录、四类开关、
+ * 各自的提醒时刻或上坟日子/名单设置变化（防抖 500ms）重新调度。
  * WorkManager 会跨重启保持任务，无需 BOOT 广播。
  */
 @Singleton
@@ -44,18 +44,28 @@ class ReminderSync @Inject constructor(
                 contactRepository.observePlanList(),
                 contactRepository.observeAllLogs()
             ) { b, d, t, p, l -> DataWatch(b, d, t, p, l) }
-            // 设置侧：三个总开关与三个提醒时刻
+            // 设置侧：四个总开关、四个提醒时刻与上坟日子/名单设置
             val settingsWatch = combine<Any?, SettingsWatch>(
                 settings.remindersEnabled,
                 settings.taskRemindersEnabled,
                 settings.contactRemindersEnabled,
+                settings.tombRemindersEnabled,
                 settings.reminderMinuteOfDay,
                 settings.taskReminderMinuteOfDay,
-                settings.contactReminderMinuteOfDay
+                settings.contactReminderMinuteOfDay,
+                settings.tombReminderMinuteOfDay,
+                settings.tombDays,
+                settings.tombZhongyuanDay,
+                settings.tombExcludedPersonIds
             ) { v ->
                 SettingsWatch(
                     v[0] as Boolean, v[1] as Boolean, v[2] as Boolean,
-                    v[3] as Int, v[4] as Int, v[5] as Int
+                    v[3] as Boolean,
+                    v[4] as Int, v[5] as Int, v[6] as Int, v[7] as Int,
+                    (v[8] as Set<*>).filterIsInstance<io.github.xiaohaoz1.jiarenxia
+                        .domain.tomb.TombDay>().toSet(),
+                    v[9] as Int,
+                    (v[10] as Set<*>).filterIsInstance<String>().toSet()
                 )
             }
             combine(dataWatch, settingsWatch) { d, s -> ReminderWatch(d, s) }
@@ -77,9 +87,14 @@ class ReminderSync @Inject constructor(
         val remindersEnabled: Boolean,
         val taskRemindersEnabled: Boolean,
         val contactRemindersEnabled: Boolean,
+        val tombRemindersEnabled: Boolean,
         val birthdayMinute: Int,
         val taskMinute: Int,
-        val contactMinute: Int
+        val contactMinute: Int,
+        val tombMinute: Int,
+        val tombDays: Set<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay>,
+        val tombZhongyuanDay: Int,
+        val tombExcludedIds: Set<String>
     )
 
     private data class ReminderWatch(val data: DataWatch, val settings: SettingsWatch)

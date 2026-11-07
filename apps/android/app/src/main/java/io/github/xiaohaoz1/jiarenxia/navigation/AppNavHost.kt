@@ -63,8 +63,10 @@ object Routes {
     const val SETTINGS_ABOUT = "settings/about"
     /** 家庭 → 共享与连接（分享、接收、碰一碰）。 */
     const val SHARE_CONNECT = "share/connect"
-    /** 家事 → 提醒设置（三类提醒的开关与时刻）。 */
+    /** 家事 → 提醒设置（四类提醒的开关与时刻）。 */
     const val SETTINGS_REMINDERS = "settings/reminders"
+    /** 提醒设置 → 上坟提醒（上坟的日子与家人）。 */
+    const val SETTINGS_TOMB = "settings/tomb"
     const val PERSON = "person/{personId}"
     const val PERSON_EDIT = "person/{personId}/edit"
     const val PERSON_RELATE = "person/{personId}/relate"
@@ -354,6 +356,9 @@ fun AppNavHost(
                 onShareConnect = { navController.navigate(Routes.SHARE_CONNECT) },
                 onReminderSettings = {
                     navController.navigate(Routes.SETTINGS_REMINDERS)
+                },
+                onOpenTombSettings = {
+                    navController.navigate(Routes.SETTINGS_TOMB)
                 }
             )
         }
@@ -571,6 +576,13 @@ fun AppNavHost(
 
         composable(Routes.SETTINGS_REMINDERS) {
             io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsScreen(
+                onBack = { navController.popBackStack() },
+                onOpenTombSettings = { navController.navigate(Routes.SETTINGS_TOMB) }
+            )
+        }
+
+        composable(Routes.SETTINGS_TOMB) {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsScreen(
                 onBack = { navController.popBackStack() }
             )
         }

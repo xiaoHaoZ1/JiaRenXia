@@ -19,10 +19,14 @@ import dagger.assisted.AssistedInject
 import io.github.xiaohaoz1.jiarenxia.MainActivity
 import io.github.xiaohaoz1.jiarenxia.R
 import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipKind
+import io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import io.github.xiaohaoz1.jiarenxia.data.TimeSource
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -58,12 +62,13 @@ class BirthdayReminderWorker @AssistedInject constructor(
         val force = inputData.getBoolean(KEY_FORCE, false)
         // 调试强制运行：只发通知，不写运行状态、不排下次——不打断常规的每日检查链
         if (force) {
-            // 调试强制运行：三类都发（忽略各自时刻与当天是否已发）
+            // 调试强制运行：四类都发（忽略各自时刻与当天是否已发）
             val posted = mutableSetOf<String>()
             if (settings.remindersEnabled.first()) postNotifications(today, posted)
             if (settings.taskRemindersEnabled.first())
                 postTaskNotifications(today, java.time.LocalTime.MAX, posted)
             if (settings.contactRemindersEnabled.first()) postContactNotifications(today, posted)
+            if (settings.tombRemindersEnabled.first()) postTombNotifications(today, posted)
             return Result.success()
         }
         // 当天已通知过的提醒键：补跑（数据在时刻过后被改成今天到期等）只发新的
@@ -84,6 +89,11 @@ class BirthdayReminderWorker @AssistedInject constructor(
             !nowTime.isBefore(ReminderTiming.timeOf(settings.contactReminderMinuteOfDay.first()))
         ) {
             postContactNotifications(today, posted)
+        }
+        if (settings.tombRemindersEnabled.first() &&
+            !nowTime.isBefore(ReminderTiming.timeOf(settings.tombReminderMinuteOfDay.first()))
+        ) {
+            postTombNotifications(today, posted)
         }
         settings.setReminderRunState(today.toEpochDay(), posted)
         enqueueNext(now)
@@ -110,8 +120,9 @@ class BirthdayReminderWorker @AssistedInject constructor(
             if (k == KinshipKind.UNRELATED || k == KinshipKind.SELF) null else o.displayTitle
         }
         val dues = ReminderPlanner.dueNotifications(repository.getBirthdayEntries(), titles, today, lunar) +
-            // 纪念日和忌日与生日同一开关、独立渠道（V0.8）
+            // 纪念日与生日同一开关、独立渠道（V0.8）；忌日已挪入上坟提醒（FAMILY_AFFAIRS 19）
             ReminderPlanner.dueDateReminders(repository.getDateEntries(), titles, today, lunar, overview)
+                .filter { it.kind != ImportantDateType.DEATH_ANNIVERSARY }
         if (dues.isEmpty()) return
         ensureChannel()
         ensureAnnivChannel()
@@ -130,8 +141,11 @@ class BirthdayReminderWorker @AssistedInject constructor(
         (d.kind.name + ":" + d.personId + ":" + d.daysBefore +
                 (d.milestoneDays?.let { ":" + it } ?: "")).hashCode()
 
-    private fun build(d: DueReminder, isSelf: Boolean): android.app.Notification {
+    private fun build(
+        d: DueReminder, isSelf: Boolean, channel: String? = null
+    ): android.app.Notification {
         val text = ReminderPlanner.text(d, isSelf)
+        val resolved = channel ?: if (d.kind.isBirthday) CHANNEL_ID else ANNIV_CHANNEL_ID
         val intent = PendingIntent.getActivity(
             context, notificationId(d),
             Intent(context, MainActivity::class.java)
@@ -139,13 +153,15 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val channel = if (d.kind.isBirthday) CHANNEL_ID else ANNIV_CHANNEL_ID
-        val publicVersion = NotificationCompat.Builder(context, channel)
+        val publicVersion = NotificationCompat.Builder(context, resolved)
             .setSmallIcon(R.drawable.ic_stat_notify)
-            .setContentText(if (channel == ANNIV_CHANNEL_ID)
-                "家人侠：有纪念日或忌日提醒" else "家人侠：有家人的生日提醒")
+            .setContentText(when (resolved) {
+                TOMB_CHANNEL_ID -> "家人侠：有上坟提醒"
+                ANNIV_CHANNEL_ID -> "家人侠：有纪念日提醒"
+                else -> "家人侠：有家人的生日提醒"
+            })
             .build()
-        return NotificationCompat.Builder(context, channel)
+        return NotificationCompat.Builder(context, resolved)
             .setSmallIcon(R.drawable.ic_stat_notify)
             .setContentTitle("家人侠")
             .setContentText(text)
@@ -153,6 +169,101 @@ class BirthdayReminderWorker @AssistedInject constructor(
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             .setPublicVersion(publicVersion)
             .setContentIntent(intent)
+            .build()
+    }
+
+    /**
+     * 上坟提醒（FAMILY_AFFAIRS 19）：忌日（挪自「生日与纪念日」段）、
+     * 清明/中元/寒衣/除夕/冬至节日与做七/百日，独立渠道 tomb。
+     * 节日点开只打开 App；做七点开该人详情；忌日点开人物详情。
+     */
+    private suspend fun postTombNotifications(today: LocalDate, posted: MutableSet<String>) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val overview = observeOverview().first() ?: return
+        val titles = overview.byId.mapValues { (_, o) ->
+            val k = o.result.kind
+            if (k == KinshipKind.UNRELATED || k == KinshipKind.SELF) null else o.displayTitle
+        }
+        val dateEntries = repository.getDateEntries()
+        ensureTombChannel()
+        val nm = NotificationManagerCompat.from(context)
+        val days = settings.tombDays.first()
+
+        // 忌日：沿用 dueDateReminders 的文案与各自提醒偏好；
+        // 仅在「忌日」日子开启时发，走 tomb 渠道、点开人物详情
+        if (TombDay.DEATH_DAY in days) {
+            ReminderPlanner.dueDateReminders(dateEntries, titles, today, lunar)
+                .filter { it.kind == ImportantDateType.DEATH_ANNIVERSARY }
+                .forEach { d ->
+                    val key = "date:" + d.kind.name + ":" + d.personId + ":" + d.daysBefore +
+                        (d.milestoneDays?.let { ":" + it } ?: "")
+                    if (key in posted) return@forEach
+                    val isSelf = overview.byId[d.personId]?.person?.isSelf == true
+                    runCatching {
+                        nm.notify(notificationId(d), build(d, isSelf, TOMB_CHANNEL_ID))
+                    }.onSuccess { posted += key }
+                }
+        }
+
+        // 节日与做七/百日：固定提前天数命中；做七还要求该忌日条目提醒开着
+        val prefs = TombPrefs(
+            days = days,
+            zhongyuanDay = settings.tombZhongyuanDay.first(),
+            excludedIds = settings.tombExcludedPersonIds.first()
+        )
+        val reminderOnDeathIds = dateEntries
+            .filter {
+                it.type == ImportantDateType.DEATH_ANNIVERSARY && it.reminderEnabled
+            }
+            .mapTo(HashSet()) { it.person.id }
+        TombCalendar.events(
+            today = today,
+            windowDays = TombCalendar.NOTIFY_WINDOW_DAYS,
+            lunar = lunar,
+            mourners = TombCalendar.mourners(overview),
+            deathEntries = dateEntries,
+            prefs = prefs
+        ).forEach { ev ->
+            val daysBefore = TombCalendar.dueDaysBefore(ev, today) ?: return@forEach
+            val isMourning = ev.day == TombDay.MOURNING
+            if (isMourning && ev.personIds.firstOrNull() !in reminderOnDeathIds)
+                return@forEach
+            val key = if (isMourning)
+                "tomb7:" + ev.personIds.first() + ":" + ev.mourningDayNumber +
+                    ":" + daysBefore
+            else "tomb:" + ev.day.name + ":" + ev.date.toEpochDay() + ":" + daysBefore
+            if (key in posted) return@forEach
+            val text = if (isMourning) TombCalendar.mourningText(ev, daysBefore)
+            else TombCalendar.festivalText(ev, daysBefore)
+            val personId = if (isMourning) ev.personIds.firstOrNull() else null
+            runCatching {
+                nm.notify(key.hashCode(), buildTomb(key, text, personId))
+            }.onSuccess { posted += key }
+        }
+    }
+
+    /** 上坟节日/做七通知：[personId] 为 null 时点开只进 App（节日）。 */
+    private fun buildTomb(
+        key: String, text: String, personId: String?
+    ): android.app.Notification {
+        val intent = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        if (personId != null) intent.putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+        val pending = PendingIntent.getActivity(
+            context, key.hashCode(), intent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, TOMB_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有上坟提醒").build()
+        return NotificationCompat.Builder(context, TOMB_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(pending)
             .build()
     }
 
@@ -293,10 +404,18 @@ class BirthdayReminderWorker @AssistedInject constructor(
 
     private fun ensureAnnivChannel() {
         val chan = NotificationChannel(
-            ANNIV_CHANNEL_ID, "纪念日与忌日", NotificationManager.IMPORTANCE_DEFAULT
+            ANNIV_CHANNEL_ID, "纪念日", NotificationManager.IMPORTANCE_DEFAULT
         )
         context.getSystemService(NotificationManager::class.java)
             .createNotificationChannel(chan)
+    }
+
+    private fun ensureTombChannel() {
+        val channel = NotificationChannel(
+            TOMB_CHANNEL_ID, "上坟提醒", NotificationManager.IMPORTANCE_DEFAULT
+        )
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(channel)
     }
 
     private fun ensureChannel() {
@@ -311,6 +430,7 @@ class BirthdayReminderWorker @AssistedInject constructor(
         const val ANNIV_CHANNEL_ID = "anniversary"
         const val TASK_CHANNEL_ID = "family_tasks"
         const val CONTACT_CHANNEL_ID = "contact"
+        const val TOMB_CHANNEL_ID = "tomb"
         const val KEY_FORCE = "force"
     }
 }

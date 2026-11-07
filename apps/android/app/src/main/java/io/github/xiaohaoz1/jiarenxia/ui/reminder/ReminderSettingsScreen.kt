@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.LocalFlorist
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,11 +32,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
+import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderTiming
 import io.github.xiaohaoz1.jiarenxia.ui.common.rememberNotificationPermissionRequester
 import io.github.xiaohaoz1.jiarenxia.ui.mine.RowDivider
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsGroup
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsHint
+import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsNavRow
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsScaffold
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsSwitchRow
 import javax.inject.Inject
@@ -45,14 +50,18 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** 三类提醒的开关与每日时刻。 */
+/** 四类提醒的开关与每日时刻。 */
 data class ReminderSettingsUi(
     val birthdayEnabled: Boolean = true,
     val taskEnabled: Boolean = true,
     val contactEnabled: Boolean = true,
+    val tombEnabled: Boolean = true,
     val birthdayMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val taskMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
-    val contactMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY
+    val contactMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
+    val tombMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
+    /** 「上坟的日子与家人」行副标题摘要（已开启日子 + 家人数）。 */
+    val tombSummary: String = "未选择日子"
 )
 
 /**
@@ -63,7 +72,8 @@ data class ReminderSettingsUi(
  */
 @HiltViewModel
 class ReminderSettingsViewModel @Inject constructor(
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val observeOverview: ObserveFamilyOverview
 ) : ViewModel() {
 
     val ui: StateFlow<ReminderSettingsUi> = combine(
@@ -72,8 +82,22 @@ class ReminderSettingsViewModel @Inject constructor(
         settings.contactRemindersEnabled,
         settings.reminderMinuteOfDay,
         settings.taskReminderMinuteOfDay
-    ) { b, t, c, bm, tm -> ReminderSettingsUi(b, t, c, bm, tm) }
+    ) { b, t, c, bm, tm ->
+        ReminderSettingsUi(
+            birthdayEnabled = b, taskEnabled = t, contactEnabled = c,
+            birthdayMinute = bm, taskMinute = tm
+        )
+    }
         .combine(settings.contactReminderMinuteOfDay) { st, cm -> st.copy(contactMinute = cm) }
+        .combine(settings.tombRemindersEnabled) { st, te -> st.copy(tombEnabled = te) }
+        .combine(settings.tombReminderMinuteOfDay) { st, tm -> st.copy(tombMinute = tm) }
+        .combine(
+            combine(settings.tombDays, observeOverview()) { days, ov ->
+                days to TombCalendar.mourners(ov).size
+            }
+        ) { st, (days, count) ->
+            st.copy(tombSummary = tombDaysSummary(days, count))
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReminderSettingsUi())
 
     fun setBirthdayEnabled(on: Boolean) {
@@ -99,11 +123,20 @@ class ReminderSettingsViewModel @Inject constructor(
     fun setContactMinute(m: Int) {
         viewModelScope.launch { settings.setContactReminderMinuteOfDay(m) }
     }
+
+    fun setTombEnabled(on: Boolean) {
+        viewModelScope.launch { settings.setTombRemindersEnabled(on) }
+    }
+
+    fun setTombMinute(m: Int) {
+        viewModelScope.launch { settings.setTombReminderMinuteOfDay(m) }
+    }
 }
 
 @Composable
 fun ReminderSettingsScreen(
     onBack: () -> Unit,
+    onOpenTombSettings: () -> Unit = {},
     viewModel: ReminderSettingsViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -117,9 +150,15 @@ fun ReminderSettingsScreen(
         },
         onTaskEnabled = viewModel::setTaskEnabled,
         onContactEnabled = viewModel::setContactEnabled,
+        onTombEnabled = { on ->
+            viewModel.setTombEnabled(on)
+            if (on) requester.request()
+        },
         onBirthdayMinute = viewModel::setBirthdayMinute,
         onTaskMinute = viewModel::setTaskMinute,
-        onContactMinute = viewModel::setContactMinute
+        onContactMinute = viewModel::setContactMinute,
+        onTombMinute = viewModel::setTombMinute,
+        onOpenTombSettings = onOpenTombSettings
     )
 }
 
@@ -130,9 +169,12 @@ fun ReminderSettingsContent(
     onBirthdayEnabled: (Boolean) -> Unit = {},
     onTaskEnabled: (Boolean) -> Unit = {},
     onContactEnabled: (Boolean) -> Unit = {},
+    onTombEnabled: (Boolean) -> Unit = {},
     onBirthdayMinute: (Int) -> Unit = {},
     onTaskMinute: (Int) -> Unit = {},
-    onContactMinute: (Int) -> Unit = {}
+    onContactMinute: (Int) -> Unit = {},
+    onTombMinute: (Int) -> Unit = {},
+    onOpenTombSettings: () -> Unit = {}
 ) {
     var timeTarget by remember { mutableStateOf<ReminderTimeTarget?>(null) }
 
@@ -173,8 +215,28 @@ fun ReminderSettingsContent(
                     }
                 }
             )
+            RowDivider()
+            SettingsSwitchRow(
+                title = "上坟提醒",
+                icon = Icons.Rounded.LocalFlorist,
+                checked = state.tombEnabled,
+                onCheckedChange = onTombEnabled,
+                trailing = {
+                    ReminderTimeText(state.tombEnabled, state.tombMinute) {
+                        timeTarget = ReminderTimeTarget.TOMB
+                    }
+                }
+            )
         }
-        SettingsHint("三类各管各的：关掉一类不影响其他两类。逾期的事项只置顶标红，不再反复发通知。")
+        SettingsHint("四类各管各的：关掉一类不影响其他三类。逾期的事项只置顶标红，不再反复发通知。")
+        SettingsGroup("上坟提醒") {
+            SettingsNavRow(
+                icon = Icons.Rounded.LocalFlorist,
+                title = "上坟的日子与家人",
+                subtitle = state.tombSummary,
+                onClick = onOpenTombSettings
+            )
+        }
         Spacer(Modifier.height(16.dp))
     }
 
@@ -183,11 +245,13 @@ fun ReminderSettingsContent(
             ReminderTimeTarget.BIRTHDAY -> "生日与纪念日提醒"
             ReminderTimeTarget.TASK -> "家庭事项提醒"
             ReminderTimeTarget.CONTACT -> "联系提醒"
+            ReminderTimeTarget.TOMB -> "上坟提醒"
         }
         val minute = when (target) {
             ReminderTimeTarget.BIRTHDAY -> state.birthdayMinute
             ReminderTimeTarget.TASK -> state.taskMinute
             ReminderTimeTarget.CONTACT -> state.contactMinute
+            ReminderTimeTarget.TOMB -> state.tombMinute
         }
         ReminderTimeDialog(
             title = title,
@@ -197,6 +261,7 @@ fun ReminderSettingsContent(
                     ReminderTimeTarget.BIRTHDAY -> onBirthdayMinute(it)
                     ReminderTimeTarget.TASK -> onTaskMinute(it)
                     ReminderTimeTarget.CONTACT -> onContactMinute(it)
+                    ReminderTimeTarget.TOMB -> onTombMinute(it)
                 }
                 timeTarget = null
             },
@@ -206,7 +271,26 @@ fun ReminderSettingsContent(
 }
 
 /** 正在改时间的那一类提醒。 */
-private enum class ReminderTimeTarget { BIRTHDAY, TASK, CONTACT }
+private enum class ReminderTimeTarget { BIRTHDAY, TASK, CONTACT, TOMB }
+
+/** 「上坟的日子与家人」行副标题：已开启日子短名（固定顺序）+ “ · N 位家人”。 */
+internal fun tombDaysSummary(days: Set<TombDay>, personCount: Int): String {
+    val names = TombDay.entries.mapNotNull { d ->
+        TOMB_DAY_SHORT[d]?.takeIf { d in days }
+    }
+    if (names.isEmpty()) return "未选择日子"
+    return names.joinToString("、") + " · " + personCount + " 位家人"
+}
+
+private val TOMB_DAY_SHORT = mapOf(
+    TombDay.QINGMING to "清明",
+    TombDay.ZHONGYUAN to "中元",
+    TombDay.HANYI to "寒衣",
+    TombDay.CHUXI to "除夕",
+    TombDay.DONGZHI to "冬至",
+    TombDay.DEATH_DAY to "忌日",
+    TombDay.MOURNING to "做七"
+)
 
 /** 行尾的提醒时刻文本：点开选择器；对应开关关闭时置灰不可点。 */
 @Composable

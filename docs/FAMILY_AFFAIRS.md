@@ -543,3 +543,21 @@
 - 数据落在数据库 v18 的 `person_facts` 表，人物删除时级联删除。备份增加可选键 `personFacts`，不提升 `schemaVersion`，旧备份缺键按空处理。
 - 本期不做：内容搜索、全家视图、送礼记录、“想要的”标记已送、生日提醒联动、在“记一次联系”或微信转发中顺手记录、手动修改记录日期、照片、排序和功能开关。
 
+---
+
+## 19. 上坟提醒（2026-11-07 确定）
+
+提醒体系的第四类（与生日与纪念日 / 家庭事项 / 联系并列，各有自己的总开关与每日提醒时刻，默认 09:00）。回答两个问题：哪些日子要给家里人上坟、给谁上坟。
+
+- **日子**（`domain/tomb/TombCalendar`，纯 JVM 可测）：清明节、中元节、寒衣节、除夕、冬至、忌日、做七与百日七类，各自可单独开关（`tombDays`，默认开清明/中元/寒衣/忌日/做七，除夕与冬至默认关）。
+  - 节日提前天数（固定不可配）：清明 {7,1}；中元/寒衣/冬至 {3,0}；除夕 {1,0}；忌日沿用该条重要日期自己的提醒偏好；做七 {1,0}。
+  - 节日日期按公历今年与明年都推算，取落在窗口内的：
+    - 清明、冬至用寿星节气公式（21 世纪常数），只支持公历 2000–2099，范围外返回 null；清明 = `floor(Y×0.2422 + 4.81) − floor(Y/4)`（四月），冬至 = `floor(Y×0.2422 + 21.94) − floor(Y/4)`（十二月），其中 **2021 年冬至例外减 1（12 月 21 日）**。
+    - 中元 = 农历七月（非闰）十四或十五，由设置 `tombZhongyuanDay`（默认 15，多数地方；14 为广东、客家等地）决定；寒衣 = 农历十月（非闰）初一；除夕 = `lunar.toSolar(年,1,1,false) − 1 天`（落在公历年头的 1/2 月）。
+  - **名单**（节日专用，全家一条事件）：`livingStatus == DECEASED` 且非本人、不在 `tombExcludedPersonIds` 里的人，排序同家庭页（`FamilyOrdering.core + others`，UNRELATED 的人排最后、标签用姓名）。名单为空则不产生节日事件；被关掉的人只影响节日名单，忌日与做七不受影响。
+  - **做七与百日**：来自年月日齐全的 DEATH_ANNIVERSARY 条目（农历先换算成去世当天公历；无年份不推算）。第 N 天 = 去世日 + (N−1)，N ∈ {7,21,35,49,100}，名称头七/三七/五七/七七/百日（二七/四七/六七不做）。每位去世家人各自一条事件。
+- **通知**：`BirthdayReminderWorker`（类名不变）新增“上坟提醒”段与 `tomb` 渠道（锁屏公开文案“家人侠：有上坟提醒”）；节日通知“{dayLabel}是{title}{（农历原文）}，记得给{名字串}上坟”（≤3 人直列，>3 人“等 N 位家人”），做七“{dayLabel}是{title}”；节日点开只进 App，做七点开该人详情。去重键节日 `tomb:{DAY}:{epochDay}:{daysBefore}`、做七 `tomb7:{personId}:{N}:{daysBefore}`。
+- **忌日挪入**：「生日与纪念日」段不再发忌日；忌日改由上坟段在 `tombRemindersEnabled` 且 `DEATH_DAY ∈ tombDays` 时产出（`ReminderPlanner.dueDateReminders` + 原 `text()` 文案，走 `tomb` 渠道、点开人物详情）。后果：关掉生日/纪念日提醒但上坟提醒开着时，忌日照发；反之上坟提醒关掉后忌日也不发。
+- **设置与备份**：`SettingsRepository` 新增 `tombRemindersEnabled`（默认开）、`tombReminderMinuteOfDay`（默认 09:00）、`tombDays`、`tombZhongyuanDay`、`tombExcludedPersonIds`，随 DataStore 持久化、`clear()` 一并清除；备份 settings 各字段可空，旧备份缺字段保留当前设置，非法值按缺失处理（未知 TombDay 枚举名恢复时过滤）。提醒设置页第四行“上坟提醒”（`Icons.Rounded.LocalFlorist`）+「上坟的日子与家人」入口 → `settings/tomb`；`TombSettingsScreen` 总开关关闭时照常可改。
+- **家事页**：`ReminderViewModel` 产出 `tombToday`/`tombNext30`（窗口 30 天，仅总开关开时计算，否则为空）。「今天」段放在纪念日之后、今天事项之前；「未来 30 天」与生日/纪念日/事项按日期合并排序（同天事项仍排最后）。经典风格用 `LocalFlorist` 图标行、家书风格为 `JiashuTombLine`；点击做七进人物详情、点击节日进上坟设置页。桌面小部件不变。
+

@@ -57,6 +57,16 @@ data class BackupSettings(
     val contactReminderMinuteOfDay: Int? = null,
     /** 家庭事项提醒开关（schemaVersion 4；缺失 → 保留当前设置）。 */
     val taskRemindersEnabled: Boolean? = null,
+    /** 上坟提醒开关（可选；缺失 → 保留当前设置）。 */
+    val tombRemindersEnabled: Boolean? = null,
+    /** 上坟提醒时刻（可选；缺失/越界 → 保留当前设置）。 */
+    val tombReminderMinuteOfDay: Int? = null,
+    /** 上坟日子（TombDay 枚举名集合；可选；缺失 → 保留当前设置）。 */
+    val tombDays: Set<String>? = null,
+    /** 中元节按农历十四/十五（可选；缺失/其他 → 保留当前设置）。 */
+    val tombZhongyuanDay: Int? = null,
+    /** “给谁上坟”排除的人（可选；缺失 → 保留当前设置）。 */
+    val tombExcludedPersonIds: Set<String>? = null,
     /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
      *  仅为兼容旧备份保留字段，恢复时忽略。 */
     val licenseCode: String? = null
@@ -280,6 +290,16 @@ object BackupJson {
                 .put("taskReminderMinuteOfDay", it.taskReminderMinuteOfDay ?: JSONObject.NULL)
                 .put("contactReminderMinuteOfDay", it.contactReminderMinuteOfDay ?: JSONObject.NULL)
                 .put("taskRemindersEnabled", it.taskRemindersEnabled ?: JSONObject.NULL)
+                .put("tombRemindersEnabled", it.tombRemindersEnabled ?: JSONObject.NULL)
+                .put("tombReminderMinuteOfDay",
+                    it.tombReminderMinuteOfDay ?: JSONObject.NULL)
+                .put("tombDays", it.tombDays?.let { days ->
+                    JSONArray().apply { days.sorted().forEach { put(it) } }
+                } ?: JSONObject.NULL)
+                .put("tombZhongyuanDay", it.tombZhongyuanDay ?: JSONObject.NULL)
+                .put("tombExcludedPersonIds", it.tombExcludedPersonIds?.let { ids ->
+                    JSONArray().apply { ids.sorted().forEach { put(it) } }
+                } ?: JSONObject.NULL)
                 .put("licenseCode", it.licenseCode ?: JSONObject.NULL))
         }
 
@@ -689,6 +709,21 @@ object BackupJson {
                 else o.optInt("contactReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
                 taskRemindersEnabled = if (o.isNull("taskRemindersEnabled")) null
                 else o.optBoolean("taskRemindersEnabled", true),
+                // 上坟提醒（可选键，不升 schemaVersion）：缺失/非法一律保留当前设置
+                tombRemindersEnabled = if (o.isNull("tombRemindersEnabled")) null
+                else o.optBoolean("tombRemindersEnabled", true),
+                tombReminderMinuteOfDay = if (o.isNull("tombReminderMinuteOfDay")) null
+                else o.optInt("tombReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
+                tombDays = if (o.isNull("tombDays")) null
+                else o.optJSONArray("tombDays")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }.toSet()
+                },
+                tombZhongyuanDay = if (o.isNull("tombZhongyuanDay")) null
+                else o.optInt("tombZhongyuanDay", -1).takeIf { it == 14 || it == 15 },
+                tombExcludedPersonIds = if (o.isNull("tombExcludedPersonIds")) null
+                else o.optJSONArray("tombExcludedPersonIds")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }.toSet()
+                },
                 // A6 后忽略：旧备份里的 giftModuleEnabled / insuranceModuleEnabled
                 licenseCode = if (o.isNull("licenseCode")) null
                 else o.optString("licenseCode", "").ifEmpty { null }

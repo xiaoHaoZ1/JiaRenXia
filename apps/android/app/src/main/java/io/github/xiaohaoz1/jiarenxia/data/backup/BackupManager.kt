@@ -86,7 +86,12 @@ class BackupManager @Inject constructor(
                     taskReminderMinuteOfDay = settings.taskReminderMinuteOfDay.first(),
                     contactReminderMinuteOfDay =
                         settings.contactReminderMinuteOfDay.first(),
-                    taskRemindersEnabled = settings.taskRemindersEnabled.first()
+                    taskRemindersEnabled = settings.taskRemindersEnabled.first(),
+                    tombRemindersEnabled = settings.tombRemindersEnabled.first(),
+                    tombReminderMinuteOfDay = settings.tombReminderMinuteOfDay.first(),
+                    tombDays = settings.tombDays.first().map { it.name }.toSet(),
+                    tombZhongyuanDay = settings.tombZhongyuanDay.first(),
+                    tombExcludedPersonIds = settings.tombExcludedPersonIds.first()
                 ),
                 avatars = avatarMap,
                 createdAt = System.currentTimeMillis(),
@@ -273,6 +278,20 @@ class BackupManager @Inject constructor(
                 ?.let { m -> settings.setContactReminderMinuteOfDay(m) }
             // 事项开关（v4）：旧备份没有此项时保留当前设置
             it.taskRemindersEnabled?.let { v -> settings.setTaskRemindersEnabled(v) }
+            // 上坟提醒（可选键）：缺失保留当前设置；日子枚举名未知的丢弃
+            it.tombRemindersEnabled?.let { v -> settings.setTombRemindersEnabled(v) }
+            it.tombReminderMinuteOfDay?.takeIf { m -> m in 0..1439 }
+                ?.let { m -> settings.setTombReminderMinuteOfDay(m) }
+            it.tombDays?.let { names ->
+                settings.setTombDays(names.mapNotNull { n ->
+                    io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.entries
+                        .firstOrNull { it.name == n }
+                }.toSet())
+            }
+            it.tombZhongyuanDay?.let { d -> settings.setTombZhongyuanDay(d) }
+            it.tombExcludedPersonIds?.let { ids ->
+                settings.setTombExcludedPersonIds(ids)
+            }
             // 旧版激活码 licenseCode 字段：会员功能已下线，恢复时忽略
         }
         settings.clearReminderRunState()

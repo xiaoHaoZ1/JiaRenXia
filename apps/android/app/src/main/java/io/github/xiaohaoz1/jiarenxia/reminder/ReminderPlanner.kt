@@ -6,6 +6,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.ReminderPreference
 import io.github.xiaohaoz1.jiarenxia.data.BirthdayEntry
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.dayLabel
 import java.time.LocalDate
 
 /** 双生日中单个历法生日的命中：发生日 + 命中的提前天数。 */
@@ -212,14 +213,6 @@ object ReminderPlanner {
             else -> birthdayText(due, isSelf)
         }
     }
-}
-
-/** “今天”/“明天”/“N天后（M月D日）”。 */
-private fun dayLabel(daysBefore: Int, occurrence: LocalDate?): String = when {
-    daysBefore == 0 -> "今天"
-    daysBefore == 1 -> "明天"
-    else -> daysBefore.toString() + "天后" +
-        (occurrence?.let { "（" + it.monthValue + "月" + it.dayOfMonth + "日）" } ?: "")
 }
 
 /** 历法限定词：阳历 / 农历。 */

@@ -14,8 +14,8 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
 
 /**
- * 提醒调度：三类提醒（生日与纪念日 / 家庭事项 / 联系）各有每日时刻，
- * 每天在各自的设置时刻检查一次（DEVELOPMENT_PLAN 2.5、FAMILY_AFFAIRS 5.4）。
+ * 提醒调度：四类提醒（生日与纪念日 / 家庭事项 / 联系 / 上坟）各有每日时刻，
+ * 每天在各自的设置时刻检查一次（DEVELOPMENT_PLAN 2.5、FAMILY_AFFAIRS 5.4、19）。
  * reconcile() 可被重复调用——无论何时都保证“下一次检查”按当前状态重算；
  * 有已开启的时刻今天已过则立即补跑一次（补跑只发当天尚未通知过的提醒）。
  */
@@ -45,6 +45,8 @@ internal suspend fun enabledCheckTimes(
         }
         if (settings.contactRemindersEnabled.first())
             add(ReminderTiming.timeOf(settings.contactReminderMinuteOfDay.first()))
+        if (settings.tombRemindersEnabled.first())
+            add(ReminderTiming.timeOf(settings.tombReminderMinuteOfDay.first()))
     }
 
 @Singleton

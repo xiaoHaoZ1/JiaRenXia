@@ -164,8 +164,10 @@ fun MainShell(
     onAbout: () -> Unit = {},
     /** 家庭页「共享与连接」：分享、接收、碰一碰。 */
     onShareConnect: () -> Unit = {},
-    /** 家事页顶栏铃铛：三类提醒的开关与时刻。 */
+    /** 家事页顶栏铃铛：四类提醒的开关与时刻。 */
     onReminderSettings: () -> Unit = {},
+    /** 家事页上坟节日行：跳上坟提醒设置页。 */
+    onOpenTombSettings: () -> Unit = {},
     onOpenAppSettings: () -> Unit = {}
 ) {
     val navController = rememberNavController()
@@ -216,7 +218,8 @@ fun MainShell(
                     onOpenPerson = onOpenPerson,
                     onOpenTask = { onOpenTaskEdit(it, null, null) },
                     onNewTask = { onOpenTaskEdit(null, it, null) },
-                    onReminderSettings = onReminderSettings
+                    onReminderSettings = onReminderSettings,
+                    onOpenTombSettings = onOpenTombSettings
                 )
             }
             composable("mine") {

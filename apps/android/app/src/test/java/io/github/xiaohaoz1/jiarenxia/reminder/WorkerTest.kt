@@ -156,6 +156,27 @@ private class FakeSettings : SettingsRepository {
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         contactReminderMinuteOfDay.value = minute
     }
+    override val tombRemindersEnabled = MutableStateFlow(true)
+    override suspend fun setTombRemindersEnabled(enabled: Boolean) {
+        tombRemindersEnabled.value = enabled
+    }
+    override val tombReminderMinuteOfDay = MutableStateFlow(540)
+    override suspend fun setTombReminderMinuteOfDay(minute: Int) {
+        tombReminderMinuteOfDay.value = minute
+    }
+    override val tombDays = MutableStateFlow(
+        io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs.DEFAULT_DAYS)
+    override suspend fun setTombDays(
+        days: Set<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay>
+    ) {
+        tombDays.value = days
+    }
+    override val tombZhongyuanDay = MutableStateFlow(15)
+    override suspend fun setTombZhongyuanDay(day: Int) { tombZhongyuanDay.value = day }
+    override val tombExcludedPersonIds = MutableStateFlow(emptySet<String>())
+    override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
+        tombExcludedPersonIds.value = ids
+    }
     override val lastBackupAt = MutableStateFlow<Long?>(null)
     override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
     override suspend fun clear() {}
@@ -351,6 +372,46 @@ class WorkerTest {
         val taskRepo = FakeTaskRepo(listOf(newTask("过期的事", daysFromToday = -3)))
         buildWorker(settings, taskRepo = taskRepo).doWork()
         assertTrue(postedTexts().none { it.contains("过期的事") })
+    }
+
+    // ---------- 上坟提醒（忌日归属上坟段，FAMILY_AFFAIRS 19） ----------
+
+    /** 今天是忌日的已故家人（阳历，带年份）。 */
+    private fun deathTodayEntry(): io.github.xiaohaoz1.jiarenxia.data.DateEntry {
+        val today = LocalDate.now()
+        val gp = Person(
+            id = "gp", name = "爷爷", gender = Gender.MALE,
+            livingStatus = io.github.xiaohaoz1.jiarenxia.core.model
+                .LivingStatus.DECEASED)
+        return io.github.xiaohaoz1.jiarenxia.data.DateEntry(
+            type = io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType
+                .DEATH_ANNIVERSARY,
+            person = gp,
+            date = BirthdayValue(
+                PartialDate(today.year - 10, today.monthValue, today.dayOfMonth)),
+            reminderEnabled = true,
+            reminderOffsets = setOf(0, 3)
+        )
+    }
+
+    @Test
+    fun 忌日_上坟提醒关闭不发() = runTest {
+        val settings = FakeSettings()
+        settings.tombRemindersEnabled.value = false
+        buildWorker(settings, dateEntries = listOf(deathTodayEntry())).doWork()
+        val texts = postedTexts()
+        // 生日段也不再发忌日；上坟段整体关闭 → 完全没有忌日通知
+        assertTrue(texts.none { it.contains("忌日") })
+    }
+
+    @Test
+    fun 忌日_生日开关关但上坟开时照发() = runTest {
+        val settings = FakeSettings()
+        settings.setRemindersEnabled(false)
+        buildWorker(settings, dateEntries = listOf(deathTodayEntry())).doWork()
+        val texts = postedTexts()
+        assertTrue(texts.none { it.contains("生日") })
+        assertTrue(texts.any { it.contains("忌日") })
     }
 }
 

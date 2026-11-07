@@ -113,10 +113,12 @@ import kotlinx.coroutines.launch
 internal fun reminderSubtitle(st: ReminderUiState): String {
     val bd = st.today.size + st.upcoming.size
     val an = st.dateRows.size + st.dateRowsToday.size
+    val tb = st.tombToday.size + st.tombNext30.size
     val tk = st.tasksToday.size + st.tasksNext30.size + st.tasksLater.size
     val parts = mutableListOf<String>()
     if (bd > 0) parts += bd.toString() + " 个生日"
     if (an > 0) parts += an.toString() + " 个纪念日"
+    if (tb > 0) parts += tb.toString() + " 个上坟日"
     if (tk > 0) parts += tk.toString() + " 件事"
     if (st.contactDue.isNotEmpty()) {
         parts += st.contactDue.size.toString() + " 位该联系了"
@@ -136,8 +138,10 @@ fun ReminderScreen(
     onOpenPerson: (String) -> Unit,
     onOpenTask: (String) -> Unit = {},
     onNewTask: (String) -> Unit = {},
-    /** 顶栏铃铛：三类提醒的开关与时刻（2026-10-09 从「我的」搬来）。 */
+    /** 顶栏铃铛：四类提醒的开关与时刻（2026-10-09 从「我的」搬来）。 */
     onReminderSettings: () -> Unit = {},
+    /** 上坟节日行点击：跳上坟提醒设置页。 */
+    onOpenTombSettings: () -> Unit = {},
     viewModel: ReminderViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -266,7 +270,8 @@ fun ReminderScreen(
                         }
                     },
                     onOpenTask = onOpenTask,
-                    onMarkDone = viewModel::markDone
+                    onMarkDone = viewModel::markDone,
+                    onOpenTombSettings = onOpenTombSettings
                 )
                 // 「家书」新建已收到右上，不再用悬浮按钮
                 if (!jiashu) ExtendedFloatingActionButton(
@@ -299,7 +304,9 @@ fun ReminderContent(
         String?) -> Unit = { _, _, _ -> },
     onNotifSettings: () -> Unit,
     onOpenTask: (String) -> Unit = {},
-    onMarkDone: (TaskRow) -> Unit = {}
+    onMarkDone: (TaskRow) -> Unit = {},
+    /** 上坟节日行点击：跳上坟提醒设置页。 */
+    onOpenTombSettings: () -> Unit = {}
 ) {
     /** “以后的事项”“已办”折叠状态（默认收起，横竖屏/进程存活期间保留）。 */
     var expandedSections by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -329,6 +336,7 @@ fun ReminderContent(
         // 全部时间线内容为空时只显示一套空态，避免再叠加事项空态。
         val emptyTimeline = !st.loading && st.today.isEmpty() && st.upcoming.isEmpty() &&
             st.dateRowsToday.isEmpty() && st.dateRows.isEmpty() && st.contactDue.isEmpty() &&
+            st.tombToday.isEmpty() && st.tombNext30.isEmpty() &&
             st.tasksToday.isEmpty() && st.tasksNext30.isEmpty() &&
             st.tasksLater.isEmpty() && st.tasksDone.isEmpty()
         if (emptyTimeline) {
@@ -347,7 +355,8 @@ fun ReminderContent(
         if (jiashu) {
             // 「家书」：两段去卡片，行间发丝线（2.22 第③批）
             val todayCount = overdueTasks.size + st.contactDue.size +
-                st.today.size + st.dateRowsToday.size + dueTodayTasks.size
+                st.today.size + st.dateRowsToday.size + st.tombToday.size +
+                dueTodayTasks.size
             if (todayCount > 0) {
                 item {
                     SectionHeader(
@@ -386,6 +395,11 @@ fun ReminderContent(
                             JiashuDateLine(row, onOpenPerson)
                             HairLine()
                         }
+                        // 上坟日：纪念日之后、今天事项之前（做七点开人物、节日进设置）
+                        st.tombToday.forEach { ev ->
+                            JiashuTombLine(ev, onOpenTombSettings, onOpenPerson)
+                            HairLine()
+                        }
                         dueTodayTasks.forEach { row ->
                             JiashuTaskLine(row, onOpenTask, onMarkDone)
                             HairLine()
@@ -396,7 +410,7 @@ fun ReminderContent(
         } else {
             if (overdueTasks.isNotEmpty() || st.today.isNotEmpty() ||
                 dueTodayTasks.isNotEmpty() || st.contactDue.isNotEmpty() ||
-                st.dateRowsToday.isNotEmpty()
+                st.dateRowsToday.isNotEmpty() || st.tombToday.isNotEmpty()
             ) {
                 item {
                     Text(
@@ -441,6 +455,10 @@ fun ReminderContent(
                             CardRow(divider(), 0.dp) {
                                 DateLine(row, onOpenPerson) }
                         }
+                        st.tombToday.forEach { ev ->
+                            CardRow(divider(), 0.dp) {
+                                TombLine(ev, onOpenTombSettings, onOpenPerson) }
+                        }
                         dueTodayTasks.forEach { row ->
                             CardRow(divider(), 0.dp) {
                                 TaskLine(row, onOpenTask, onMarkDone) }
@@ -449,10 +467,11 @@ fun ReminderContent(
                 }
             }
         }
-        // 未来 30 天：生日 + 事项按日期合并排序，同一天先生日后事项
+        // 未来 30 天：生日 + 纪念日 + 上坟日 + 事项按日期合并排序，同一天事项最后
         val next30 = (st.upcoming.map { TimelineItem.Bday(it) } +
             st.dateRows.map { TimelineItem.DateItem(it) } +
-            st.tasksNext30.map { TimelineItem.Task(it) })
+            st.tasksNext30.map { TimelineItem.Task(it) } +
+            st.tombNext30.map { TimelineItem.Tomb(it) })
             .sortedWith(compareBy({ it.date }, { it is TimelineItem.Task }))
         if (next30.isNotEmpty()) {
             if (jiashu) {
@@ -478,6 +497,10 @@ fun ReminderContent(
                                     is TimelineItem.Task ->
                                         JiashuTaskLine(
                                             entry.row, onOpenTask, onMarkDone)
+                                    is TimelineItem.Tomb ->
+                                        JiashuTombLine(
+                                            entry.event, onOpenTombSettings,
+                                            onOpenPerson)
                                 }
                             }
                             HairLine()
@@ -511,6 +534,10 @@ fun ReminderContent(
                                         is TimelineItem.Task ->
                                             TaskLine(entry.row, onOpenTask,
                                                 onMarkDone)
+                                        is TimelineItem.Tomb ->
+                                            TombLine(
+                                                entry.event, onOpenTombSettings,
+                                                onOpenPerson)
                                     }
                                 }
                             }
@@ -881,6 +908,31 @@ private fun DateLine(row: DateRow, onOpenPerson: (String) -> Unit) {
     )
 }
 
+/**
+ * 上坟日行（经典）：素色花 + 标题 + 时间线副标题；
+ * 做七/百日点开该人详情，节日进上坟提醒设置页。
+ */
+@Composable
+private fun TombLine(
+    event: io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent,
+    onOpenTombSettings: () -> Unit,
+    onOpenPerson: (String) -> Unit
+) {
+    val isMourning = event.day ==
+        io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.MOURNING
+    AffairLine(
+        icon = Icons.Rounded.LocalFlorist,
+        iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
+        title = event.title,
+        subtitle = io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
+            .timelineSubtitle(event),
+        onClick = {
+            if (isMourning) onOpenPerson(event.personIds.first())
+            else onOpenTombSettings()
+        }
+    )
+}
+
 /** 以后的事项 / 已办：一张卡，每行带日期列。 */
 @Composable
 private fun TaskDatedCard(
@@ -1006,6 +1058,11 @@ private sealed interface TimelineItem {
 
     class Task(val row: TaskRow) : TimelineItem {
         override val date get() = row.dueDate
+    }
+
+    class Tomb(val event: io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent) :
+        TimelineItem {
+        override val date get() = event.date
     }
 }
 
@@ -1251,6 +1308,26 @@ private fun JiashuDateLine(row: DateRow, onOpenPerson: (String) -> Unit) {
             )
         }
     }
+}
+
+/** 「家书」上坟日行：标题 + 时间线副标题，无尾部控件；点击同 [TombLine]。 */
+@Composable
+private fun JiashuTombLine(
+    event: io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent,
+    onOpenTombSettings: () -> Unit,
+    onOpenPerson: (String) -> Unit
+) {
+    val isMourning = event.day ==
+        io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.MOURNING
+    JiashuLine(
+        title = event.title,
+        subtitle = io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
+            .timelineSubtitle(event),
+        onClick = {
+            if (isMourning) onOpenPerson(event.personIds.first())
+            else onOpenTombSettings()
+        }
+    )
 }
 
 /** 「家书」以后的事项 / 已办：行式列表，每行带日期列与发丝线。 */

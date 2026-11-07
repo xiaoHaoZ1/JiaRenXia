@@ -1935,10 +1935,165 @@ class ScreenShotsTest {
     @Test
     fun reminderSettings() = shot("reminder_settings") {
         io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
-            state = io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsUi(),
+            state = io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsUi(
+                tombSummary = "清明、中元、寒衣、忌日、做七 · 2 位家人"),
             onBack = {}
         )
-    }.also { assertTexts("生日与纪念日", "家庭事项", "联系家人") }
+    }.also {
+        assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
+            "上坟的日子与家人")
+    }
+
+    /** 提醒设置·经典：四类开关 + 「上坟提醒」入口组。 */
+    @Test
+    fun reminderSettingsClassic() = shot(
+        "reminder_settings_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
+            state = io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsUi(
+                tombSummary = "清明、中元、寒衣、忌日、做七 · 2 位家人"),
+            onBack = {}
+        )
+    }.also {
+        assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
+            "上坟的日子与家人")
+    }
+
+    // ---------- 上坟提醒设置（FAMILY_AFFAIRS 19） ----------
+
+    /** 上坟设置演示数据：三位已故家人，其中“奶奶”被关掉（只影响节日名单）。 */
+    private fun tombSettingsState(
+        mourners: List<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner> =
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner(
+                    "gfd", "爷爷", "杨福生"),
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner(
+                    "gmd", "奶奶", "李桂英"),
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner(
+                    "old", null, "赵老师")
+            ),
+        excluded: Set<String> = setOf("gmd")
+    ) = io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsUi(
+        days = io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs.DEFAULT_DAYS +
+            io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.CHUXI,
+        zhongyuanDay = 15,
+        excluded = excluded,
+        mourners = mourners
+    )
+
+    @Test
+    fun tombSettings() = shot("tomb_settings") {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsContent(
+            state = tombSettingsState(), onBack = {}
+        )
+    }.also {
+        assertTexts("哪些日子提醒", "清明节", "中元节", "中元节按哪天",
+            "寒衣节", "除夕", "冬至", "忌日", "做七与百日", "给谁上坟",
+            "爷爷", "李桂英", "赵老师",
+            "关掉的家人不会出现在清明、中元等节日提醒里")
+    }
+
+    /** 上坟设置·经典。 */
+    @Test
+    fun tombSettingsClassic() = shot(
+        "tomb_settings_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsContent(
+            state = tombSettingsState(), onBack = {}
+        )
+    }.also { assertTexts("哪些日子提醒", "给谁上坟", "爷爷") }
+
+    /** 上坟设置空态：没有已故家人。 */
+    @Test
+    fun tombSettingsEmpty() = shot("tomb_settings_empty") {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsContent(
+            state = tombSettingsState(mourners = emptyList(), excluded = emptySet()),
+            onBack = {}
+        )
+    }.also {
+        assertTexts("哪些日子提醒", "家里还没有记为已故的家人")
+    }
+
+    /** 上坟设置空态·经典。 */
+    @Test
+    fun tombSettingsEmptyClassic() = shot(
+        "tomb_settings_empty_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsContent(
+            state = tombSettingsState(mourners = emptyList(), excluded = emptySet()),
+            onBack = {}
+        )
+    }.also { assertTexts("家里还没有记为已故的家人") }
+
+    // ---------- 家事页上的上坟日（FAMILY_AFFAIRS 19） ----------
+
+    /**
+     * 家事页含上坟日：今天一条中元节；未来 30 天一条“爷爷的三七”与一条清明节。
+     *（演示数据：中元节=今天、三七=10/03、清明节=10/20）
+     */
+    private fun reminderTombContent(): @Composable () -> Unit = {
+        val st = ReminderUiState(
+            loading = false,
+            tombToday = listOf(
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent(
+                    day = io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.ZHONGYUAN,
+                    date = LocalDate.of(2026, 10, 2),
+                    title = "中元节", lunarText = "农历七月十五",
+                    personIds = listOf("gfd", "gmd"),
+                    names = listOf("爷爷", "奶奶"))
+            ),
+            tombNext30 = listOf(
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent(
+                    day = io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.MOURNING,
+                    date = LocalDate.of(2026, 10, 3),
+                    title = "爷爷的三七", lunarText = null,
+                    personIds = listOf("gfd"), names = listOf("爷爷"),
+                    mourningDayNumber = 21),
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent(
+                    day = io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.QINGMING,
+                    date = LocalDate.of(2026, 10, 20),
+                    title = "清明节", lunarText = null,
+                    personIds = listOf("gfd", "gmd"),
+                    names = listOf("爷爷", "奶奶"))
+            )
+        )
+        Column(Modifier.fillMaxSize()) {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.AffairsHeader(
+                subtitle = io.github.xiaohaoz1.jiarenxia.ui.reminder
+                    .reminderSubtitle(st),
+                onExport = {}
+            )
+            Box(Modifier.weight(1f)) {
+                ReminderContent(
+                    st = st,
+                    notifEnabled = true,
+                    onOpenPerson = {}, onDial = {}, onNotifSettings = {},
+                    onOpenTask = {}, onMarkDone = {}
+                )
+            }
+        }
+    }
+
+    @Test
+    fun reminderTomb() = shot(
+        "reminder_tomb",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+        content = reminderTombContent()
+    ).also {
+        assertTexts("中元节", "农历七月十五 · 给爷爷、奶奶上坟",
+            "爷爷的三七", "去世第 21 天", "清明节",
+            "给爷爷、奶奶上坟")
+    }
+
+    /** 家事页含上坟日·家书。 */
+    @Test
+    fun reminderTombJiashu() = shot("reminder_tomb_js",
+        content = reminderTombContent()).also {
+        assertTexts("中元节", "爷爷的三七", "清明节", "去世第 21 天")
+    }
 
     @Test
     fun welcome() = shot("welcome") {

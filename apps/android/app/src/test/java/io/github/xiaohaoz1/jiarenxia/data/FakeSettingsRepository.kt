@@ -37,6 +37,27 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         contactReminderMinuteOfDay.value = minute
     }
+    override val tombRemindersEnabled = MutableStateFlow(true)
+    override suspend fun setTombRemindersEnabled(enabled: Boolean) {
+        tombRemindersEnabled.value = enabled
+    }
+    override val tombReminderMinuteOfDay = MutableStateFlow(540)
+    override suspend fun setTombReminderMinuteOfDay(minute: Int) {
+        tombReminderMinuteOfDay.value = minute
+    }
+    override val tombDays = MutableStateFlow(
+        io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs.DEFAULT_DAYS)
+    override suspend fun setTombDays(
+        days: Set<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay>
+    ) {
+        tombDays.value = days
+    }
+    override val tombZhongyuanDay = MutableStateFlow(15)
+    override suspend fun setTombZhongyuanDay(day: Int) { tombZhongyuanDay.value = day }
+    override val tombExcludedPersonIds = MutableStateFlow(emptySet<String>())
+    override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
+        tombExcludedPersonIds.value = ids
+    }
     override val notificationPermissionRequested: Flow<Boolean> = MutableStateFlow(false)
     override suspend fun setNotificationPermissionRequested(requested: Boolean) {}
     override val themeMode: Flow<ThemeMode> = MutableStateFlow(ThemeMode.LIGHT)

@@ -6,12 +6,18 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipKind
 import io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
+import io.github.xiaohaoz1.jiarenxia.data.DateEntry
 import io.github.xiaohaoz1.jiarenxia.data.FamilyResult
 import io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.domain.AffairTimeline
 import io.github.xiaohaoz1.jiarenxia.domain.DateRow
+import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombEvent
+import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs
 import io.github.xiaohaoz1.jiarenxia.reminder.BirthdayRow
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
 import io.github.xiaohaoz1.jiarenxia.reminder.UpcomingBirthdays
@@ -48,6 +54,10 @@ data class ReminderUiState(
     val dateRows: List<DateRow> = emptyList(),
     /** 今天发生的纪念日/忌日。 */
     val dateRowsToday: List<DateRow> = emptyList(),
+    /** 今天的上坟日（节日/做七；上坟总开关关时为空）。 */
+    val tombToday: List<TombEvent> = emptyList(),
+    /** 未来 30 天的上坟日（并入时间线）。 */
+    val tombNext30: List<TombEvent> = emptyList(),
     val defaultNumbers: Map<String, String> = emptyMap(),
     /** 今天要办（含逾期，逾期置顶）；未来 30 天；以后；已办。 */
     val tasksToday: List<TaskRow> = emptyList(),
@@ -77,6 +87,29 @@ class ReminderViewModel @Inject constructor(
     /** Snackbar 消息 + 是否需要“撤销”按钮。 */
     val snack = MutableStateFlow<Pair<String, Boolean>?>(null)
 
+    /** 上坟设置快照（开关 + 日子 + 中元日期 + 排除名单）。 */
+    private data class TombPrefSnapshot(
+        val enabled: Boolean,
+        val days: Set<TombDay>,
+        val zhongyuanDay: Int,
+        val excludedIds: Set<String>
+    )
+
+    private val tombPrefs = combine(
+        settings.tombRemindersEnabled,
+        settings.tombDays,
+        settings.tombZhongyuanDay,
+        settings.tombExcludedPersonIds
+    ) { en, days, zy, ex -> TombPrefSnapshot(en, days, zy, ex) }
+
+    /** 第一段状态携带的数据（称谓表/姓名表/总览/重要日期，供下游段复用）。 */
+    private data class StageAux(
+        val titles: Map<String, String?>,
+        val names: Map<String, String>,
+        val overview: FamilyOverview?,
+        val dates: List<DateEntry>
+    )
+
     val ui: StateFlow<ReminderUiState> = combine(
         repository.observeBirthdayEntries(),
         observeOverview(),
@@ -101,9 +134,26 @@ class ReminderViewModel @Inject constructor(
             dateRows = dNext30,
             dateRowsToday = dToday,
             defaultNumbers = numbers
-        ) to Triple(titles, names, overview)
+        ) to StageAux(titles, names, overview, dates)
+    }.combine(tombPrefs) { (base, aux), tp ->
+        // 上坟日：仅总开关开时产出；窗口与事项一致（今天起 30 天）
+        val today = LocalDate.now()
+        val events = if (tp.enabled) TombCalendar.events(
+            today = today,
+            windowDays = 30,
+            lunar = lunar,
+            mourners = TombCalendar.mourners(aux.overview),
+            deathEntries = aux.dates,
+            prefs = TombPrefs(tp.days, tp.zhongyuanDay, tp.excludedIds)
+        ) else emptyList()
+        base.copy(
+            tombToday = events.filter { it.date == today },
+            tombNext30 = events.filter { it.date > today }
+        ) to aux
     }.flatMapLatest { (base, aux) ->
-        val (titles, names, overview) = aux
+        val titles = aux.titles
+        val names = aux.names
+        val overview = aux.overview
         taskRepository.observeTasks().map { tasks ->
             val today = LocalDate.now()
             val rows = tasks.map { t ->

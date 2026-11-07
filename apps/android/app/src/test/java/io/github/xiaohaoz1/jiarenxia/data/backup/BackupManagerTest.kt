@@ -100,6 +100,30 @@ class BackupManagerTest : RepoTestBase() {
         override suspend fun setContactReminderMinuteOfDay(minute: Int) {
             contactReminderMinuteOfDay.value = minute
         }
+        override val tombRemindersEnabled = kotlinx.coroutines.flow.MutableStateFlow(true)
+        override suspend fun setTombRemindersEnabled(enabled: Boolean) {
+            tombRemindersEnabled.value = enabled
+        }
+        override val tombReminderMinuteOfDay = kotlinx.coroutines.flow.MutableStateFlow(540)
+        override suspend fun setTombReminderMinuteOfDay(minute: Int) {
+            tombReminderMinuteOfDay.value = minute
+        }
+        override val tombDays = kotlinx.coroutines.flow.MutableStateFlow(
+            io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs.DEFAULT_DAYS)
+        override suspend fun setTombDays(
+            days: Set<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay>
+        ) {
+            tombDays.value = days
+        }
+        override val tombZhongyuanDay = kotlinx.coroutines.flow.MutableStateFlow(15)
+        override suspend fun setTombZhongyuanDay(day: Int) {
+            tombZhongyuanDay.value = day
+        }
+        override val tombExcludedPersonIds =
+            kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
+        override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
+            tombExcludedPersonIds.value = ids
+        }
         override val lastBackupAt = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
         override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
         override suspend fun clear() {}
@@ -843,6 +867,145 @@ class BackupManagerTest : RepoTestBase() {
         assertInvalid(inspectFact(valid.copy(label = "甲".repeat(21))))
         val future = inspectFact(valid).getOrThrow().personFacts.single()
         assertEquals("FUTURE_X", future.category)
+    }
+
+    // ---------- 上坟提醒设置（FAMILY_AFFAIRS 19） ----------
+
+    @Test
+    fun 上坟设置随备份往返() = runTest {
+        seed()
+        fakeSettings.setTombRemindersEnabled(false)
+        fakeSettings.setTombReminderMinuteOfDay(19 * 60 + 30)
+        fakeSettings.setTombDays(
+            setOf(
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.QINGMING,
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.MOURNING))
+        fakeSettings.setTombZhongyuanDay(14)
+        fakeSettings.setTombExcludedPersonIds(setOf("p1", "p2"))
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        assertEquals(false, plan.settings?.tombRemindersEnabled)
+        assertEquals(19 * 60 + 30, plan.settings?.tombReminderMinuteOfDay)
+        assertEquals(setOf("MOURNING", "QINGMING"), plan.settings?.tombDays)
+        assertEquals(14, plan.settings?.tombZhongyuanDay)
+        assertEquals(setOf("p1", "p2"), plan.settings?.tombExcludedPersonIds)
+
+        // 恢复前把本机设置改成别的值，验证确实被备份值覆盖
+        fakeSettings.setTombRemindersEnabled(true)
+        fakeSettings.setTombReminderMinuteOfDay(540)
+        fakeSettings.setTombDays(
+            io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs.DEFAULT_DAYS)
+        fakeSettings.setTombZhongyuanDay(15)
+        fakeSettings.setTombExcludedPersonIds(emptySet())
+        backup.restore(plan)
+        assertEquals(false, fakeSettings.tombRemindersEnabled.first())
+        assertEquals(19 * 60 + 30, fakeSettings.tombReminderMinuteOfDay.first())
+        assertEquals(
+            setOf(
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.QINGMING,
+                io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.MOURNING),
+            fakeSettings.tombDays.first())
+        assertEquals(14, fakeSettings.tombZhongyuanDay.first())
+        assertEquals(setOf("p1", "p2"), fakeSettings.tombExcludedPersonIds.first())
+    }
+
+    @Test
+    fun 旧备份缺上坟字段_保留当前设置() = runTest {
+        seed()
+        // 手写“旧版”备份：settings 只有 themeMode/remindersEnabled，
+        // 五个上坟键写成 null（等价于旧文件里根本没有这些键）
+        val plan = backup.inspect(
+            ByteArrayInputStream(
+                BackupCrypto.encrypt(
+                    BackupJson.writeZip(
+                        persons = db.personDao().getAll(),
+                        phones = db.phoneNumberDao().getAll(),
+                        relationships = db.relationshipDao().getAll(),
+                        dates = db.importantDateDao().getAllDates(),
+                        prefs = db.reminderPreferenceDao().getAll().map { p ->
+                            p to db.reminderOffsetDao().getForPreference(p.id)
+                        },
+                        customTitles = emptyList(),
+                        tasks = emptyList(),
+                        settings = BackupSettings(
+                            themeMode = ThemeMode.LIGHT,
+                            remindersEnabled = true
+                        ),
+                        avatars = emptyMap(),
+                        createdAt = 1L, appVersion = "0.4.0"
+                    ), pw, iterations = 10_000
+                )
+            ), pw
+        ).getOrThrow()
+        // 缺字段 → null（不是默认值），恢复时保留当前设置
+        assertNull(plan.settings?.tombRemindersEnabled)
+        assertNull(plan.settings?.tombReminderMinuteOfDay)
+        assertNull(plan.settings?.tombDays)
+        assertNull(plan.settings?.tombZhongyuanDay)
+        assertNull(plan.settings?.tombExcludedPersonIds)
+
+        fakeSettings.setTombRemindersEnabled(false)
+        fakeSettings.setTombReminderMinuteOfDay(19 * 60)
+        fakeSettings.setTombDays(
+            setOf(io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.CHUXI))
+        fakeSettings.setTombZhongyuanDay(14)
+        fakeSettings.setTombExcludedPersonIds(setOf("p9"))
+        backup.restore(plan)
+        assertEquals(false, fakeSettings.tombRemindersEnabled.first())
+        assertEquals(19 * 60, fakeSettings.tombReminderMinuteOfDay.first())
+        assertEquals(
+            setOf(io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.CHUXI),
+            fakeSettings.tombDays.first())
+        assertEquals(14, fakeSettings.tombZhongyuanDay.first())
+        assertEquals(setOf("p9"), fakeSettings.tombExcludedPersonIds.first())
+    }
+
+    @Test
+    fun 上坟设置非法值_按缺失处理() = runTest {
+        seed()
+        // 时刻越界 / 中元非法值 → 解析为 null（恢复保留当前）；
+        // 日子集合里的未知枚举名原样带出、恢复时丢弃
+        val plan = backup.inspect(
+            ByteArrayInputStream(
+                BackupCrypto.encrypt(
+                    BackupJson.writeZip(
+                        persons = db.personDao().getAll(),
+                        phones = db.phoneNumberDao().getAll(),
+                        relationships = db.relationshipDao().getAll(),
+                        dates = db.importantDateDao().getAllDates(),
+                        prefs = emptyList(),
+                        customTitles = emptyList(),
+                        tasks = emptyList(),
+                        settings = BackupSettings(
+                            themeMode = ThemeMode.LIGHT,
+                            remindersEnabled = true,
+                            tombReminderMinuteOfDay = 2000,
+                            tombZhongyuanDay = 16,
+                            tombDays = setOf("QINGMING", "NOT_A_DAY")
+                        ),
+                        avatars = emptyMap(),
+                        createdAt = 1L, appVersion = "0.4.0"
+                    ), pw, iterations = 10_000
+                )
+            ), pw
+        ).getOrThrow()
+        assertNull(plan.settings?.tombReminderMinuteOfDay)
+        assertNull(plan.settings?.tombZhongyuanDay)
+        assertEquals(setOf("QINGMING", "NOT_A_DAY"), plan.settings?.tombDays)
+
+        fakeSettings.setTombReminderMinuteOfDay(19 * 60)
+        fakeSettings.setTombZhongyuanDay(14)
+        fakeSettings.setTombDays(
+            setOf(io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.HANYI))
+        backup.restore(plan)
+        assertEquals(19 * 60, fakeSettings.tombReminderMinuteOfDay.first())
+        assertEquals(14, fakeSettings.tombZhongyuanDay.first())
+        // 未知枚举名被丢弃，只剩 QINGMING
+        assertEquals(
+            setOf(io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.QINGMING),
+            fakeSettings.tombDays.first())
     }
 
     private fun encryptedPlan(
