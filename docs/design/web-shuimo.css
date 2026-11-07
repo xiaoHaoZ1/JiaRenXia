@@ -1,0 +1,261 @@
+/* 家人侠官网 · 水墨方向设计稿
+   立轴水墨：宣纸底、远山淡墨、大面积留白；焦墨标题、淡墨正文；
+   全站唯一彩色是朱砂印泥——像画角那枚印章，只点在要紧处。 */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+i { font-style: normal; }
+
+:root {
+  --paper: #F6F4EE;        /* 宣纸 */
+  --paper2: #EDEAE0;       /* 稍深的纸 */
+  --ink: #191F21;          /* 焦墨：标题 */
+  --ink2: #37403F;         /* 浓墨：正文重点 */
+  --ink3: #6E7879;         /* 淡墨：说明 */
+  --ink4: #A9B0AE;         /* 灰墨：弱化 */
+  --line: #D9D6CB;         /* 发丝线 */
+  --wash1: #DDE4E0;        /* 远山一层 */
+  --wash2: #C2CFC9;        /* 远山二层 */
+  --wash3: #9DB0A9;        /* 近山 */
+  --zhu: #B23E2D;          /* 朱砂印泥：全站唯一彩色 */
+  --zhu-fg: #F6F0E4;
+  --serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", serif;
+  --kai: "KaiTi", "STKaiti", "Kaiti SC", "BiauKai", serif;
+  --sans: "Noto Sans SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+}
+
+body { background: #E3E1D8; font-family: var(--sans); color: var(--ink); -webkit-font-smoothing: antialiased; }
+svg.i { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+
+/* 一页即一幅立轴 */
+.sheet {
+  width: 1360px;
+  background:
+    /* 纸上极淡的絮纹：两层大渐变错位叠出 */
+    radial-gradient(1200px 500px at 15% -5%, rgba(200,196,180,.25), transparent 60%),
+    radial-gradient(900px 420px at 85% 30%, rgba(190,196,188,.20), transparent 60%),
+    var(--paper);
+  color: var(--ink);
+}
+
+/* ---------- 顶栏 ---------- */
+.nav { display: flex; align-items: center; gap: 8px; padding: 22px 56px; }
+.brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--serif); font-weight: 700; font-size: 21px; letter-spacing: 3px; }
+.brand .seal { width: 30px; height: 30px; font-size: 17px; }
+.nav nav { margin-left: auto; display: flex; gap: 30px; }
+.nav nav a { font-size: 15px; color: var(--ink3); letter-spacing: 2px; position: relative; padding: 6px 2px; }
+.nav nav a.on { color: var(--ink); font-weight: 700; }
+.nav nav a.on::after { content: ""; position: absolute; left: 50%; bottom: -3px; width: 5px; height: 5px; margin-left: -2.5px; background: var(--zhu); border-radius: 50%; }
+.nav .lang { margin-left: 30px; font-size: 13px; color: var(--ink3); border: 1px solid var(--line); padding: 4px 12px; border-radius: 2px; letter-spacing: 1px; }
+
+/* ---------- 首屏 ---------- */
+.hero { display: flex; gap: 20px; padding: 46px 56px 10px; position: relative; }
+.hero-copy { flex: 1; padding-top: 56px; position: relative; z-index: 2; }
+.kicker { font-size: 14.5px; color: var(--ink3); letter-spacing: 4px; display: flex; align-items: center; gap: 10px; }
+.kicker::before { content: ""; width: 26px; height: 1px; background: var(--ink4); }
+.hero h1 {
+  font-family: var(--serif); font-weight: 900; font-size: 60px; line-height: 1.32;
+  letter-spacing: 4px; margin-top: 26px;
+}
+.hero h1 .u { position: relative; white-space: nowrap; }
+/* 一笔墨色横按在第二行标题下 */
+.hero h1 .u svg.stroke {
+  position: absolute; left: -6px; right: -10px; bottom: -14px; width: calc(100% + 16px); height: 14px;
+}
+.lead { margin-top: 38px; max-width: 470px; font-size: 16.5px; line-height: 2.05; color: var(--ink3); letter-spacing: 1px; }
+.actions { display: flex; gap: 16px; margin-top: 38px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 52px; padding: 0 30px; font-size: 16px; font-weight: 700; letter-spacing: 3px; border-radius: 3px; }
+.btn.solid { background: var(--ink); color: var(--paper); }
+.btn.solid svg.i { width: 18px; height: 18px; stroke-width: 2; }
+.btn.line { border: 1px solid var(--ink4); color: var(--ink2); }
+.status { display: flex; align-items: center; gap: 9px; margin-top: 30px; font-size: 13.5px; color: var(--ink3); letter-spacing: 1px; }
+.status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--zhu); flex: none; }
+
+/* 右侧画景：远山托着手机与合影 */
+.hero-art { width: 560px; position: relative; flex: none; height: 640px; }
+.mountains { position: absolute; inset: 60px -56px 0 -70px; width: calc(100% + 126px); height: 480px; }
+/* 手机后洇开的一团淡墨 */
+.blot { position: absolute; right: 90px; top: 130px; width: 360px; height: 360px;
+  background: radial-gradient(closest-side, rgba(120,138,132,.30), rgba(120,138,132,.12) 55%, transparent 72%);
+  border-radius: 58% 42% 55% 45% / 48% 55% 45% 62%;
+  filter: blur(2px);
+}
+.photo { position: absolute; right: 278px; top: 60px; width: 300px; height: 210px;
+  background: #FDFBF4; padding: 10px 10px 34px; transform: rotate(-3deg);
+  box-shadow: 0 2px 3px rgba(40,50,48,.10), 0 16px 34px -12px rgba(40,50,48,.22);
+}
+.photo .pic { width: 100%; height: 100%;
+  background:
+    radial-gradient(140px 90px at 70% 62%, rgba(157,176,169,.55), transparent 70%),
+    radial-gradient(200px 120px at 30% 75%, rgba(120,138,132,.45), transparent 70%),
+    linear-gradient(180deg, #EDE9DC 0%, #C9CFC2 55%, #A9B4A6 100%);
+  display: flex; align-items: flex-end; justify-content: center;
+  font-family: var(--kai); font-size: 15px; color: rgba(60,70,66,.6); padding-bottom: 8px; letter-spacing: 4px;
+}
+/* 照片上一点朱砂印角 */
+.photo::after { content: "家"; position: absolute; left: 12px; top: 6px; font-family: var(--kai); font-size: 16px; color: var(--zhu); opacity: .85; }
+
+.phone { position: absolute; right: 26px; top: 118px; width: 236px; height: 480px;
+  border-radius: 30px; background: #F3EDE2; overflow: hidden; z-index: 3;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), 0 24px 50px -18px rgba(35,45,43,.45);
+  outline: 8px solid #2A2723;
+}
+.mini { display: flex; flex-direction: column; height: 100%; font-family: var(--sans); color: #1F2A29; }
+.mini .st { height: 26px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 10.5px; font-weight: 700; color: #474D49; }
+.mini .tt { display: flex; align-items: center; gap: 8px; padding: 4px 20px 0; }
+.mini .tt b { font-weight: 700; font-size: 26px; letter-spacing: 2px; }
+.mini .mt2 { padding: 3px 20px 0; font-size: 10px; color: #776F63; letter-spacing: 1px; }
+.mini .dbl { margin: 9px 16px 0; height: 4px; border-top: 1px solid #2B3432; border-bottom: 1px solid #2B3432; opacity: .65; }
+.mini .lbl { margin: 12px 20px 0; font-size: 9px; color: #B23E2D; letter-spacing: 2.5px; font-weight: 700; }
+.mini .big { padding: 3px 20px 0; font-weight: 700; font-size: 14px; line-height: 1.55; }
+.mini .big .tel { color: #0C4247; font-size: 11.5px; margin-left: 6px; }
+.mini .sub2 { padding: 1px 20px 0; font-size: 9.5px; color: #776F63; }
+.mini .h3 { padding: 13px 20px 4px; display: flex; align-items: baseline; gap: 6px; }
+.mini .h3 b { font-size: 13px; }
+.mini .h3 i { font-size: 9px; color: #A2998B; }
+.mini ul { list-style: none; padding: 0 20px; }
+.mini ul li { display: flex; align-items: center; gap: 7px; padding: 8px 0; border-bottom: 1px solid #E0D7C7; font-size: 12px; }
+.mini ul li .r { margin-left: auto; font-size: 9px; color: #776F63; }
+.mini .chip { font-size: 9px; color: #B23E2D; border: 1px solid #C9705F; border-radius: 2px; padding: 0 4px; line-height: 15px; }
+.mini .chip.plain { color: #776F63; border-color: #D9CFBE; }
+.mini .tab { margin-top: auto; height: 40px; border-top: 1px solid #D9CFBE; display: flex; }
+.mini .tab span { flex: 1; text-align: center; font-size: 11px; color: #A2998B; padding-top: 11px; position: relative; letter-spacing: 1px; }
+.mini .tab span.on { color: #1F2A29; font-weight: 700; }
+.mini .tab span.on::after { content: ""; position: absolute; left: 50%; bottom: 4px; width: 4px; height: 4px; margin-left: -2px; background: #B23E2D; border-radius: 50%; }
+
+/* 浮动小卡：素纸细框 */
+.fcard { position: absolute; z-index: 4; display: flex; gap: 10px; align-items: center;
+  background: rgba(250,248,240,.92); border: 1px solid var(--line); border-radius: 4px;
+  padding: 11px 14px; box-shadow: 0 8px 22px -10px rgba(40,50,48,.28);
+}
+.fcard .ic { width: 34px; height: 34px; flex: none; border: 1px solid var(--ink4); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--ink2); }
+.fcard .ic svg.i { width: 18px; height: 18px; }
+.fcard b { display: block; font-size: 13.5px; font-weight: 700; }
+.fcard small { font-size: 11px; color: var(--ink3); }
+.f1 { left: -34px; top: 210px; }
+.f2 { right: -22px; top: 420px; }
+
+/* 立轴题款：竖排一句 + 小印 */
+.vtext { position: absolute; right: -38px; top: 8px; writing-mode: vertical-rl;
+  font-family: var(--kai); font-size: 16.5px; letter-spacing: 7px; color: var(--ink3);
+  display: flex; align-items: center; gap: 12px;
+}
+.vtext .vseal { writing-mode: horizontal-tb; width: 24px; height: 24px; font-size: 13px;
+  background: var(--zhu); color: var(--zhu-fg); display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 2px; font-family: var(--sans); font-weight: 700; transform: rotate(-4deg); letter-spacing: 0;
+}
+
+/* 章节之间的墨笔分隔线 */
+.brush { height: 26px; margin: 34px 56px 0; position: relative; }
+.brush svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* ---------- 场景 ---------- */
+.scenes { padding: 50px 56px 10px; }
+.shead { text-align: center; }
+.shead .kicker { justify-content: center; }
+.shead .kicker::before { display: none; }
+.shead h2 { font-family: var(--serif); font-weight: 900; font-size: 38px; letter-spacing: 5px; margin-top: 14px; }
+.shead .inkline { width: 110px; height: 3px; margin: 20px auto 0; background: var(--ink); opacity: .9;
+  clip-path: polygon(0 30%, 8% 0, 92% 20%, 100% 60%, 92% 100%, 6% 80%); }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; margin-top: 42px; }
+.scene { background: rgba(255,255,255,.34); border-top: 1.5px solid var(--ink2); padding: 22px 22px 24px; }
+.scene .sv { height: 128px; display: flex; align-items: center; justify-content: center; margin-bottom: 18px; }
+.scene h3 { font-family: var(--serif); font-weight: 700; font-size: 19px; letter-spacing: 1.5px; }
+.scene p { margin-top: 10px; font-size: 14px; line-height: 1.85; color: var(--ink3); }
+.scene .tags { display: flex; gap: 8px; margin-top: 14px; }
+.scene .tags span { font-size: 11.5px; color: var(--ink3); border: 1px solid var(--line); border-radius: 2px; padding: 1px 8px; letter-spacing: 1px; }
+
+/* 场景小景：淡墨构成 */
+.v-msg { width: 200px; }
+.v-msg .bub { display: flex; gap: 7px; align-items: flex-start; }
+.v-msg .av { width: 30px; height: 30px; flex: none; border-radius: 4px; background: var(--wash2); color: var(--ink2); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.v-msg .txt { flex: 1; background: rgba(255,255,255,.75); border: 1px solid var(--line); border-radius: 3px; padding: 8px 10px; font-size: 11px; line-height: 1.6; color: var(--ink2); }
+.v-msg .arrow { text-align: center; color: var(--ink4); font-size: 14px; line-height: 1.4; }
+.v-msg .card { display: flex; gap: 8px; align-items: center; border: 1px solid var(--ink2); border-radius: 3px; padding: 7px 10px; background: rgba(255,255,255,.8); }
+.v-msg .card .rd { width: 22px; height: 22px; border-radius: 50%; background: var(--zhu); color: #fff; display: flex; align-items: center; justify-content: center; flex: none; }
+.v-msg .card .rd svg.i { width: 13px; height: 13px; stroke-width: 2; }
+.v-msg .card b { font-size: 11px; display: block; }
+.v-msg .card small { font-size: 9.5px; color: var(--ink3); }
+.v-call { text-align: center; }
+.v-call .ring { width: 76px; height: 76px; margin: 0 auto; border-radius: 50%; border: 1.5px solid var(--ink3); display: flex; align-items: center; justify-content: center; color: var(--ink2); position: relative; }
+.v-call .ring::before, .v-call .ring::after { content: ""; position: absolute; inset: -9px; border-radius: 50%; border: 1px solid var(--line); }
+.v-call .ring::after { inset: -18px; opacity: .6; }
+.v-call .done { margin-top: 10px; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--ink3); border-bottom: 1.5px solid var(--ink3); padding-bottom: 1px; }
+.v-days { display: flex; gap: 14px; }
+.v-days .day { width: 88px; background: rgba(255,255,255,.8); border: 1px solid var(--line); border-radius: 3px; padding: 9px 10px; }
+.v-days .day .num { font-family: var(--serif); font-weight: 700; font-size: 24px; line-height: 1; }
+.v-days .day .num i { font-size: 10px; color: var(--ink3); font-style: normal; margin-left: 3px; letter-spacing: 0; }
+.v-days .day b { display: block; font-size: 10.5px; margin-top: 6px; }
+.v-days .day small { font-size: 9px; color: var(--ink3); }
+.v-days .day.hot { border-color: var(--zhu); }
+.v-days .day.hot .num { color: var(--zhu); }
+
+/* ---------- 一家人 ---------- */
+.family { display: flex; gap: 60px; padding: 74px 56px 10px; align-items: center; }
+.f-copy { flex: 1; }
+.f-copy h2 { font-family: var(--serif); font-weight: 900; font-size: 36px; letter-spacing: 4px; margin-top: 16px; }
+.f-copy .lead2 { margin-top: 18px; font-size: 15.5px; line-height: 1.95; color: var(--ink3); max-width: 440px; }
+.f-copy ul { list-style: none; margin-top: 26px; }
+.f-copy ul li { display: flex; gap: 14px; padding: 15px 0; border-top: 1px solid var(--line); }
+.f-copy ul li svg.i { color: var(--ink2); margin-top: 2px; }
+.f-copy ul li b { display: block; font-size: 15.5px; font-weight: 700; letter-spacing: 1px; }
+.f-copy ul li p { font-size: 13px; color: var(--ink3); margin-top: 3px; line-height: 1.7; }
+.f-copy .more { display: inline-flex; align-items: center; gap: 6px; margin-top: 20px; font-size: 14.5px; font-weight: 700; color: var(--ink); border-bottom: 1.5px solid var(--ink); padding-bottom: 2px; letter-spacing: 1px; }
+/* 关系图：发丝连线 + 墨字卡片，“我”一点朱砂 */
+.graph { width: 560px; height: 350px; flex: none; position: relative; }
+.graph svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; }
+.graph svg.wires path { stroke: var(--ink4); stroke-width: 1; fill: none; opacity: .8; }
+.node { position: absolute; transform: translate(-50%, -50%); background: rgba(255,255,255,.82);
+  border: 1px solid var(--line); border-radius: 4px; padding: 7px 10px; text-align: center; min-width: 64px;
+}
+.node b { display: block; font-size: 13.5px; font-weight: 500; }
+.node i { display: block; font-style: normal; font-size: 10px; color: var(--ink3); margin-top: 1px; }
+.node.me { background: #F5E1DA; border-color: var(--zhu); border-width: 1.5px; }
+.node.me i { color: var(--zhu); font-weight: 700; }
+.node .sur { display: inline-flex; width: 18px; height: 18px; border-radius: 3px; background: var(--wash2); color: var(--ink2); font-size: 9.5px; align-items: center; justify-content: center; margin-bottom: 3px; }
+.node.me .sur { background: var(--zhu); color: var(--zhu-fg); }
+
+/* ---------- 守护侠条 ---------- */
+.gx { padding: 66px 56px 0; }
+.gx-card { display: flex; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: 4px;
+  background: rgba(255,255,255,.4); padding: 16px 22px; }
+.gx-card .sq { width: 42px; height: 42px; flex: none; border: 1.5px solid var(--ink2); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--ink2); }
+.gx-card b { font-size: 15.5px; letter-spacing: 1px; }
+.gx-card p { font-size: 13.5px; color: var(--ink3); margin-top: 2px; }
+.gx-card a { color: var(--ink); font-weight: 700; border-bottom: 1px solid var(--ink); }
+
+/* ---------- 隐私 ---------- */
+.privacy { margin-top: 70px; padding: 64px 56px; text-align: center; position: relative;
+  background:
+    radial-gradient(700px 260px at 50% 110%, rgba(157,176,169,.28), transparent 70%);
+}
+.privacy .mark { width: 58px; height: 58px; margin: 0 auto; border-radius: 50%; border: 1.5px solid var(--ink2); display: flex; align-items: center; justify-content: center; color: var(--ink2); }
+.privacy h2 { font-family: var(--serif); font-weight: 900; font-size: 34px; letter-spacing: 6px; margin-top: 22px; }
+.privacy .lead3 { margin: 16px auto 0; max-width: 560px; font-size: 15px; line-height: 2; color: var(--ink3); }
+.privacy .plink { display: inline-block; margin-top: 16px; font-size: 14px; color: var(--ink2); font-weight: 700; border-bottom: 1.5px solid var(--ink2); padding-bottom: 2px; letter-spacing: 1px; }
+.pts { display: flex; justify-content: center; gap: 0; margin-top: 40px; list-style: none; }
+.pts li { width: 250px; padding: 0 34px; }
+.pts li + li { border-left: 1px solid var(--line); }
+.pts .ic { width: 46px; height: 46px; margin: 0 auto; border: 1px solid var(--ink3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--ink2); }
+.pts b { display: block; margin-top: 14px; font-size: 16.5px; letter-spacing: 3px; }
+.pts p { margin-top: 8px; font-size: 12.5px; line-height: 1.8; color: var(--ink3); }
+
+/* ---------- 结尾 ---------- */
+.cta { text-align: center; padding: 80px 56px 90px; position: relative;
+  background: radial-gradient(760px 300px at 50% 120%, rgba(157,176,169,.24), transparent 70%);
+}
+.cta .big-seal { width: 64px; height: 64px; margin: 0 auto 26px; font-size: 34px; }
+.cta h2 { font-family: var(--serif); font-weight: 900; font-size: 40px; letter-spacing: 6px; }
+.cta p { margin: 16px auto 0; font-size: 15px; color: var(--ink3); max-width: 480px; line-height: 2; }
+.cta .actions { justify-content: center; margin-top: 34px; }
+
+/* 页脚 */
+.foot { border-top: 1px solid var(--line); padding: 30px 56px 40px; }
+.foot .top { display: flex; align-items: center; gap: 16px; }
+.foot .fb { display: flex; align-items: center; gap: 10px; }
+.foot .fb .seal { width: 26px; height: 26px; font-size: 14px; }
+.foot .fb b { font-family: var(--serif); font-size: 17px; letter-spacing: 2px; }
+.foot .motto { font-family: var(--kai); font-size: 15px; color: var(--ink3); letter-spacing: 2px; margin-left: 6px; }
+.foot .links { margin-left: auto; display: flex; gap: 26px; font-size: 13.5px; color: var(--ink3); }
+.foot .note { margin-top: 16px; font-size: 12px; color: var(--ink4); letter-spacing: 1px; }
+
+/* 印章通用 */
+.seal { display: inline-flex; align-items: center; justify-content: center; background: var(--zhu); color: var(--zhu-fg); font-weight: 700; border-radius: 3px; transform: rotate(-4deg); font-family: var(--sans); }

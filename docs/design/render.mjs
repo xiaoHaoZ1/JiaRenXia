@@ -41,7 +41,9 @@ for (const [name, width, cssFile] of [
   ["main", 1700, "base.css"],
   ["mine", 1320, "base.css"],
   ["jiashu-main", 1264, "jiashu.css"],
-  ["jiashu-more", 1264, "jiashu.css"]
+  ["jiashu-more", 1264, "jiashu.css"],
+  ["web-shuimo", 1360, "web-shuimo.css"],
+  ["web-jiashu", 1360, "web-jiashu.css"]
 ]) {
   const css = readFileSync(join(HERE, cssFile), "utf8");
   const html = readFileSync(join(HERE, `${name}.html`), "utf8")
