@@ -21,6 +21,7 @@ import androidx.room.RoomDatabase
  *   insurance_policies 表；family_tasks 去掉 policy_id 列与索引，
  *   其余字段（id、周期、期数、办理记录、提醒）原样保留。
  * v18 +person_facts（「关于TA」，私密：进备份、不进共享/碰一碰/合并）。
+ * v19 +home_visit_plans / home_visit_members（回家看看，FAMILY_AFFAIRS 20）。
  */
 @Database(
     entities = [
@@ -39,9 +40,11 @@ import androidx.room.RoomDatabase
         SpousePairingEntity::class,
         TapPersonMapEntity::class,
         TapDeviceEntity::class,
-        PersonAliasEntity::class
+        PersonAliasEntity::class,
+        HomeVisitPlanEntity::class,
+        HomeVisitMemberEntity::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -59,6 +62,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun personFactDao(): PersonFactDao
     abstract fun tapPairingDao(): TapPairingDao
     abstract fun personAliasDao(): PersonAliasDao
+    abstract fun homeVisitPlanDao(): HomeVisitPlanDao
+    abstract fun homeVisitMemberDao(): HomeVisitMemberDao
 }
 
 /**
@@ -71,6 +76,9 @@ abstract class AppDatabase : RoomDatabase() {
  */
 internal suspend fun AppDatabase.clearTables() {
     customTitleDao().deleteAll()
+    // 回家看看：成员表先清（外键也级联，这里显式保序）
+    homeVisitMemberDao().deleteAll()
+    homeVisitPlanDao().deleteAll()
     contactLogDao().deleteAll()
     contactPlanDao().deleteAll()
     personFactDao().deleteAll()

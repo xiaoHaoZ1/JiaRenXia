@@ -56,7 +56,7 @@ class BackupManager @Inject constructor(
                 snapshotTables()
             }
             val (persons2, phones, rels, dates, prefs, offsets, titles, tasks, taskOffsets,
-                contactLogs, contactPlans, personFacts) = persons
+                contactLogs, contactPlans, personFacts, homeVisits) = persons
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -76,6 +76,7 @@ class BackupManager @Inject constructor(
                 contactLogs = contactLogs,
                 contactPlans = contactPlans,
                 personFacts = personFacts,
+                homeVisits = homeVisits,
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
                     remindersEnabled = settings.remindersEnabled.first(),
@@ -91,7 +92,8 @@ class BackupManager @Inject constructor(
                     tombReminderMinuteOfDay = settings.tombReminderMinuteOfDay.first(),
                     tombDays = settings.tombDays.first().map { it.name }.toSet(),
                     tombZhongyuanDay = settings.tombZhongyuanDay.first(),
-                    tombExcludedPersonIds = settings.tombExcludedPersonIds.first()
+                    tombExcludedPersonIds = settings.tombExcludedPersonIds.first(),
+                    homeVisitHolidayNudge = settings.homeVisitHolidayNudge.first()
                 ),
                 avatars = avatarMap,
                 createdAt = System.currentTimeMillis(),
@@ -136,7 +138,7 @@ class BackupManager @Inject constructor(
         }
         val snap = db.withTransaction { snapshotTables() }
         val (allPersons, allPhones, allRels, allDates, allPrefs, allOffsets, _,
-            _, _, _, _, _) = snap
+            _, _, _, _, _, _) = snap
         val keep = personIds
             ?: allPersons.mapTo(HashSet()) { it.id }
         val persons = allPersons.filter { it.id in keep }
@@ -201,7 +203,18 @@ class BackupManager @Inject constructor(
         taskOffsets = db.familyTaskOffsetDao().getAll(),
         contactLogs = db.contactLogDao().getAll(),
         contactPlans = db.contactPlanDao().getAll(),
-        personFacts = db.personFactDao().getAll()
+        personFacts = db.personFactDao().getAll(),
+        homeVisits = run {
+            val plans = db.homeVisitPlanDao().getAll()
+            val members = db.homeVisitMemberDao().getAll().groupBy { it.planId }
+            plans.map { p ->
+                HomeVisitBackup(
+                    id = p.id, intervalDays = p.intervalDays,
+                    createdAt = p.createdAt, updatedAt = p.updatedAt,
+                    memberIds = members[p.id].orEmpty().map { it.personId }
+                )
+            }
+        }
     )
 
     // ---------- 检查 ----------
@@ -292,6 +305,7 @@ class BackupManager @Inject constructor(
             it.tombExcludedPersonIds?.let { ids ->
                 settings.setTombExcludedPersonIds(ids)
             }
+            it.homeVisitHolidayNudge?.let { v -> settings.setHomeVisitHolidayNudge(v) }
             // 旧版激活码 licenseCode 字段：会员功能已下线，恢复时忽略
         }
         settings.clearReminderRunState()
@@ -415,6 +429,19 @@ class BackupManager @Inject constructor(
             plan.contactPlans.forEach { db.contactPlanDao().insertAll(listOf(it)) }
             plan.contactLogs.forEach { db.contactLogDao().insertAll(listOf(it)) }
             if (plan.personFacts.isNotEmpty()) db.personFactDao().insertAll(plan.personFacts)
+            // 回家看看：指向不存在人物的成员丢弃（人物已在上方写回）
+            val personIds = plan.persons.mapTo(HashSet()) { it.id }
+            plan.homeVisits.forEach { h ->
+                db.homeVisitPlanDao().insert(
+                    io.github.xiaohaoz1.jiarenxia.data.db.HomeVisitPlanEntity(
+                        id = h.id, intervalDays = h.intervalDays,
+                        createdAt = h.createdAt, updatedAt = h.updatedAt))
+                h.memberIds.distinct().filter { it in personIds }.forEach { pid ->
+                    db.homeVisitMemberDao().insertAll(
+                        listOf(io.github.xiaohaoz1.jiarenxia.data.db
+                            .HomeVisitMemberEntity(planId = h.id, personId = pid)))
+                }
+            }
         }
         plan.prefs.forEach { (pref, offsets) ->
             db.reminderPreferenceDao().insert(pref)
@@ -439,7 +466,7 @@ class BackupManager @Inject constructor(
         personIds: Set<String>? = null
     ): ByteArray = withContext(Dispatchers.IO) {
         val snap = db.withTransaction { snapshotTables() }
-        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _) = snap
+        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _) = snap
         val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id }
         require(allPersons.firstOrNull { it.isSelf }?.id in keep) {
             "碰一碰资料包必须包含“我”"
@@ -641,6 +668,7 @@ class BackupManager @Inject constructor(
         val taskOffsets: List<io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity>,
         val contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity>,
         val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity>,
-        val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity>
+        val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity>,
+        val homeVisits: List<HomeVisitBackup>
     )
 }

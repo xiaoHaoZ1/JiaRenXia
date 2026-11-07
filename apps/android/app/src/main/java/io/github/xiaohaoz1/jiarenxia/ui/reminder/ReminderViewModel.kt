@@ -13,6 +13,7 @@ import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.domain.AffairTimeline
 import io.github.xiaohaoz1.jiarenxia.domain.DateRow
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.HomeVisitSchedule
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
@@ -63,6 +64,8 @@ data class ReminderUiState(
     val tasksToday: List<TaskRow> = emptyList(),
     /** 今天该联系的家人（逾期的联系提醒，联系提醒）。 */
     val contactDue: List<ContactDueRow> = emptyList(),
+    /** 今天该回家看看（到期的家；与 contactDue 同一显示口径）。 */
+    val homeDue: List<HomeDueRow> = emptyList(),
     val tasksNext30: List<TaskRow> = emptyList(),
     val tasksLater: List<TaskRow> = emptyList(),
     val tasksDone: List<TaskRow> = emptyList()
@@ -79,7 +82,9 @@ class ReminderViewModel @Inject constructor(
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
     val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data
-        .ContactRepository) : ViewModel() {
+        .ContactRepository,
+    private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
+        .HomeVisitRepository) : ViewModel() {
 
     /** 已办撤销：记下被改掉的事项原状，撤销时整体写回。 */
     private var lastDoneSnapshot: FamilyTask? = null
@@ -179,7 +184,8 @@ class ReminderViewModel @Inject constructor(
     }.combine(
         contactRepository.observePlanList()
             .combine(contactRepository.observeAllLogs()) { p, l -> p to l }
-    ) { (st, ov), (plans, logs) ->
+            .combine(homeVisitRepository.observeHomes()) { (p, l), h -> Triple(p, l, h) }
+    ) { (st, ov), (plans, logs, homes) ->
         val today = LocalDate.now()
         val logsBy = logs.groupBy { it.personId }
         val titles2 = ov?.byId?.mapValues { (_, o) ->
@@ -205,6 +211,12 @@ class ReminderViewModel @Inject constructor(
                     label = label,
                     daysSinceLast = status.daysSinceLast,
                     overdueDays = status.overdueDays)
+            },
+            // 回家看看：与 contactDue 同一口径——contactDue 不受
+            // contactRemindersEnabled 门控（VM 不读该开关），照它做
+            homeDue = HomeVisitSchedule.dueRows(
+                HomeVisitSchedule.homes(homes, ov, logs, today)).map {
+                HomeDueRow(it.planId, it.label, it.daysSinceLast)
             }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReminderUiState())
@@ -300,6 +312,25 @@ class ReminderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 家事页“回家了”：给该家每位有效成员各记一条见面记录，
+     * 然后 Snackbar 报“已记下回家，X、Y各记一次见面”。
+     */
+    fun logHomeVisit(planId: String) {
+        viewModelScope.launch {
+            homeVisitRepository.logHomeVisit(planId, System.currentTimeMillis())
+            val overview = observeOverview().first()
+            val homes = HomeVisitSchedule.homes(
+                homeVisitRepository.getHomes(), overview,
+                contactRepository.getLogs(), LocalDate.now())
+            val names = homes.firstOrNull { it.planId == planId }
+                ?.members?.joinToString("、") { it.label }
+            snack.value = if (names != null)
+                "已记下回家，" + names + "各记一次见面" to false
+            else "已记下回家" to false
+        }
+    }
+
 }
 
 /** 联系提醒时间线条目（“今天”分组）。 */
@@ -310,4 +341,13 @@ data class ContactDueRow(
     /** 距上次联系的天数；从未联系为 null。 */
     val daysSinceLast: Int?,
     val overdueDays: Int
+)
+
+/** 回家看看时间线条目（“今天”分组）。 */
+data class HomeDueRow(
+    val planId: String,
+    /** 家名（“该回家看看{家名}了”用）。 */
+    val label: String,
+    /** 距上次见面的天数；从未见面为 null。 */
+    val daysSinceLast: Int?
 )

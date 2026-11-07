@@ -23,6 +23,7 @@ import io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
 import io.github.xiaohaoz1.jiarenxia.data.TimeSource
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
+import io.github.xiaohaoz1.jiarenxia.domain.HomeVisitSchedule
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
@@ -47,6 +48,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
     private val taskRepository: io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data
         .ContactRepository,
+    private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
+        .HomeVisitRepository,
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
@@ -67,7 +70,10 @@ class BirthdayReminderWorker @AssistedInject constructor(
             if (settings.remindersEnabled.first()) postNotifications(today, posted)
             if (settings.taskRemindersEnabled.first())
                 postTaskNotifications(today, java.time.LocalTime.MAX, posted)
-            if (settings.contactRemindersEnabled.first()) postContactNotifications(today, posted)
+            if (settings.contactRemindersEnabled.first()) {
+                postContactNotifications(today, posted)
+                postHomeVisitNotifications(today, posted)
+            }
             if (settings.tombRemindersEnabled.first()) postTombNotifications(today, posted)
             return Result.success()
         }
@@ -89,6 +95,7 @@ class BirthdayReminderWorker @AssistedInject constructor(
             !nowTime.isBefore(ReminderTiming.timeOf(settings.contactReminderMinuteOfDay.first()))
         ) {
             postContactNotifications(today, posted)
+            postHomeVisitNotifications(today, posted)
         }
         if (settings.tombRemindersEnabled.first() &&
             !nowTime.isBefore(ReminderTiming.timeOf(settings.tombReminderMinuteOfDay.first()))
@@ -387,6 +394,78 @@ class BirthdayReminderWorker @AssistedInject constructor(
         }
     }
 
+    /**
+     * 回家看看提醒（FAMILY_AFFAIRS 20）：跟随「联系家人」的开关与时刻，
+     * 不新增检查时刻。到期提醒（到期当天 + 每 7 天复提）与节前提醒
+     * （春节/中秋/国庆/成员生日前 7 天）共用 home_visit 渠道；
+     * 点开只打开 App（无 extra）。
+     */
+    private suspend fun postHomeVisitNotifications(today: LocalDate, posted: MutableSet<String>) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val plans = homeVisitRepository.getHomes()
+        if (plans.isEmpty()) return
+        val overview = observeOverview().first() ?: return
+        val states = HomeVisitSchedule.homes(
+            plans, overview, contactRepository.getLogs(), today)
+        if (states.isEmpty()) return
+        ensureHomeChannel()
+        val nm = NotificationManagerCompat.from(context)
+
+        // 到期：与联系提醒同一 remindToday 口径（到期当天一次，之后每 7 天）
+        states.forEach { home ->
+            val key = "home:" + home.planId
+            if (key in posted) return@forEach
+            if (!io.github.xiaohaoz1.jiarenxia.domain.ContactSchedule
+                    .remindToday(home.status, today)
+            ) return@forEach
+            runCatching {
+                nm.notify(key.hashCode(), buildHome(key, HomeVisitSchedule.dueText(home)))
+            }.onSuccess { posted += key }
+        }
+
+        // 节前提醒：独立开关 homeVisitHolidayNudge
+        if (settings.homeVisitHolidayNudge.first()) {
+            HomeVisitSchedule.preHoliday(states, overview, lunar, today)
+                .forEach { ev ->
+                    if (ev.dedupKey in posted) return@forEach
+                    runCatching {
+                        nm.notify(ev.dedupKey.hashCode(), buildHome(ev.dedupKey, ev.text))
+                    }.onSuccess { posted += ev.dedupKey }
+                }
+        }
+    }
+
+    /** 回家看看通知：点开只打开 App。 */
+    private fun buildHome(key: String, text: String): android.app.Notification {
+        val intent = PendingIntent.getActivity(
+            context, key.hashCode(),
+            Intent(context, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, HOME_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：该回家看看了")
+            .build()
+        return NotificationCompat.Builder(context, HOME_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
+    }
+
+    private fun ensureHomeChannel() {
+        val channel = NotificationChannel(
+            HOME_CHANNEL_ID, "回家看看", NotificationManager.IMPORTANCE_DEFAULT
+        )
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(channel)
+    }
+
     private fun ensureContactChannel() {
         val channel = NotificationChannel(
             CONTACT_CHANNEL_ID, "联系提醒", NotificationManager.IMPORTANCE_DEFAULT
@@ -431,6 +510,7 @@ class BirthdayReminderWorker @AssistedInject constructor(
         const val TASK_CHANNEL_ID = "family_tasks"
         const val CONTACT_CHANNEL_ID = "contact"
         const val TOMB_CHANNEL_ID = "tomb"
+        const val HOME_CHANNEL_ID = "home_visit"
         const val KEY_FORCE = "force"
     }
 }

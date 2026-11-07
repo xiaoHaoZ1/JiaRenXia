@@ -85,6 +85,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.person.PhoneRowState
 import io.github.xiaohaoz1.jiarenxia.ui.person.RelationRow
 import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorBody
 import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorMode
+import io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeDueRow
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderContent
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderUiState
 import io.github.xiaohaoz1.jiarenxia.ui.search.SearchContent
@@ -1936,15 +1937,16 @@ class ScreenShotsTest {
     fun reminderSettings() = shot("reminder_settings") {
         io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
             state = io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsUi(
-                tombSummary = "清明、中元、寒衣、忌日、做七 · 2 位家人"),
+                tombSummary = "清明、中元、寒衣、忌日、做七 · 2 位家人",
+                homeSummary = "爸爸妈妈 每季度；岳父岳母 每半年"),
             onBack = {}
         )
     }.also {
         assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
-            "上坟的日子与家人")
+            "上坟的日子与家人", "回家看看", "爸爸妈妈 每季度")
     }
 
-    /** 提醒设置·经典：四类开关 + 「上坟提醒」入口组。 */
+    /** 提醒设置·经典：四类开关 + 「上坟提醒」「回家看看」入口组。 */
     @Test
     fun reminderSettingsClassic() = shot(
         "reminder_settings_classic",
@@ -1952,12 +1954,13 @@ class ScreenShotsTest {
     ) {
         io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
             state = io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsUi(
-                tombSummary = "清明、中元、寒衣、忌日、做七 · 2 位家人"),
+                tombSummary = "清明、中元、寒衣、忌日、做七 · 2 位家人",
+                homeSummary = "爸爸妈妈 每季度；岳父岳母 每半年"),
             onBack = {}
         )
     }.also {
         assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
-            "上坟的日子与家人")
+            "上坟的日子与家人", "回家看看", "爸爸妈妈 每季度")
     }
 
     // ---------- 上坟提醒设置（FAMILY_AFFAIRS 19） ----------
@@ -2093,6 +2096,129 @@ class ScreenShotsTest {
     fun reminderTombJiashu() = shot("reminder_tomb_js",
         content = reminderTombContent()).also {
         assertTexts("中元节", "爷爷的三七", "清明节", "去世第 21 天")
+    }
+
+    // ---------- 回家看看（FAMILY_AFFAIRS 20） ----------
+
+    /** 回家看看设置演示数据：爸妈家（每季度，上次 95 天前）+ 岳父母家（每半年，还没记录）。 */
+    private fun homeVisitState(
+        homes: List<io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitRow> =
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitRow(
+                    planId = "hv1", label = "爸爸妈妈",
+                    memberIds = listOf("p1", "p2"),
+                    memberValue = "爸爸、妈妈",
+                    intervalDays = 90, intervalLabel = "每季度",
+                    lastVisitText = "95 天前"),
+                io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitRow(
+                    planId = "hv2", label = "岳父岳母",
+                    memberIds = listOf("p3", "p4"),
+                    memberValue = "岳父、岳母",
+                    intervalDays = 180, intervalLabel = "每半年",
+                    lastVisitText = "还没有记录")
+            )
+    ) = io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitUi(
+        holidayNudge = true,
+        homes = homes,
+        candidates = listOf(
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitCandidate(
+                "p1", "爸爸（杨建国）", isParent = true),
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitCandidate(
+                "p2", "妈妈（李秀兰）", isParent = true),
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitCandidate(
+                "p5", "老婆（陈静）", isParent = false),
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitCandidate(
+                "p3", "岳父（周建军）", isParent = false),
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitCandidate(
+                "p4", "岳母（王秀英）", isParent = false)
+        )
+    )
+
+    @Test
+    fun homeVisitSettings() = shot("home_visit_settings") {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitContent(
+            state = homeVisitState(), onBack = {}
+        )
+    }.also {
+        assertTexts("爸爸妈妈", "家里有谁", "多久回去一次", "上次回家",
+            "不再提醒这个家", "再添加一个家", "节前提醒",
+            "只有“见面”记录算回过家")
+    }
+
+    /** 回家看看设置·经典。 */
+    @Test
+    fun homeVisitSettingsClassic() = shot(
+        "home_visit_settings_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitContent(
+            state = homeVisitState(), onBack = {}
+        )
+    }.also { assertTexts("爸爸妈妈", "岳父岳母", "节前提醒") }
+
+    /** 回家看看设置空态：还没有“家”。 */
+    @Test
+    fun homeVisitSettingsEmpty() = shot("home_visit_settings_empty") {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitContent(
+            state = homeVisitState(homes = emptyList()), onBack = {}
+        )
+    }.also {
+        assertTexts("选好家里有谁、多久回去一次", "添加一个家", "节前提醒")
+    }
+
+    /** 回家看看设置空态·经典。 */
+    @Test
+    fun homeVisitSettingsEmptyClassic() = shot(
+        "home_visit_settings_empty_classic",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitContent(
+            state = homeVisitState(homes = emptyList()), onBack = {}
+        )
+    }.also { assertTexts("添加一个家", "节前提醒") }
+
+    /** 家事页“今天”有一条回家看看（经典）。 */
+    @Test
+    fun reminderHomeVisit() = shot(
+        "reminder_home_visit",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
+        content = reminderHomeVisitContent()
+    ).also {
+        assertTexts("该回家看看爸爸妈妈了", "已 95 天没回家", "回家了",
+            "1 个家该回去看看了")
+    }
+
+    /** 家事页“今天”有一条回家看看·家书。 */
+    @Test
+    fun reminderHomeVisitJiashu() = shot("reminder_home_visit_js",
+        content = reminderHomeVisitContent()).also {
+        assertTexts("该回家看看爸爸妈妈了", "已 95 天没回家", "回家了")
+    }
+
+    /** 家事页回家看看演示：今天一条“该回家看看爸爸妈妈了”（已 95 天）。 */
+    private fun reminderHomeVisitContent(): @Composable () -> Unit = {
+        val st = ReminderUiState(
+            loading = false,
+            homeDue = listOf(
+                HomeDueRow(planId = "hv1", label = "爸爸妈妈",
+                    daysSinceLast = 95)
+            )
+        )
+        Column(Modifier.fillMaxSize()) {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.AffairsHeader(
+                subtitle = io.github.xiaohaoz1.jiarenxia.ui.reminder
+                    .reminderSubtitle(st),
+                onExport = {}
+            )
+            Box(Modifier.weight(1f)) {
+                ReminderContent(
+                    st = st,
+                    notifEnabled = true,
+                    onOpenPerson = {}, onDial = {}, onNotifSettings = {},
+                    onOpenTask = {}, onMarkDone = {}
+                )
+            }
+        }
     }
 
     @Test

@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Create
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.HealthAndSafety
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.HowToReg
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.MonitorHeart
@@ -123,6 +124,9 @@ internal fun reminderSubtitle(st: ReminderUiState): String {
     if (st.contactDue.isNotEmpty()) {
         parts += st.contactDue.size.toString() + " 位该联系了"
     }
+    if (st.homeDue.isNotEmpty()) {
+        parts += st.homeDue.size.toString() + " 个家该回去看看了"
+    }
     return if (parts.isEmpty()) "未来 30 天没有生日和事项"
     else "未来 30 天有 " + parts.joinToString("、")
 }
@@ -142,6 +146,8 @@ fun ReminderScreen(
     onReminderSettings: () -> Unit = {},
     /** 上坟节日行点击：跳上坟提醒设置页。 */
     onOpenTombSettings: () -> Unit = {},
+    /** 回家看看行点击：跳回家看看设置页。 */
+    onOpenHomeSettings: () -> Unit = {},
     viewModel: ReminderViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -271,7 +277,9 @@ fun ReminderScreen(
                     },
                     onOpenTask = onOpenTask,
                     onMarkDone = viewModel::markDone,
-                    onOpenTombSettings = onOpenTombSettings
+                    onOpenTombSettings = onOpenTombSettings,
+                    onOpenHomeSettings = onOpenHomeSettings,
+                    onHomeVisitLogged = viewModel::logHomeVisit
                 )
                 // 「家书」新建已收到右上，不再用悬浮按钮
                 if (!jiashu) ExtendedFloatingActionButton(
@@ -306,7 +314,11 @@ fun ReminderContent(
     onOpenTask: (String) -> Unit = {},
     onMarkDone: (TaskRow) -> Unit = {},
     /** 上坟节日行点击：跳上坟提醒设置页。 */
-    onOpenTombSettings: () -> Unit = {}
+    onOpenTombSettings: () -> Unit = {},
+    /** 回家看看行点击：跳回家看看设置页。 */
+    onOpenHomeSettings: () -> Unit = {},
+    /** “回家了”：记一次回家（给该家有效成员各插一条见面记录）。 */
+    onHomeVisitLogged: (String) -> Unit = {}
 ) {
     /** “以后的事项”“已办”折叠状态（默认收起，横竖屏/进程存活期间保留）。 */
     var expandedSections by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -336,6 +348,7 @@ fun ReminderContent(
         // 全部时间线内容为空时只显示一套空态，避免再叠加事项空态。
         val emptyTimeline = !st.loading && st.today.isEmpty() && st.upcoming.isEmpty() &&
             st.dateRowsToday.isEmpty() && st.dateRows.isEmpty() && st.contactDue.isEmpty() &&
+            st.homeDue.isEmpty() &&
             st.tombToday.isEmpty() && st.tombNext30.isEmpty() &&
             st.tasksToday.isEmpty() && st.tasksNext30.isEmpty() &&
             st.tasksLater.isEmpty() && st.tasksDone.isEmpty()
@@ -355,6 +368,7 @@ fun ReminderContent(
         if (jiashu) {
             // 「家书」：两段去卡片，行间发丝线（2.22 第③批）
             val todayCount = overdueTasks.size + st.contactDue.size +
+                st.homeDue.size +
                 st.today.size + st.dateRowsToday.size + st.tombToday.size +
                 dueTodayTasks.size
             if (todayCount > 0) {
@@ -373,6 +387,13 @@ fun ReminderContent(
                         st.contactDue.forEach { row ->
                             JiashuContactLine(row, onOpenPerson) {
                                 contactLogFor = row.personId
+                            }
+                            HairLine()
+                        }
+                        // 回家看看：到期的家放在联系提醒之后
+                        st.homeDue.forEach { row ->
+                            JiashuHomeVisitLine(row, onOpenHomeSettings) {
+                                onHomeVisitLogged(row.planId)
                             }
                             HairLine()
                         }
@@ -410,6 +431,7 @@ fun ReminderContent(
         } else {
             if (overdueTasks.isNotEmpty() || st.today.isNotEmpty() ||
                 dueTodayTasks.isNotEmpty() || st.contactDue.isNotEmpty() ||
+                st.homeDue.isNotEmpty() ||
                 st.dateRowsToday.isNotEmpty() || st.tombToday.isNotEmpty()
             ) {
                 item {
@@ -432,6 +454,14 @@ fun ReminderContent(
                             CardRow(divider(), 0.dp) {
                                 ContactLine(row, onOpenPerson) {
                                     contactLogFor = row.personId
+                                }
+                            }
+                        }
+                        // 回家看看：到期的家放在联系提醒之后
+                        st.homeDue.forEach { row ->
+                            CardRow(divider(), 0.dp) {
+                                HomeVisitLine(row, onOpenHomeSettings) {
+                                    onHomeVisitLogged(row.planId)
                                 }
                             }
                         }
@@ -894,6 +924,25 @@ private fun ContactLine(
     )
 }
 
+/** 回家看看行（经典）：“该回家看看{家名}了” + 距上次见面；尾部“回家了”。 */
+@Composable
+private fun HomeVisitLine(
+    row: HomeDueRow,
+    onOpenHomeSettings: () -> Unit,
+    onHomeVisitLogged: () -> Unit
+) {
+    AffairLine(
+        icon = Icons.Rounded.Home,
+        iconTint = MaterialTheme.colorScheme.primary,
+        title = "该回家看看" + row.label + "了",
+        subtitle = if (row.daysSinceLast == null) "还没有回家记录"
+        else "已 " + row.daysSinceLast + " 天没回家",
+        onClick = onOpenHomeSettings,
+        subtitleColor = MaterialTheme.colorScheme.error,
+        trailing = { TextButton(onClick = onHomeVisitLogged) { Text("回家了") } }
+    )
+}
+
 /** 纪念日/忌日行：心形（结婚纪念日）或素色花 + 名称 + 年数/农历。 */
 @Composable
 private fun DateLine(row: DateRow, onOpenPerson: (String) -> Unit) {
@@ -1229,6 +1278,23 @@ private fun JiashuContactLine(
         onClick = { onOpenPerson(row.personId) }
     ) {
         JrxLink("记一次", onClick = onLogContact)
+    }
+}
+
+/** 「家书」回家看看行：“该回家看看{家名}了” + 距上次见面；尾部「回家了」墨青链。 */
+@Composable
+private fun JiashuHomeVisitLine(
+    row: HomeDueRow,
+    onOpenHomeSettings: () -> Unit,
+    onHomeVisitLogged: () -> Unit
+) {
+    JiashuLine(
+        title = "该回家看看" + row.label + "了",
+        subtitle = if (row.daysSinceLast == null) "还没有回家记录"
+        else "已 " + row.daysSinceLast + " 天没回家",
+        onClick = onOpenHomeSettings
+    ) {
+        JrxLink("回家了", onClick = onHomeVisitLogged)
     }
 }
 

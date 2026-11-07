@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.EventAvailable
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalFlorist
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.AlertDialog
@@ -31,7 +32,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.github.xiaohaoz1.jiarenxia.data.HomeIntervals
+import io.github.xiaohaoz1.jiarenxia.data.HomeVisitRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
+import io.github.xiaohaoz1.jiarenxia.domain.HomeVisitSchedule
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
@@ -43,6 +47,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsHint
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsNavRow
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsScaffold
 import io.github.xiaohaoz1.jiarenxia.ui.mine.SettingsSwitchRow
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +66,9 @@ data class ReminderSettingsUi(
     val contactMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val tombMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     /** 「上坟的日子与家人」行副标题摘要（已开启日子 + 家人数）。 */
-    val tombSummary: String = "未选择日子"
+    val tombSummary: String = "未选择日子",
+    /** 「回家看看」行副标题摘要（每个家 “家名 周期”，“；”连接；无家 “未设置”）。 */
+    val homeSummary: String = "未设置"
 )
 
 /**
@@ -73,7 +80,8 @@ data class ReminderSettingsUi(
 @HiltViewModel
 class ReminderSettingsViewModel @Inject constructor(
     private val settings: SettingsRepository,
-    private val observeOverview: ObserveFamilyOverview
+    private val observeOverview: ObserveFamilyOverview,
+    private val homeVisitRepository: HomeVisitRepository
 ) : ViewModel() {
 
     val ui: StateFlow<ReminderSettingsUi> = combine(
@@ -97,6 +105,18 @@ class ReminderSettingsViewModel @Inject constructor(
             }
         ) { st, (days, count) ->
             st.copy(tombSummary = tombDaysSummary(days, count))
+        }
+        .combine(
+            homeVisitRepository.observeHomes()
+                .combine(observeOverview()) { plans, ov -> plans to ov }
+        ) { st, (plans, ov) ->
+            // 摘要：每个家 “家名 周期label”，无家 “未设置”
+            val states = HomeVisitSchedule.homes(
+                plans, ov, emptyList(), LocalDate.now()).associateBy { it.planId }
+            val summary = plans.joinToString("；") { p ->
+                (states[p.id]?.label ?: "这个家") + " " + HomeIntervals.label(p.intervalDays)
+            }.ifEmpty { "未设置" }
+            st.copy(homeSummary = summary)
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReminderSettingsUi())
 
@@ -137,6 +157,7 @@ class ReminderSettingsViewModel @Inject constructor(
 fun ReminderSettingsScreen(
     onBack: () -> Unit,
     onOpenTombSettings: () -> Unit = {},
+    onOpenHomeSettings: () -> Unit = {},
     viewModel: ReminderSettingsViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -158,7 +179,8 @@ fun ReminderSettingsScreen(
         onTaskMinute = viewModel::setTaskMinute,
         onContactMinute = viewModel::setContactMinute,
         onTombMinute = viewModel::setTombMinute,
-        onOpenTombSettings = onOpenTombSettings
+        onOpenTombSettings = onOpenTombSettings,
+        onOpenHomeSettings = onOpenHomeSettings
     )
 }
 
@@ -174,7 +196,8 @@ fun ReminderSettingsContent(
     onTaskMinute: (Int) -> Unit = {},
     onContactMinute: (Int) -> Unit = {},
     onTombMinute: (Int) -> Unit = {},
-    onOpenTombSettings: () -> Unit = {}
+    onOpenTombSettings: () -> Unit = {},
+    onOpenHomeSettings: () -> Unit = {}
 ) {
     var timeTarget by remember { mutableStateOf<ReminderTimeTarget?>(null) }
 
@@ -235,6 +258,14 @@ fun ReminderSettingsContent(
                 title = "上坟的日子与家人",
                 subtitle = state.tombSummary,
                 onClick = onOpenTombSettings
+            )
+        }
+        SettingsGroup("回家看看") {
+            SettingsNavRow(
+                icon = Icons.Rounded.Home,
+                title = "回家看看",
+                subtitle = state.homeSummary,
+                onClick = onOpenHomeSettings
             )
         }
         Spacer(Modifier.height(16.dp))

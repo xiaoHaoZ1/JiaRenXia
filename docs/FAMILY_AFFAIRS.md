@@ -561,3 +561,16 @@
 - **设置与备份**：`SettingsRepository` 新增 `tombRemindersEnabled`（默认开）、`tombReminderMinuteOfDay`（默认 09:00）、`tombDays`、`tombZhongyuanDay`、`tombExcludedPersonIds`，随 DataStore 持久化、`clear()` 一并清除；备份 settings 各字段可空，旧备份缺字段保留当前设置，非法值按缺失处理（未知 TombDay 枚举名恢复时过滤）。提醒设置页第四行“上坟提醒”（`Icons.Rounded.LocalFlorist`）+「上坟的日子与家人」入口 → `settings/tomb`；`TombSettingsScreen` 总开关关闭时照常可改。
 - **家事页**：`ReminderViewModel` 产出 `tombToday`/`tombNext30`（窗口 30 天，仅总开关开时计算，否则为空）。「今天」段放在纪念日之后、今天事项之前；「未来 30 天」与生日/纪念日/事项按日期合并排序（同天事项仍排最后）。经典风格用 `LocalFlorist` 图标行、家书风格为 `JiashuTombLine`；点击做七进人物详情、点击节日进上坟设置页。桌面小部件不变。
 
+---
+
+## 20. 回家看看（2026-11-07 确定）
+
+提醒体系挂在「联系家人」之下的周期提醒：给一组在世家人（如爸爸+妈妈）设一个“家”和回家周期，到期提醒回家看看；家里**任何一位**有「见面」（`ContactMethod.VISIT`）记录就算回过家，打电话、发微信不算。可设多个家（爸妈家、岳父母家等）。
+
+- **计时**（`domain/HomeVisitSchedule.kt`，纯 JVM 可测）：有效成员 = `ContactSchedule.eligible` 为真的成员（在世、非本人）；没有有效成员的家不提醒、不出现在家事页。把该家全部有效成员的 VISIT 记录合并后直接复用 `ContactSchedule.status`：从未见面按计划 `createdAt` 起算，到期当天提醒一次、之后每 7 天再提醒。周期可选每月/每两个月/每季度/每半年/每年（30/60/90/180/365 天，`HomeIntervals`）。家名按家庭页顺序取成员称谓（无称谓用姓名）：1 人直用，2 人直接拼接（“爸爸妈妈”），3 人及以上用“、”连接，没有成员时“这个家”。
+- **节前提醒**（`homeVisitHolidayNudge`，默认开）：候选 = 春节（农历正月初一，非闰）、中秋（农历八月十五，非闰）、国庆（10 月 1 日）与每位有效成员的生日（各自按现有双生日口径）。事件恰好在 7 天后、该家未到期、且已过间隔的一半（整数除法；从未见面按距 createdAt）才命中；同一家同一天多事件只发一条，按 春节/中秋/国庆/生日 顺序取第一。去重键 `homepre:{planId}:{事件日 epochDay}`。
+- **通知**：`BirthdayReminderWorker` 在「联系家人」开关开且到 `contactReminderMinuteOfDay` 的同一处调用 `postHomeVisitNotifications`（不新增时刻、不改 `enabledCheckTimes`；强制调试运行同样覆盖）。新渠道 `home_visit`（名称“回家看看”，锁屏公开文案“家人侠：该回家看看了”），点开只进 App。到期去重键 `home:{planId}`，通知 id 为键 hashCode。到期文案“已经 N 天没回家看看{家名}了”/“还没有记录过回家看看{家名}，找时间回去吧”；节前文案“{节日}快到了（M月D日），已经 N 天没回家看看{家名}了”/“…，回家看看{家名}吧”（生日变体带“{称谓或姓名}的生日”）。
+- **数据库 v19**：`home_visit_plans`（id、interval_days、created_at、updated_at）+ `home_visit_members`（plan_id/person_id 复合主键，两端外键级联，person_id 建索引），`MIGRATION_18_19` 只建表；“清空所有数据”一并清空。删计划只删计划，已记的见面记录保留；删人物级联移除成员行。
+- **设置与备份**：`SettingsRepository` 新增 `homeVisitHolidayNudge`（默认开，`clear()` 清除）。备份新增可选键 `homeVisits`（`{id, intervalDays, createdAt, updatedAt, memberIds[]}`）与 settings 的 `homeVisitHolidayNudge`，均不升 schemaVersion、旧备份缺键按空/默认处理；恢复时丢弃指向不存在人物的成员。家人共享导出与碰一碰导入不含回家看看（私密数据不外发）。
+- **界面**：提醒设置页在「上坟提醒」组后加「回家看看」入口 → `settings/home`（摘要“家名 周期；…”，无家“未设置”）。`HomeVisitScreen` 每个家一组：家里有谁（选人对话框，新增第一个家时预勾选在世父母）、多久回去一次（五档周期）、上次回家、删除（确认后保留见面记录）；可再添加；「节前提醒」开关；页尾说明只有“见面”记录算回过家、提醒跟随「联系家人」。家事页「今天」段在联系家人之后显示到期的家（`HomeDueRow`，只在 `contactRemindersEnabled` 时计算，与联系提醒的显示门控一致），副标题加“N 个家该回去看看了”；经典行 `HomeVisitLine`（Home 图标 + “回家了”按钮）、家书 `JiashuHomeVisitLine`。点“回家了”给该家每位有效成员各记一条 VISIT 联系记录（同一事务），随后 Snackbar“已记下回家，{成员称谓}各记一次见面”。
+

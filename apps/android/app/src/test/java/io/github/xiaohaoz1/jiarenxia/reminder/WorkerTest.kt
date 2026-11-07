@@ -177,6 +177,10 @@ private class FakeSettings : SettingsRepository {
     override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
         tombExcludedPersonIds.value = ids
     }
+    override val homeVisitHolidayNudge = MutableStateFlow(true)
+    override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
+        homeVisitHolidayNudge.value = enabled
+    }
     override val lastBackupAt = MutableStateFlow<Long?>(null)
     override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
     override suspend fun clear() {}
@@ -205,6 +209,8 @@ class WorkerTest {
         settings: FakeSettings,
         force: Boolean = false,
         taskRepo: FakeTaskRepo = FakeTaskRepo(),
+        homeRepo: io.github.xiaohaoz1.jiarenxia.data.HomeVisitRepository =
+            io.github.xiaohaoz1.jiarenxia.data.FakeHomeVisitRepository(),
         clock: TimeSource = FakeClock(LocalDate.now().atTime(12, 0)),
         dateEntries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry> = emptyList(),
         spouse: Person? = null
@@ -228,7 +234,7 @@ class WorkerTest {
                     BirthdayReminderWorker(
                         appContext, params, repo, taskRepo,
                         io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository(),
-                        settings, overview,
+                        homeRepo, settings, overview,
                         io.github.xiaohaoz1.jiarenxia.domain.lunar.IcuLunarCalendar(),
                         clock
                     )
@@ -412,6 +418,49 @@ class WorkerTest {
         val texts = postedTexts()
         assertTrue(texts.none { it.contains("生日") })
         assertTrue(texts.any { it.contains("忌日") })
+    }
+
+    // ---------- 回家看看（FAMILY_AFFAIRS 20） ----------
+
+    /** 回家看看用例共用的“家”：成员为图里的李雪（w1），计划刚好今天到期。 */
+    private suspend fun dueHomeRepo(
+        settings: FakeSettings
+    ): io.github.xiaohaoz1.jiarenxia.data.FakeHomeVisitRepository {
+        settings.setHomeVisitHolidayNudge(false)   // 隔离节前候选，避免随日期波动
+        val repo = io.github.xiaohaoz1.jiarenxia.data.FakeHomeVisitRepository(
+            createdAt = { System.currentTimeMillis() - 30L * 86_400_000 })
+        repo.addHome(listOf("w1"), 30)
+        return repo
+    }
+
+    private val homeSpouse = Person(
+        id = "w1", name = "李雪", gender = Gender.FEMALE)
+
+    @Test
+    fun 回家到期_发一条回家通知() = runTest {
+        val settings = FakeSettings()
+        val homeRepo = dueHomeRepo(settings)
+        val result = buildWorker(
+            settings, homeRepo = homeRepo, spouse = homeSpouse).doWork()
+        assertEquals(ListenableWorker.Result.success(), result)
+        val texts = postedTexts()
+        // 从未见面 → “还没有记录过…” 文案（到期当天 remindToday 命中）
+        assertTrue("texts=" + texts,
+            texts.any { it == "还没有记录过回家看看李雪，找时间回去吧" })
+    }
+
+    @Test
+    fun 联系开关关_不发回家提醒() = runTest {
+        val settings = FakeSettings()
+        settings.contactRemindersEnabled.value = false
+        val homeRepo = dueHomeRepo(settings)
+        buildWorker(
+            settings, homeRepo = homeRepo, spouse = homeSpouse).doWork()
+        val texts = postedTexts()
+        // 生日等其它段照发（“我”今天生日），但没有任何回家文案
+        assertTrue(texts.any { it.contains("生日") })
+        assertTrue(texts.none { it.contains("回家看看") })
+        assertTrue(texts.none { it.contains("没回家") })
     }
 }
 

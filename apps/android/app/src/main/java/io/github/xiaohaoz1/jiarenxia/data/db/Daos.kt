@@ -271,3 +271,29 @@ interface PersonAliasDao {
     @Upsert suspend fun upsertAll(entries: List<PersonAliasEntity>)
     @Query("DELETE FROM person_alias") suspend fun deleteAll()
 }
+
+/** home_visit_plans DAO：回家看看计划。 */
+@Dao
+interface HomeVisitPlanDao {
+    @Insert suspend fun insert(entity: HomeVisitPlanEntity)
+    @Update suspend fun update(entity: HomeVisitPlanEntity)
+    @Query("SELECT * FROM home_visit_plans") fun observeAll(): Flow<List<HomeVisitPlanEntity>>
+    @Query("SELECT * FROM home_visit_plans") suspend fun getAll(): List<HomeVisitPlanEntity>
+    @Query("SELECT * FROM home_visit_plans WHERE id = :id")
+    suspend fun get(id: String): HomeVisitPlanEntity?
+    @Query("DELETE FROM home_visit_plans WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM home_visit_plans") suspend fun deleteAll()
+}
+
+/** home_visit_members DAO：计划成员（两端外键级联）。 */
+@Dao
+interface HomeVisitMemberDao {
+    @Insert suspend fun insertAll(entities: List<HomeVisitMemberEntity>)
+    @Query("DELETE FROM home_visit_members WHERE plan_id = :planId")
+    suspend fun deleteForPlan(planId: String)
+    @Query("SELECT * FROM home_visit_members") fun observeAll(): Flow<List<HomeVisitMemberEntity>>
+    @Query("SELECT * FROM home_visit_members") suspend fun getAll(): List<HomeVisitMemberEntity>
+    @Query("SELECT * FROM home_visit_members WHERE plan_id = :planId")
+    suspend fun getForPlan(planId: String): List<HomeVisitMemberEntity>
+    @Query("DELETE FROM home_visit_members") suspend fun deleteAll()
+}

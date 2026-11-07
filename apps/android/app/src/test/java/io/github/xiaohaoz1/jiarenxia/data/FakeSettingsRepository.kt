@@ -58,6 +58,10 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
         tombExcludedPersonIds.value = ids
     }
+    override val homeVisitHolidayNudge = MutableStateFlow(true)
+    override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
+        homeVisitHolidayNudge.value = enabled
+    }
     override val notificationPermissionRequested: Flow<Boolean> = MutableStateFlow(false)
     override suspend fun setNotificationPermissionRequested(requested: Boolean) {}
     override val themeMode: Flow<ThemeMode> = MutableStateFlow(ThemeMode.LIGHT)

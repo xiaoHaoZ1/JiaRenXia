@@ -168,6 +168,8 @@ fun MainShell(
     onReminderSettings: () -> Unit = {},
     /** 家事页上坟节日行：跳上坟提醒设置页。 */
     onOpenTombSettings: () -> Unit = {},
+    /** 家事页回家看看行：跳回家看看设置页。 */
+    onOpenHomeSettings: () -> Unit = {},
     onOpenAppSettings: () -> Unit = {}
 ) {
     val navController = rememberNavController()
@@ -219,7 +221,8 @@ fun MainShell(
                     onOpenTask = { onOpenTaskEdit(it, null, null) },
                     onNewTask = { onOpenTaskEdit(null, it, null) },
                     onReminderSettings = onReminderSettings,
-                    onOpenTombSettings = onOpenTombSettings
+                    onOpenTombSettings = onOpenTombSettings,
+                    onOpenHomeSettings = onOpenHomeSettings
                 )
             }
             composable("mine") {

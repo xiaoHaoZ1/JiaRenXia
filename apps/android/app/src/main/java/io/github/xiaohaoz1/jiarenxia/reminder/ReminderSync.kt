@@ -24,6 +24,8 @@ class ReminderSync @Inject constructor(
     private val repository: FamilyRepository,
     private val taskRepository: io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data.ContactRepository,
+    private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
+        .HomeVisitRepository,
     private val settings: SettingsRepository,
     @ApplicationScope private val scope: CoroutineScope
 ) {
@@ -36,15 +38,26 @@ class ReminderSync @Inject constructor(
             scheduler.reconcile()
         }
         scope.launch {
-            // 数据侧：生日、纪念日/忌日、家庭事项、联系计划与联系记录
-            val dataWatch = combine(
+            // 数据侧：生日、纪念日/忌日、家庭事项、联系计划与联系记录、回家看看计划
+            val dataWatch = combine<Any?, DataWatch>(
                 repository.observeBirthdayEntries(),
                 repository.observeDateEntries(),
                 taskRepository.observeTasks(),
                 contactRepository.observePlanList(),
-                contactRepository.observeAllLogs()
-            ) { b, d, t, p, l -> DataWatch(b, d, t, p, l) }
-            // 设置侧：四个总开关、四个提醒时刻与上坟日子/名单设置
+                contactRepository.observeAllLogs(),
+                homeVisitRepository.observeHomes()
+            ) { arr ->
+                @Suppress("UNCHECKED_CAST")
+                DataWatch(
+                    arr[0] as List<io.github.xiaohaoz1.jiarenxia.data.BirthdayEntry>,
+                    arr[1] as List<io.github.xiaohaoz1.jiarenxia.data.DateEntry>,
+                    arr[2] as List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>,
+                    arr[3] as List<io.github.xiaohaoz1.jiarenxia.data.ContactPlan>,
+                    arr[4] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
+                    arr[5] as List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>
+                )
+            }
+            // 设置侧：四个总开关、四个提醒时刻、上坟日子/名单与回家节前提醒开关
             val settingsWatch = combine<Any?, SettingsWatch>(
                 settings.remindersEnabled,
                 settings.taskRemindersEnabled,
@@ -56,7 +69,8 @@ class ReminderSync @Inject constructor(
                 settings.tombReminderMinuteOfDay,
                 settings.tombDays,
                 settings.tombZhongyuanDay,
-                settings.tombExcludedPersonIds
+                settings.tombExcludedPersonIds,
+                settings.homeVisitHolidayNudge
             ) { v ->
                 SettingsWatch(
                     v[0] as Boolean, v[1] as Boolean, v[2] as Boolean,
@@ -65,7 +79,8 @@ class ReminderSync @Inject constructor(
                     (v[8] as Set<*>).filterIsInstance<io.github.xiaohaoz1.jiarenxia
                         .domain.tomb.TombDay>().toSet(),
                     v[9] as Int,
-                    (v[10] as Set<*>).filterIsInstance<String>().toSet()
+                    (v[10] as Set<*>).filterIsInstance<String>().toSet(),
+                    v[11] as Boolean
                 )
             }
             combine(dataWatch, settingsWatch) { d, s -> ReminderWatch(d, s) }
@@ -80,7 +95,8 @@ class ReminderSync @Inject constructor(
         val dates: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry>,
         val tasks: List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>,
         val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.ContactPlan>,
-        val contactLogs: List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>
+        val contactLogs: List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
+        val homeVisits: List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>
     )
 
     private data class SettingsWatch(
@@ -94,7 +110,8 @@ class ReminderSync @Inject constructor(
         val tombMinute: Int,
         val tombDays: Set<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay>,
         val tombZhongyuanDay: Int,
-        val tombExcludedIds: Set<String>
+        val tombExcludedIds: Set<String>,
+        val homeVisitHolidayNudge: Boolean
     )
 
     private data class ReminderWatch(val data: DataWatch, val settings: SettingsWatch)

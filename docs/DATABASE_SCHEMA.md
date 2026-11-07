@@ -1929,3 +1929,25 @@ CREATE INDEX index_person_alias_local_person_id
 | updated_at | INTEGER | 否 | 更新时间 |
 
 `person_id` 外键指向 `persons.id`，`ON DELETE CASCADE`；索引 `index_person_facts_person_id` 支持按人物观察。迁移 `MIGRATION_17_18` 只建表与索引，不改既有数据。
+
+### 25.11 第 19 版：home_visit_plans / home_visit_members 表（回家看看）
+
+「回家看看」周期提醒的计划与成员（FAMILY_AFFAIRS 第 20 节）。计划删除只删计划，已记的见面联系记录保留；删人物级联移除其成员行。
+
+`home_visit_plans`：
+
+| 字段 | 类型 | 可空 | 说明 |
+|------|------|------|------|
+| id | TEXT | 否 | 计划 ID，主键 |
+| interval_days | INTEGER | 否 | 回家周期天数（30/60/90/180/365） |
+| created_at | INTEGER | 否 | 创建时间（从未见面按此起算） |
+| updated_at | INTEGER | 否 | 更新时间 |
+
+`home_visit_members`：
+
+| 字段 | 类型 | 可空 | 说明 |
+|------|------|------|------|
+| plan_id | TEXT | 否 | 所属计划，外键 `home_visit_plans.id`，`ON DELETE CASCADE` |
+| person_id | TEXT | 否 | 家庭成员，外键 `persons.id`，`ON DELETE CASCADE` |
+
+复合主键 `(plan_id, person_id)`；索引 `index_home_visit_members_person_id` 支持按人物查询。迁移 `MIGRATION_18_19` 只建表与索引，不改既有数据。

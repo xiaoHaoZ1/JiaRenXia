@@ -434,3 +434,16 @@ val MIGRATION_17_18 = object : Migration(17, 18) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_person_facts_person_id` ON `person_facts` (`person_id`)")
     }
 }
+
+/**
+ * v18 → v19：回家看看两表（FAMILY_AFFAIRS 20）——
+ * home_visit_plans（计划）+ home_visit_members（计划↔成员，
+ * plan_id/person_id 两端级联，person_id 建索引）。
+ */
+val MIGRATION_18_19 = object : Migration(18, 19) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `home_visit_plans` (`id` TEXT NOT NULL, `interval_days` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`))")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `home_visit_members` (`plan_id` TEXT NOT NULL, `person_id` TEXT NOT NULL, PRIMARY KEY(`plan_id`, `person_id`), FOREIGN KEY(`plan_id`) REFERENCES `home_visit_plans`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_home_visit_members_person_id` ON `home_visit_members` (`person_id`)")
+    }
+}

@@ -333,6 +333,46 @@ data class PersonFactEntity(
 )
 
 /**
+ * home_visit_plans：回家看看计划（FAMILY_AFFAIRS 20）。
+ * 一个“家”= 一组在世家人 + 回家周期；见面记录算回过家。
+ */
+@Entity(tableName = "home_visit_plans")
+data class HomeVisitPlanEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "interval_days") val intervalDays: Int,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * home_visit_members：计划 ↔ 成员。plan_id / person_id 两端均级联删除；
+ * person_id 建索引（按人反查、级联删除都走它）。
+ */
+@Entity(
+    tableName = "home_visit_members",
+    primaryKeys = ["plan_id", "person_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = HomeVisitPlanEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["plan_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("person_id")]
+)
+data class HomeVisitMemberEntity(
+    @ColumnInfo(name = "plan_id") val planId: String,
+    @ColumnInfo(name = "person_id") val personId: String
+)
+
+/**
  * spouse_pairing：碰一碰夫妻配对记录（单行，id 恒 1）。
  * 本机配偶人物被删（含备份恢复/共享导入/清空数据的整表清空）时级联清除——
  * 恢复出来的资料不会被误认为“已配对的另一台手机”。

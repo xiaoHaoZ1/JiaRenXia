@@ -124,6 +124,11 @@ class BackupManagerTest : RepoTestBase() {
         override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
             tombExcludedPersonIds.value = ids
         }
+        override val homeVisitHolidayNudge =
+            kotlinx.coroutines.flow.MutableStateFlow(true)
+        override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
+            homeVisitHolidayNudge.value = enabled
+        }
         override val lastBackupAt = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
         override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
         override suspend fun clear() {}
@@ -1006,6 +1011,157 @@ class BackupManagerTest : RepoTestBase() {
         assertEquals(
             setOf(io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.QINGMING),
             fakeSettings.tombDays.first())
+    }
+
+    // ---------- 回家看看（FAMILY_AFFAIRS 20） ----------
+
+    /** 造两个“家”：爸妈家（dad+mom 成员）、岳父母家（仅 mom 一人）。 */
+    private suspend fun seedHomes(): Triple<String, String, String> {
+        val me = db.personDao().getAll().first { it.isSelf }.id
+        val dad = db.personDao().getAll().first { it.name == "爸" }.id
+        val mom = db.personDao().getAll().first { it.name == "妈" }.id
+        db.homeVisitPlanDao().insert(
+            io.github.xiaohaoz1.jiarenxia.data.db.HomeVisitPlanEntity(
+                "hv1", 90, 1000, 2000))
+        db.homeVisitPlanDao().insert(
+            io.github.xiaohaoz1.jiarenxia.data.db.HomeVisitPlanEntity(
+                "hv2", 180, 3000, 3000))
+        db.homeVisitMemberDao().insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.HomeVisitMemberEntity(
+                    "hv1", dad),
+                io.github.xiaohaoz1.jiarenxia.data.db.HomeVisitMemberEntity(
+                    "hv1", mom),
+                io.github.xiaohaoz1.jiarenxia.data.db.HomeVisitMemberEntity(
+                    "hv2", mom)
+            )
+        )
+        return Triple(me, dad, mom)
+    }
+
+    @Test
+    fun 回家看看计划与节前开关随备份往返() = runTest {
+        seed()
+        val (me, dad, mom) = seedHomes()
+        fakeSettings.setHomeVisitHolidayNudge(false)
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        // 计划字段 + 成员 id 原样带出
+        assertEquals(2, plan.homeVisits.size)
+        val hv1 = plan.homeVisits.first { it.id == "hv1" }
+        assertEquals(90, hv1.intervalDays)
+        assertEquals(1000L, hv1.createdAt)
+        assertEquals(2000L, hv1.updatedAt)
+        assertEquals(setOf(dad, mom), hv1.memberIds.toSet())
+        assertEquals(listOf(mom),
+            plan.homeVisits.first { it.id == "hv2" }.memberIds)
+        assertEquals(false, plan.settings?.homeVisitHolidayNudge)
+        // “我”不应成为任何成员（seedHomes 没选他）
+        assertTrue(plan.homeVisits.all { me !in it.memberIds })
+
+        // 恢复前清空，验证写回
+        repo.clearAllData()
+        assertTrue(db.homeVisitPlanDao().getAll().isEmpty())
+        backup.restore(plan)
+        val plans = db.homeVisitPlanDao().getAll()
+        assertEquals(2, plans.size)
+        val members = db.homeVisitMemberDao().getAll()
+        assertEquals(3, members.size)
+        assertEquals(setOf("hv1", "hv2"), members.map { it.planId }.toSet())
+        assertEquals(setOf(dad, mom),
+            members.filter { it.planId == "hv1" }.map { it.personId }.toSet())
+        assertEquals(false, fakeSettings.homeVisitHolidayNudge.first())
+    }
+
+    @Test
+    fun 旧备份缺回家看看键_解析为空且保留当前设置() = runTest {
+        seed()
+        // 手写“旧版”备份：不传 homeVisits（键缺失）+ settings 无 nudge 字段
+        val plan = backup.inspect(
+            ByteArrayInputStream(
+                BackupCrypto.encrypt(
+                    BackupJson.writeZip(
+                        persons = db.personDao().getAll(),
+                        phones = db.phoneNumberDao().getAll(),
+                        relationships = db.relationshipDao().getAll(),
+                        dates = db.importantDateDao().getAllDates(),
+                        prefs = emptyList(),
+                        customTitles = emptyList(),
+                        tasks = emptyList(),
+                        settings = BackupSettings(
+                            themeMode = ThemeMode.LIGHT,
+                            remindersEnabled = true
+                        ),
+                        avatars = emptyMap(),
+                        createdAt = 1L, appVersion = "0.4.0"
+                    ), pw, iterations = 10_000
+                )
+            ), pw
+        ).getOrThrow()
+        assertTrue(plan.homeVisits.isEmpty())
+        assertNull(plan.settings?.homeVisitHolidayNudge)
+
+        fakeSettings.setHomeVisitHolidayNudge(false)
+        backup.restore(plan)
+        assertTrue(db.homeVisitPlanDao().getAll().isEmpty())
+        // 缺字段 → 保留当前（false 不被覆盖成默认 true）
+        assertEquals(false, fakeSettings.homeVisitHolidayNudge.first())
+    }
+
+    @Test
+    fun 恢复时丢弃指向不存在人物的成员() = runTest {
+        seed()
+        val mom = db.personDao().getAll().first { it.name == "妈" }.id
+        // 手写备份：成员含一个备份里不存在的人物 id
+        val bytes = BackupCrypto.encrypt(
+            BackupJson.writeZip(
+                persons = db.personDao().getAll(),
+                phones = db.phoneNumberDao().getAll(),
+                relationships = db.relationshipDao().getAll(),
+                dates = db.importantDateDao().getAllDates(),
+                prefs = emptyList(),
+                customTitles = emptyList(),
+                tasks = emptyList(),
+                homeVisits = listOf(
+                    HomeVisitBackup(
+                        id = "hvX", intervalDays = 60,
+                        createdAt = 1, updatedAt = 2,
+                        memberIds = listOf(mom, "ghost-person"))
+                ),
+                settings = null,
+                avatars = emptyMap(),
+                createdAt = 1L, appVersion = "test"
+            ), pw, iterations = 10_000
+        )
+        val plan = backup.inspect(ByteArrayInputStream(bytes), pw).getOrThrow()
+        // 解析层不校验成员存在性（规格：恢复时丢弃）
+        assertEquals(listOf(mom, "ghost-person"), plan.homeVisits.single().memberIds)
+
+        repo.clearAllData()
+        backup.restore(plan)
+        val members = db.homeVisitMemberDao().getAll()
+        assertEquals(listOf(mom), members.map { it.personId })
+        assertEquals(1, db.homeVisitPlanDao().getAll().size)
+    }
+
+    @Test
+    fun 家人共享导出不含回家看看() = runTest {
+        seed()
+        seedHomes()
+        val me = db.personDao().getAll().first { it.isSelf }.id
+        val out = ByteArrayOutputStream()
+        backup.exportShare(out, pw, sharedBy = me)
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        assertTrue(plan.homeVisits.isEmpty())
+        // 私密备份导出仍带
+        val priv = ByteArrayOutputStream()
+        backup.export(priv, pw)
+        val privPlan = backup.inspect(
+            ByteArrayInputStream(priv.toByteArray()), pw).getOrThrow()
+        assertEquals(2, privPlan.homeVisits.size)
     }
 
     private fun encryptedPlan(

@@ -85,6 +85,10 @@ interface SettingsRepository {
     val tombExcludedPersonIds: Flow<Set<String>>
     suspend fun setTombExcludedPersonIds(ids: Set<String>)
 
+    /** 回家看看·节前提醒开关（春节/中秋/国庆/成员生日前 7 天），默认开启。 */
+    val homeVisitHolidayNudge: Flow<Boolean>
+    suspend fun setHomeVisitHolidayNudge(enabled: Boolean)
+
     /** 是否已申请过通知权限（用于“先说明用途再申请”的引导）。 */
     val notificationPermissionRequested: Flow<Boolean>
     suspend fun setNotificationPermissionRequested(requested: Boolean)
@@ -223,6 +227,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyTombDays = stringSetPreferencesKey("tomb_days")
     private val keyTombZhongyuanDay = intPreferencesKey("tomb_zhongyuan_day")
     private val keyTombExcluded = stringSetPreferencesKey("tomb_excluded_person_ids")
+    private val keyHomeVisitNudge = booleanPreferencesKey("home_visit_holiday_nudge")
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
     private val keyThemeMode = stringPreferencesKey("theme_mode")
     private val keyThemeStyle = stringPreferencesKey("theme_style")
@@ -350,6 +355,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
         dataStore.edit { it[keyTombExcluded] = ids }
+    }
+
+    override val homeVisitHolidayNudge: Flow<Boolean> =
+        dataStore.data.map { it[keyHomeVisitNudge] ?: true }
+
+    override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
+        dataStore.edit { it[keyHomeVisitNudge] = enabled }
     }
 
     override val notificationPermissionRequested: Flow<Boolean> =

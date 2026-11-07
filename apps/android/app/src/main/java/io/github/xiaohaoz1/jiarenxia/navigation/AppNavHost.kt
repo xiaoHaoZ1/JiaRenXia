@@ -67,6 +67,8 @@ object Routes {
     const val SETTINGS_REMINDERS = "settings/reminders"
     /** 提醒设置 → 上坟提醒（上坟的日子与家人）。 */
     const val SETTINGS_TOMB = "settings/tomb"
+    /** 提醒设置 → 回家看看（家与周期、节前提醒）。 */
+    const val SETTINGS_HOME = "settings/home"
     const val PERSON = "person/{personId}"
     const val PERSON_EDIT = "person/{personId}/edit"
     const val PERSON_RELATE = "person/{personId}/relate"
@@ -359,6 +361,9 @@ fun AppNavHost(
                 },
                 onOpenTombSettings = {
                     navController.navigate(Routes.SETTINGS_TOMB)
+                },
+                onOpenHomeSettings = {
+                    navController.navigate(Routes.SETTINGS_HOME)
                 }
             )
         }
@@ -577,12 +582,19 @@ fun AppNavHost(
         composable(Routes.SETTINGS_REMINDERS) {
             io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsScreen(
                 onBack = { navController.popBackStack() },
-                onOpenTombSettings = { navController.navigate(Routes.SETTINGS_TOMB) }
+                onOpenTombSettings = { navController.navigate(Routes.SETTINGS_TOMB) },
+                onOpenHomeSettings = { navController.navigate(Routes.SETTINGS_HOME) }
             )
         }
 
         composable(Routes.SETTINGS_TOMB) {
             io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.SETTINGS_HOME) {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeVisitScreen(
                 onBack = { navController.popBackStack() }
             )
         }

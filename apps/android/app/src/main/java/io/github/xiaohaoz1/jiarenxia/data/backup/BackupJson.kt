@@ -67,9 +67,20 @@ data class BackupSettings(
     val tombZhongyuanDay: Int? = null,
     /** “给谁上坟”排除的人（可选；缺失 → 保留当前设置）。 */
     val tombExcludedPersonIds: Set<String>? = null,
+    /** 回家看看·节前提醒开关（可选；缺失 → 保留当前设置）。 */
+    val homeVisitHolidayNudge: Boolean? = null,
     /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
      *  仅为兼容旧备份保留字段，恢复时忽略。 */
     val licenseCode: String? = null
+)
+
+/** 备份内的一条回家看看计划（成员 id 列表随计划走）。 */
+data class HomeVisitBackup(
+    val id: String,
+    val intervalDays: Int,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val memberIds: List<String>
 )
 
 /** 解密并校验后的恢复计划：可直接 apply。 */
@@ -93,6 +104,8 @@ data class RestorePlan(
     val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
     /** 「关于TA」（可选键，不升 schemaVersion；旧备份缺失为空）。 */
     val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
+    /** 回家看看计划（可选键，不升 schemaVersion；旧备份缺失为空）。 */
+    val homeVisits: List<HomeVisitBackup> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -142,6 +155,7 @@ object BackupJson {
         contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity> = emptyList(),
         contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
         personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
+        homeVisits: List<HomeVisitBackup> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -280,6 +294,18 @@ object BackupJson {
                 })
             }
         })
+        json.put("homeVisits", JSONArray().apply {
+            homeVisits.forEach { h ->
+                put(JSONObject().apply {
+                    put("id", h.id)
+                    put("intervalDays", h.intervalDays)
+                    put("createdAt", h.createdAt); put("updatedAt", h.updatedAt)
+                    put("memberIds", JSONArray().apply {
+                        h.memberIds.forEach { put(it) }
+                    })
+                })
+            }
+        })
         settings?.let {
             json.put("settings", JSONObject()
                 .put("themeMode", it.themeMode.name)
@@ -300,6 +326,7 @@ object BackupJson {
                 .put("tombExcludedPersonIds", it.tombExcludedPersonIds?.let { ids ->
                     JSONArray().apply { ids.sorted().forEach { put(it) } }
                 } ?: JSONObject.NULL)
+                .put("homeVisitHolidayNudge", it.homeVisitHolidayNudge ?: JSONObject.NULL)
                 .put("licenseCode", it.licenseCode ?: JSONObject.NULL))
         }
 
@@ -681,6 +708,27 @@ object BackupJson {
             if (it.label != null && it.label.length > 20) fail("fact label")
             if (it.recordedEpochDay < 0) fail("fact day")
         }
+        // 回家看看（可选键，不升 schemaVersion）：成员 id 不在此校验，
+        // 恢复时丢弃指向不存在人物的成员（规格口径）
+        val homeVisits = root.optJSONArray("homeVisits")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                HomeVisitBackup(
+                    id = o.getString("id"),
+                    intervalDays = o.getInt("intervalDays"),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt"),
+                    memberIds = o.optJSONArray("memberIds")?.let { m ->
+                        (0 until m.length()).map { m.getString(it) }
+                    } ?: emptyList()
+                )
+            }
+        } ?: emptyList()
+        uniqueIds(homeVisits.map { it.id }, "homeVisits")
+        homeVisits.forEach {
+            if (it.intervalDays !in 1..366) fail("homeVisit interval")
+            if (it.createdAt < 0 || it.updatedAt < 0) fail("homeVisit time")
+        }
 
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
@@ -724,6 +772,8 @@ object BackupJson {
                 else o.optJSONArray("tombExcludedPersonIds")?.let { arr ->
                     (0 until arr.length()).map { arr.getString(it) }.toSet()
                 },
+                homeVisitHolidayNudge = if (o.isNull("homeVisitHolidayNudge")) null
+                else o.optBoolean("homeVisitHolidayNudge", true),
                 // A6 后忽略：旧备份里的 giftModuleEnabled / insuranceModuleEnabled
                 licenseCode = if (o.isNull("licenseCode")) null
                 else o.optString("licenseCode", "").ifEmpty { null }
@@ -754,6 +804,7 @@ object BackupJson {
             contactLogs = contactLogs,
             contactPlans = contactPlans,
             personFacts = personFacts,
+            homeVisits = homeVisits,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

@@ -148,6 +148,7 @@ object ShareImport {
         contactLogs = emptyList(),
         contactPlans = emptyList(),
         personFacts = emptyList(),
+        homeVisits = emptyList(),
         settings = null,
         summary = plan.summary.copy(tasks = 0)
     )

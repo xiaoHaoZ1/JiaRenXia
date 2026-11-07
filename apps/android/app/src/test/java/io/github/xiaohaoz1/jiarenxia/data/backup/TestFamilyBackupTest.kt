@@ -85,6 +85,10 @@ class TestFamilyBackupTest : RepoTestBase() {
         override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
             tombExcludedPersonIds.value = ids
         }
+        override val homeVisitHolidayNudge = MutableStateFlow(true)
+        override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
+            homeVisitHolidayNudge.value = enabled
+        }
         override val lastBackupAt = kotlinx.coroutines.flow.MutableStateFlow<Long?>(null)
         override suspend fun setLastBackupAt(atMillis: Long) { lastBackupAt.value = atMillis }
         override suspend fun clear() {}
