@@ -165,4 +165,11 @@ abstract class AppBindsModule {
     abstract fun bindSpousePairingStore(
         impl: io.github.xiaohaoz1.jiarenxia.data.tap.RoomSpousePairingStore
     ): io.github.xiaohaoz1.jiarenxia.domain.merge.SpousePairingStore
+
+    /** 演示版首启预装/重置（DEMO_ROLE 为空时全部空操作）。 */
+    @Binds
+    @Singleton
+    abstract fun bindDemoSeed(
+        impl: io.github.xiaohaoz1.jiarenxia.data.demo.DemoSeedImpl
+    ): io.github.xiaohaoz1.jiarenxia.data.demo.DemoSeed
 }

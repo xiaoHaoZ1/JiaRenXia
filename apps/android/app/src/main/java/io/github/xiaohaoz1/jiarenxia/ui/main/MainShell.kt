@@ -231,7 +231,19 @@ fun MainShell(
                     onDataManage = onDataManage,
                     onAppearance = onAppearance,
                     onModules = onModules,
-                    onAbout = onAbout
+                    onAbout = onAbout,
+                    // 演示版重置完成后回到「家庭」标签（与底部导航同一返回栈）
+                    onShowFamily = {
+                        if (!navController.popBackStack("family", inclusive = false)) {
+                            navController.navigate("family") {
+                                popUpTo(navController.graph.findStartDestination().id) {
+                                    saveState = true
+                                }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    }
                 )
             }
         }

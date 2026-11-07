@@ -111,11 +111,26 @@ class StartViewModelTest {
     @Test
     fun `已有我-直达首页`() {
         val self = Person(id = "me", name = "我", gender = Gender.MALE, isSelf = true)
-        assertEquals(Routes.MAIN, StartViewModel(FakeRepo(self)).startRoute.value)
+        assertEquals(
+            Routes.MAIN,
+            StartViewModel(FakeRepo(self), NoopDemoSeed).startRoute.value
+        )
     }
 
     @Test
     fun `无我-进入启动页`() {
-        assertEquals(Routes.LAUNCH, StartViewModel(FakeRepo(null)).startRoute.value)
+        assertEquals(
+            Routes.LAUNCH,
+            StartViewModel(FakeRepo(null), NoopDemoSeed).startRoute.value
+        )
     }
+}
+
+/** 演示预装空实现：正式版/测试版路径（DEMO_ROLE 为空）不触发导入。 */
+private object NoopDemoSeed : io.github.xiaohaoz1.jiarenxia.data.demo.DemoSeed {
+    override fun assetFor(role: String) = null
+    override fun displayNameFor(role: String) = null
+    override fun displayName() = null
+    override suspend fun seedIfEmpty(role: String) = false
+    override suspend fun resetDemo(role: String) = false
 }

@@ -23,9 +23,11 @@ import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -33,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -81,10 +84,21 @@ fun MineScreen(
     onAppearance: () -> Unit,
     onModules: () -> Unit,
     onAbout: () -> Unit,
+    /** 重置演示数据完成后回到底部「家庭」标签（非演示版不触发）。 */
+    onShowFamily: () -> Unit = {},
     viewModel: MineViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
+    val demoResetDone by viewModel.demoResetDone.collectAsStateWithLifecycle()
+    var showDemoReset by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    LaunchedEffect(demoResetDone) {
+        if (demoResetDone) {
+            viewModel.onDemoResetDone()
+            onShowFamily()
+        }
+    }
 
     // 「检查更新」行：与「帮助与关于」的联网开关共用同一个 UpdateViewModel 门控
     val updateVm: UpdateViewModel = hiltViewModel()
@@ -122,6 +136,8 @@ fun MineScreen(
         onAppearance = onAppearance,
         onModules = onModules,
         onAbout = onAbout,
+        demoName = viewModel.demoDisplayName,
+        onDemoResetRequest = { showDemoReset = true },
         updateSubtitle = when {
             updateChecking -> "正在检查…"
             updateKnownNew != null -> "发现新版本 $updateKnownNew"
@@ -148,6 +164,27 @@ fun MineScreen(
         )
     }
     UpdateDialogs(updateVm)
+
+    // 演示版「重置演示数据」确认框（仅 demoName 非空时入口可见）
+    val demoName = viewModel.demoDisplayName
+    if (showDemoReset && demoName != null) {
+        AlertDialog(
+            onDismissRequest = { showDemoReset = false },
+            title = { Text("重置演示数据？") },
+            text = {
+                Text("会清空现在的家人资料和碰一碰记录，恢复成刚装好时的${demoName}家。")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDemoReset = false
+                    viewModel.resetDemoData()
+                }) { Text("重置") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDemoReset = false }) { Text("取消") }
+            }
+        )
+    }
 }
 
 @Composable
@@ -164,6 +201,9 @@ fun MineContent(
     onAppearance: () -> Unit = {},
     onModules: () -> Unit = {},
     onAbout: () -> Unit = {},
+    /** 演示版「我」的展示名；非 null 时在四个二级入口后加「重置演示数据」行。 */
+    demoName: String? = null,
+    onDemoResetRequest: () -> Unit = {},
     /** 「检查更新」行动态副标题（正在检查/发现新版/提示语）。 */
     updateSubtitle: String = "联网检查是否有新版本",
     /** 已知远端有更新：「检查更新」行挂「新版」角标。 */
@@ -283,6 +323,17 @@ fun MineContent(
                         subtitle = "隐私说明 · 新手引导 · 问题反馈",
                         onClick = onAbout
                     )
+                    // 演示版：四个二级入口之后加「重置演示数据」（与入口同行组件）
+                    if (demoName != null) {
+                        RowDivider()
+                        SettingsNavRow(
+                            icon = Icons.Rounded.RestartAlt,
+                            title = "重置演示数据",
+                            subtitle = "恢复成刚装好时的${demoName}家；重拍前两部手机都点一下",
+                            arrow = false,
+                            onClick = onDemoResetRequest
+                        )
+                    }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
                     // 落款：朱砂「侠」印 + 隐私声明
@@ -398,6 +449,20 @@ fun MineContent(
                         subtitle = "隐私说明 · 新手引导 · 问题反馈",
                         onClick = onAbout
                     )
+                }
+
+                // 演示版：四个二级入口之后加「重置演示数据」组
+                if (demoName != null) {
+                    Spacer(Modifier.height(10.dp))
+                    SettingsGroup {
+                        SettingsNavRow(
+                            icon = Icons.Rounded.RestartAlt,
+                            title = "重置演示数据",
+                            subtitle = "恢复成刚装好时的${demoName}家；重拍前两部手机都点一下",
+                            arrow = false,
+                            onClick = onDemoResetRequest
+                        )
+                    }
                 }
 
                 // 检查更新：原地动作行（不跳子页，不画「>」），新版角标直接落在它身上

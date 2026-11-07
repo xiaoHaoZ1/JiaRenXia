@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- demo 变体（包名 com.jiarenxia.app.demo）：应用名带「演示版」后缀，
+         与正式版/测试版在桌面与应用内区分。仅覆盖 app_name，其余沿用 main。 -->
+    <string name="app_name">家人侠-演示版</string>
+</resources>

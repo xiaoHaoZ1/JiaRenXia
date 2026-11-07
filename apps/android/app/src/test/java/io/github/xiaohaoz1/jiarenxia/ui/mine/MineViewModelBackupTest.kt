@@ -136,7 +136,19 @@ class MineViewModelBackupTest : RepoTestBase() {
                     .QuickSnapshotStore(ctx, db, BackupManager(ctx, db, settings))
             ),
             backup = BackupManager(ctx, db, settings),
-            appEvents = appEvents
+            appEvents = appEvents,
+            demoSeed = io.github.xiaohaoz1.jiarenxia.data.demo.DemoSeedImpl(
+                ctx, repo,
+                BackupManager(ctx, db, settings), settings,
+                ClearAllDataUseCase(
+                    ctx, repo, settings, FakeScheduler,
+                    io.github.xiaohaoz1.jiarenxia.data.tap
+                        .RoomSpousePairingStore(db),
+                    io.github.xiaohaoz1.jiarenxia.data.backup
+                        .QuickSnapshotStore(ctx, db, BackupManager(ctx, db, settings))
+                ),
+                db
+            )
         )
     }
 

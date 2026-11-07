@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.github.xiaohaoz1.jiarenxia.data.FamilyRepository
+import io.github.xiaohaoz1.jiarenxia.data.demo.DemoSeed
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +19,8 @@ import kotlinx.coroutines.launch
  */
 @HiltViewModel
 class StartViewModel @Inject constructor(
-    repository: FamilyRepository
+    repository: FamilyRepository,
+    demoSeed: DemoSeed
 ) : ViewModel() {
 
     private val _startRoute = MutableStateFlow<String?>(null)
@@ -28,6 +30,8 @@ class StartViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // 演示版首启预装（DEMO_ROLE 为空时立即返回，正式版/测试版无感）
+            demoSeed.seedIfEmpty()
             _startRoute.value =
                 if (repository.observeSelf().first() != null) Routes.MAIN else Routes.LAUNCH
         }

@@ -1,5 +1,6 @@
 package io.github.xiaohaoz1.jiarenxia.nfc
 
+import io.github.xiaohaoz1.jiarenxia.BuildConfig
 import java.security.MessageDigest
 import java.util.Random
 
@@ -54,8 +55,21 @@ import java.util.Random
  */
 object TapProtocol {
 
-    val AID = byteArrayOf(
-        0xF0.toByte(), 0x4A, 0x52, 0x58, 0x00, 0x01)
+    /**
+     * 碰一碰 AID（十六进制字符串来自 BuildConfig.TAP_AID，构建期注入）：
+     * 正式版/测试版 F04A52580001，演示版 F04A52580002。
+     */
+    val AID: ByteArray = aidFromHex(BuildConfig.TAP_AID)
+
+    /** 十六进制 AID 串 → 字节；非法输入直接失败（构建配置保证合法）。 */
+    internal fun aidFromHex(hex: String): ByteArray {
+        require(hex.length % 2 == 0 && hex.all { it in "0123456789abcdefABCDEF" }) {
+            "invalid TAP_AID: $hex"
+        }
+        return ByteArray(hex.length / 2) { i ->
+            hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+        }
+    }
 
     const val CLA: Byte = 0x80.toByte()
     const val INS_PUT_HELLO: Byte = 0x10

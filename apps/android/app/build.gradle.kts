@@ -20,12 +20,21 @@ android {
         versionName = "2.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
+        // 碰一碰 AID：正式版/测试版共用 F04A52580001；演示版在 demo 变体覆盖为
+        // F04A52580002（与正式版共存时 HCE 不冲突，只与另一份演示版互碰）。
+        buildConfigField("String", "TAP_AID", "\"F04A52580001\"")
+        // 演示角色：仅 demo 变体非空（groom/bride），其余变体为空串=不预装演示数据。
+        buildConfigField("String", "DEMO_ROLE", "\"\"")
     }
 
     // Room schema JSON 供单测 MigrationTestHelper 读取：
     // Robolectric 的 assets 来自 debug 合并产物（unit_test_config 的 android_merged_assets），
     // 故挂到 debug sourceSet；release 不受影响。
     sourceSets["debug"].assets.srcDir(projectDir.path + "/schemas")
+    // 演示备份也进 debug 合并 assets：单测（testDebugUnitTest）借此读到
+    // src/demo/assets 里的 jrxb 做 DemoSeed 端到端验证；debug 包仅多两个
+    // 加密演示文件，无任何代码路径会读它们（DEMO_ROLE 为空）。
+    sourceSets["debug"].assets.srcDir(projectDir.path + "/src/demo/assets")
 
     // 正式版签名：仓库根目录存在 keystore.properties 时才启用（见 AGENTS.md「正式版签名」）。
     // 文件与 *.jks/*.keystore 均在 .gitignore 中，不会进版本库。
@@ -51,6 +60,20 @@ android {
             // 官网下载页的 Beta 栏发布的就是这个包（jiarenxia-beta-<版本>.apk）。
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+        }
+        // 「演示版」：与正式版（com.jiarenxia.app）/测试版（.debug）三包共存，
+        // 用于两台真机实拍「碰一碰结为夫妻」。独立 AID + 内置演示家庭，
+        // -PdemoRole=groom|bride 选择新郎（朱棣）/新娘（徐皇后）视角，缺省 groom。
+        create("demo") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".demo"
+            versionNameSuffix = "-demo"
+            matchingFallbacks += listOf("debug")
+            buildConfigField("String", "TAP_AID", "\"F04A52580002\"")
+            buildConfigField(
+                "String", "DEMO_ROLE",
+                "\"" + providers.gradleProperty("demoRole").orElse("groom").get() + "\""
+            )
         }
         release {
             isMinifyEnabled = true
