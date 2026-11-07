@@ -11,17 +11,17 @@ export const SITE = {
   /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
   guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.3.0",
+  apkVersion: "2.4.1",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 57,
+  apkVersionCode: 59,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "全新「家书」界面风格：纸墨底、墨色大字、朱砂小印，首页有今日惦记、家事按日期排行，随时可在「我的 → 外观与字号 → 主题」切回「经典」；新增「关于TA」：记 TA 的尺码、爱吃的、忌口、过敏、爱好和想要的东西，只存本机、随加密备份保存；修正分支图：看父系带上母亲、看母系带上父亲（分享、碰一碰与导出图片同样补齐）。",
+  apkNotes: "新增「上坟提醒」：清明、中元、寒衣、除夕、冬至和每位家人的忌日都能提醒，新近去世的家人还会提醒头七到七七和百日；新增「回家看看」：选好家里有谁、多久回去一次，按见面记录计时，节前与家人生日前也会提醒；新增「长辈模式」：装在长辈手机上，只看家人、打电话和最近的日子；农历改为香港天文台历表换算，修正 2027 年春节等个别月份差一天的问题；生日当天可一键发祝福短信。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
-  apkSizeBytes: 3_731_967,
-  apkSha256: "f5b9e09a0b4b60c01cfb3c6463033f5b0a508d0aaaf8c6f22f200c457cc2efa0",
+  apkSizeBytes: 3_797_503,
+  apkSha256: "d0dcef20900046b55f8e7658bb0a41024ca52593b70ed4be18278381a72fcf2a",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.3.0.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.4.1.apk`,
 };
 
 /** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
