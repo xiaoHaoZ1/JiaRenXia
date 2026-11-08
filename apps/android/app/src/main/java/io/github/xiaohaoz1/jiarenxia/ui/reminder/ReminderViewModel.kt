@@ -70,7 +70,9 @@ data class ReminderUiState(
     val homeDue: List<HomeDueRow> = emptyList(),
     val tasksNext30: List<TaskRow> = emptyList(),
     val tasksLater: List<TaskRow> = emptyList(),
-    val tasksDone: List<TaskRow> = emptyList()
+    val tasksDone: List<TaskRow> = emptyList(),
+    /** 提醒功能一次性引导条：未看过设置页且未点「知道了」时显示。 */
+    val showReminderGuide: Boolean = false
 )
 
 /** 家事页：生日提醒 + 家庭事项（DEVELOPMENT_PLAN 2.5、FAMILY_AFFAIRS 5）。 */
@@ -225,7 +227,14 @@ class ReminderViewModel @Inject constructor(
                 HomeDueRow(it.planId, it.label, it.daysSinceLast)
             }
         )
+    }.combine(settings.reminderGuideSeen) { st, seen ->
+        st.copy(showReminderGuide = !seen)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ReminderUiState())
+
+    /** 引导条「知道了」：标记已看，不再出现（进过提醒设置页也会置位）。 */
+    fun dismissReminderGuide() {
+        viewModelScope.launch { settings.setReminderGuideSeen(true) }
+    }
 
     /** “已办”：重复事项推进到下期，不重复进已办；发 Snackbar 供撤销。 */
     fun markDone(row: TaskRow) {

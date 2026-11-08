@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.MonitorHeart
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.TipsAndUpdates
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -147,7 +148,7 @@ fun ReminderScreen(
     onOpenPerson: (String) -> Unit,
     onOpenTask: (String) -> Unit = {},
     onNewTask: (String) -> Unit = {},
-    /** 顶栏铃铛：四类提醒的开关与时刻（2026-10-09 从「我的」搬来）。 */
+    /** 顶栏「提醒」按钮：四类提醒的开关与时刻（2026-10-09 从「我的」搬来）。 */
     onReminderSettings: () -> Unit = {},
     /** 上坟节日行点击：跳上坟提醒设置页。 */
     onOpenTombSettings: () -> Unit = {},
@@ -311,7 +312,8 @@ fun ReminderScreen(
                     onOpenTombSettings = onOpenTombSettings,
                     onOpenHomeSettings = onOpenHomeSettings,
                     onHomeVisitLogged = viewModel::logHomeVisit,
-                    onBless = { blessingFor = it }
+                    onBless = { blessingFor = it },
+                    onDismissGuide = viewModel::dismissReminderGuide
                 )
                 // 「家书」新建已收到右上，不再用悬浮按钮
                 if (!jiashu) ExtendedFloatingActionButton(
@@ -352,7 +354,9 @@ fun ReminderContent(
     /** “回家了”：记一次回家（给该家有效成员各插一条见面记录）。 */
     onHomeVisitLogged: (String) -> Unit = {},
     /** 今天生日行“发祝福”图标（本人不显示该图标）。 */
-    onBless: (BirthdayRow) -> Unit = {}
+    onBless: (BirthdayRow) -> Unit = {},
+    /** 引导条「知道了」：标记已看，不再出现。 */
+    onDismissGuide: () -> Unit = {}
 ) {
     /** “以后的事项”“已办”折叠状态（默认收起，横竖屏/进程存活期间保留）。 */
     var expandedSections by rememberSaveable { mutableStateOf(setOf<String>()) }
@@ -367,10 +371,22 @@ fun ReminderContent(
         contentColor = MaterialTheme.colorScheme.onBackground
     ) {
     LazyColumn(Modifier.fillMaxSize()) {
+        // 提醒功能一次性引导条（新用户未必知道右上角「提醒」入口）
+        if (st.showReminderGuide) {
+            item {
+                WarningBanner(
+                    Icons.Rounded.TipsAndUpdates,
+                    "生日、忌日、上坟祭扫、回家看看，到点都会提醒你——点右上「提醒」可设置",
+                    tint = LocalJrxColors.current.seal
+                ) {
+                    TextButton(onClick = onDismissGuide) { Text("知道了") }
+                }
+            }
+        }
         // 横幅
         if (!st.remindersEnabled) {
             item {
-                WarningBanner(Icons.Rounded.NotificationsOff, "生日提醒已关闭，点右上角铃铛可开启")
+                WarningBanner(Icons.Rounded.NotificationsOff, "生日提醒已关闭，点右上角「提醒」可开启")
             }
         } else if (!notifEnabled) {
             item {
@@ -617,7 +633,7 @@ fun ReminderContent(
         // ---------- 事项关闭横幅 / 折叠分组 ----------
         if (!st.taskRemindersEnabled) {
             item {
-                WarningBanner(Icons.Rounded.NotificationsOff, "家庭事项提醒已关闭，点右上角铃铛可开启")
+                WarningBanner(Icons.Rounded.NotificationsOff, "家庭事项提醒已关闭，点右上角「提醒」可开启")
             }
         }
         val anyTasks = st.tasksToday.isNotEmpty() || st.tasksNext30.isNotEmpty() ||
@@ -713,14 +729,15 @@ fun ReminderContent(
 
 }
 
-/** 警示横幅：图标 + 文案 + 可选操作。 */
+/** 顶部横幅：图标 + 文案 + 可选操作；tint 缺省警示色，引导条传 seal。 */
 @Composable
 private fun WarningBanner(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     text: String,
+    tint: androidx.compose.ui.graphics.Color? = null,
     action: (@Composable () -> Unit)? = null
 ) {
-    val warning = LocalJrxColors.current.warning
+    val warning = tint ?: LocalJrxColors.current.warning
     JrxCard(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = CircleShape, color = warning.copy(alpha = 0.15f),

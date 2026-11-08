@@ -1513,6 +1513,31 @@ class ScreenShotsTest {
             .fetchSemanticsNodes().size == 2) { "同一人的两个生日应各有一行" }
     }
 
+    @Test
+    fun reminderGuideBanner() {
+        shot("reminder_guide") {
+            ReminderContent(
+                st = ReminderUiState(
+                    loading = false,
+                    showReminderGuide = true,
+                    upcoming = listOf(
+                        BirthdayRow(
+                            Demo.demoOverview().byId.getValue("mom").person,
+                            listOf(Demo.demoOverview().byId.getValue("mom").birthday!!),
+                            "妈妈", 3, true, LocalDate.of(2026, 10, 5))
+                    )
+                ),
+                notifEnabled = true,
+                onOpenPerson = {}, onDial = {}, onNotifSettings = {},
+                onDismissGuide = {}
+            )
+        }
+        check(composeRule.onAllNodes(hasText("上坟祭扫", substring = true))
+            .fetchSemanticsNodes().isNotEmpty()) { "引导条应点名上坟祭扫" }
+        check(composeRule.onAllNodes(hasText("知道了"))
+            .fetchSemanticsNodes().isNotEmpty()) { "引导条应有关闭按钮" }
+    }
+
     private fun reminderSampleContent(): @Composable () -> Unit = {
         val ov = Demo.demoOverview()
         val mom = ov.byId.getValue("mom")
@@ -1583,9 +1608,9 @@ class ScreenShotsTest {
             Box(Modifier.weight(1f)) { sample() }
         }
     }.also {
-        assertTexts("家事", "未来 30 天（3）", "王秀兰", "10/05")
+        assertTexts("家事", "未来 30 天（3）", "王秀兰", "10/05", "提醒")
         assertNoTexts("人情", "保障")
-        assertDescs("提醒设置", "更多")
+        assertDescs("更多")
     }
 
     /** 家事页整屏·家书：去卡片行式时间线 + 大号日左列 + 朱砂印 + 右上「新建」。 */
@@ -1602,9 +1627,9 @@ class ScreenShotsTest {
         }
     }.also {
         assertTexts("家事", "今天", "逾期 2 天", "记一次", "该联系奶奶李桂英了",
-            "未来 30 天", "3 天后", "18 天后", "9 天后", "新建")
+            "未来 30 天", "3 天后", "18 天后", "9 天后", "新建", "提醒")
         assertNoTexts("已逾期", "人情", "保障")
-        assertDescs("提醒设置", "更多", "发祝福", "拨打")
+        assertDescs("更多", "发祝福", "拨打")
     }
 
     /** 家事页·深色。 */
@@ -1700,7 +1725,8 @@ class ScreenShotsTest {
             )
         }
     }.also {
-        assertDescs("更多", "提醒设置")
+        assertTexts("提醒")
+        assertDescs("更多")
         assertNoTexts("人情", "保障")
     }
 
@@ -1868,7 +1894,7 @@ class ScreenShotsTest {
                 subtitle = "未来 30 天有 2 个生日、3 件事", onExport = {})
             Box(Modifier.weight(1f)) { sample() }
         }
-    }.also { assertTexts("家事", "我的"); assertDescs("提醒设置"); assertNoTexts("守护") }
+    }.also { assertTexts("家事", "我的", "提醒"); assertNoTexts("守护") }
 
     @Test
     @Config(qualifiers = "w412dp-h1500dp-xxhdpi")

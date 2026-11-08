@@ -35,10 +35,11 @@ import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 
 /**
- * 家事页顶部：页头（标题“家事” + 提醒副标题）+ 铃铛与“更多”菜单行。
+ * 家事页顶部：页头（标题“家事” + 提醒副标题）+「提醒」与“更多”菜单行。
  *
  * 2026-10-20 起人情/保障分段退出（A6），家事页只显示提醒内容：
- * 铃铛进三类提醒设置，“更多 → 导出表格”只导出家事提醒。
+ * 「提醒」按钮进提醒设置，“更多 → 导出表格”只导出家事提醒。
+ * 2026-11-08 起铃铛改为图标+文字（新用户不认得纯图标）。
  * 「家书」把「新建」收到右上（图标加文字），经典保持右下悬浮按钮。
  * 独立成件以便截图测试直接渲染。
  */
@@ -63,11 +64,9 @@ internal fun AffairsHeader(
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = onReminderSettings) {
-                        Icon(
-                            Icons.Rounded.NotificationsNone,
-                            contentDescription = "提醒设置")
-                    }
+                    TopTextAction(
+                        Icons.Rounded.NotificationsNone, "提醒",
+                        onClick = onReminderSettings)
                     Box {
                         var menuOpen by remember { mutableStateOf(false) }
                         IconButton(onClick = { menuOpen = true }) {
@@ -109,9 +108,9 @@ internal fun AffairsHeader(
             modifier = Modifier.padding(end = 4.dp)
         ) {
             Spacer(Modifier.weight(1f))
-            IconButton(onClick = onReminderSettings) {
-                Icon(Icons.Rounded.NotificationsNone, contentDescription = "提醒设置")
-            }
+            TopTextAction(
+                Icons.Rounded.NotificationsNone, "提醒",
+                onClick = onReminderSettings)
             Box {
                 var menuOpen by remember { mutableStateOf(false) }
                 IconButton(onClick = { menuOpen = true }) {

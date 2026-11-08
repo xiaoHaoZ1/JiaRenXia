@@ -185,6 +185,14 @@ interface SettingsRepository {
     val updateCheckEnabled: Flow<Boolean> get() = kotlinx.coroutines.flow.flowOf(false)
     suspend fun setUpdateCheckEnabled(enabled: Boolean) {}
 
+    /**
+     * 家事页提醒引导条（「生日、忌日、上坟…到点都会提醒你」）：true = 已看过。
+     * 进过提醒设置页或点「知道了」置 true。本机偏好，不进备份。
+     * 接口默认 true（视为已看过）——测试与截图默认不显示引导条。
+     */
+    val reminderGuideSeen: Flow<Boolean> get() = kotlinx.coroutines.flow.flowOf(true)
+    suspend fun setReminderGuideSeen(seen: Boolean) {}
+
     /** 上次执行更新检查的时刻（毫秒），0 = 从未查过；自动检查按此节流。 */
     val updateLastCheckAt: Flow<Long> get() = kotlinx.coroutines.flow.flowOf(0L)
     suspend fun setUpdateLastCheckAt(at: Long) {}
@@ -265,6 +273,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyUpdateKnownName = stringPreferencesKey("update_known_name")
     private val keyUpdateKnownNotes = stringPreferencesKey("update_known_notes")
     private val keyUpdateSkippedCode = intPreferencesKey("update_skipped_code")
+    private val keyReminderGuideSeen = booleanPreferencesKey("reminder_guide_seen")
 
     override val remindersEnabled: Flow<Boolean> =
         dataStore.data.map { it[keyRemindersEnabled] ?: true }
@@ -515,6 +524,13 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setUpdateCheckEnabled(enabled: Boolean) {
         dataStore.edit { it[keyUpdateCheckEnabled] = enabled }
+    }
+
+    override val reminderGuideSeen: Flow<Boolean> =
+        dataStore.data.map { it[keyReminderGuideSeen] ?: false }.distinctUntilChanged()
+
+    override suspend fun setReminderGuideSeen(seen: Boolean) {
+        dataStore.edit { it[keyReminderGuideSeen] = seen }
     }
 
     override val updateLastCheckAt: Flow<Long> =

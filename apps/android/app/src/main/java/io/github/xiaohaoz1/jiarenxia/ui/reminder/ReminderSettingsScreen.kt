@@ -84,6 +84,11 @@ class ReminderSettingsViewModel @Inject constructor(
     private val homeVisitRepository: HomeVisitRepository
 ) : ViewModel() {
 
+    init {
+        // 进过提醒设置页即算看过家事页的一次性引导条
+        viewModelScope.launch { settings.setReminderGuideSeen(true) }
+    }
+
     val ui: StateFlow<ReminderSettingsUi> = combine(
         settings.remindersEnabled,
         settings.taskRemindersEnabled,
