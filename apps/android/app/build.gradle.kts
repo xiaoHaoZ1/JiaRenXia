@@ -16,8 +16,8 @@ android {
         applicationId = "com.jiarenxia.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 59
-        versionName = "2.4.1"
+        versionCode = 60
+        versionName = "2.4.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables.useSupportLibrary = true
         // 碰一碰 AID：正式版/测试版共用 F04A52580001；演示版在 demo 变体覆盖为
