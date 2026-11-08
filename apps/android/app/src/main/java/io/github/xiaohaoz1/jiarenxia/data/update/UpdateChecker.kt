@@ -127,7 +127,7 @@ class UpdateChecker @Inject constructor(
                     return@runCatching ManifestFetch.Error("服务器返回 ${conn.responseCode}")
                 }
                 val body = conn.inputStream.use { it.readBytes().toString(Charsets.UTF_8) }
-                parseManifest(body)
+                parseManifest(body, localChannel, BuildConfig.DEMO_ROLE)
             } finally {
                 conn.disconnect()
             }
@@ -161,16 +161,43 @@ class UpdateChecker @Inject constructor(
         private fun nameParts(name: String): List<Int> =
             name.trim().removePrefix("v").split('.').map { it.toIntOrNull() ?: 0 }
 
-        /** 解析版本清单；字段缺失或格式不对都算失败。 */
-        fun parseManifest(body: String): ManifestFetch {
+        /** 构建渠道：release=正式版，beta=测试版（.debug 包名），demo=演示版（.demo 包名）。
+         *  渠道由 applicationId 后缀推导，与 BuildConfig 同源，不需额外字段。 */
+        fun channelOf(applicationId: String): String = when {
+            applicationId.endsWith(".debug") -> "beta"
+            applicationId.endsWith(".demo") -> "demo"
+            else -> "release"
+        }
+
+        /** 本机所属渠道（拉清单、选包都按它）。 */
+        private val localChannel: String get() = channelOf(BuildConfig.APPLICATION_ID)
+
+        /** 解析版本清单（正式版语义，读顶层字段）。 */
+        fun parseManifest(body: String): ManifestFetch = parseManifest(body, "release", "")
+
+        /**
+         * 解析版本清单。清单顶层始终是正式版；测试版/演示版读 `channels` 下
+         * 各自的块——签名不同，跨渠道给的包根本装不上，渠道缺块按失败处理。
+         * 演示版再按角色（groom/bride）取安装包字段：两包同 applicationId，
+         * 装错角色不会报错但会静默换「重置演示数据」的种子，必须按角色选。
+         */
+        fun parseManifest(body: String, channel: String, demoRole: String): ManifestFetch {
             return try {
-                val o = JSONObject(body)
+                val root = JSONObject(body)
+                val o = if (channel == "release") root else
+                    root.optJSONObject("channels")?.optJSONObject(channel)
+                        ?: return ManifestFetch.Error("该渠道暂无更新信息")
+                val pkg = if (channel == "demo") {
+                    val role = demoRole.ifBlank { "groom" }
+                    o.optJSONObject(role)
+                        ?: return ManifestFetch.Error("该渠道暂无更新信息")
+                } else o
                 val r = LatestRelease(
                     versionCode = o.optInt("versionCode", -1),
                     versionName = o.getString("versionName"),
-                    sizeBytes = o.getLong("sizeBytes"),
-                    sha256 = o.getString("sha256").lowercase(),
-                    url = o.getString("url"),
+                    sizeBytes = pkg.getLong("sizeBytes"),
+                    sha256 = pkg.getString("sha256").lowercase(),
+                    url = pkg.getString("url"),
                     notes = o.optString("notes", ""),
                 )
                 if (r.versionName.isBlank() || r.sha256.length != 64 || r.url.isBlank()) {
