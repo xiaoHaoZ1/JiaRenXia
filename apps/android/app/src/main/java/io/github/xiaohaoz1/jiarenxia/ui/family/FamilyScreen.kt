@@ -723,16 +723,16 @@ private fun CoreMemberCell(
             .fillMaxHeight()
             .semantics(mergeDescendants = true) {}
             .clickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 10.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+        horizontalArrangement = Arrangement.Start
     ) {
         PersonAvatar(
             o.person.avatarPath, o.person.name, 32.dp,
             ring = ring, deceased = deceased
         )
         Spacer(Modifier.width(10.dp))
-        // fill=false：列宽收进内容宽度，整块才能居中；过长仍吃满宽度走省略号
+        // fill=false：文字列宽随内容收缩，过长时才吃满格宽走省略号
         Column(Modifier.weight(1f, fill = false)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

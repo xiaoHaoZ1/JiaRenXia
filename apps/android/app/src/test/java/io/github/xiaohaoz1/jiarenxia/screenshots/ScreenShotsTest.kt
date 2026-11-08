@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -256,6 +257,18 @@ class ScreenShotsTest {
         // 标题下文字入口（不再是图标按钮）：查找家人、添加家人均可点击
         composeRule.onNodeWithText("查找家人").assertHasClickAction()
         composeRule.onNodeWithText("添加家人").assertHasClickAction()
+        // 核心家人两列各自左对齐：同列每格内容的左缘一致（居中排列时参差不齐）
+        listOf(
+            listOf("杨建国", "杨福生", "李雪", "杨小雨", "李国强"),
+            listOf("王秀兰", "李桂英", "陈美华")
+        ).forEach { column ->
+            column.map { composeRule.onNodeWithText(it).getBoundsInRoot().left.value }
+                .zipWithNext { a, b ->
+                    org.junit.Assert.assertEquals(
+                        "$column 左缘应对齐", a.toDouble(), b.toDouble(), 0.5
+                    )
+                }
+        }
     }
 
     /** 「家书」家庭页：「杨家」标题+家字印、今日惦记、至亲行式名单。 */
