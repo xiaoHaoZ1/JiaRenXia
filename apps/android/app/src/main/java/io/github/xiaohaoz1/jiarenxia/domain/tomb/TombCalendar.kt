@@ -52,11 +52,17 @@ data class TombEvent(
     val mourningDayNumber: Int? = null
 )
 
-/** “给谁上坟”名单一行：称谓（无称谓为 null）+ 姓名。 */
+/**
+ * “给谁上坟”名单一行：称谓（无称谓为 null）+ 姓名。
+ *
+ * @param defaultOn 是否默认开启：直系亲属（核心家人：父母、祖父母、配偶、子女、
+ * 配偶父母）默认开，其余已故家人默认关、可手动打开。
+ */
 data class TombMourner(
     val personId: String,
     val title: String?,
-    val name: String
+    val name: String,
+    val defaultOn: Boolean = false
 ) {
     /** 名单与文案用的展示名：称谓优先，否则姓名。 */
     val label: String get() = title ?: name
@@ -67,9 +73,15 @@ data class TombPrefs(
     val days: Set<TombDay> = DEFAULT_DAYS,
     /** 中元节按农历七月十五（默认）还是十四；其他取值一律按十五。 */
     val zhongyuanDay: Int = 15,
-    /** “给谁上坟”里被关掉的人（只影响节日名单，忌日与做七不受影响）。 */
-    val excludedIds: Set<String> = emptySet()
+    /** “给谁上坟”里被手动关掉的人（只影响节日名单，忌日与做七不受影响）。 */
+    val excludedIds: Set<String> = emptySet(),
+    /** “给谁上坟”里被手动打开的人（默认关的非直系亲属可在此勾选）。 */
+    val includedIds: Set<String> = emptySet()
 ) {
+    /** 该家人节日名单是否有效：手动排除优先，其次手动开启，最后默认（直系亲属开、其余关）。 */
+    fun mournerOn(m: TombMourner): Boolean =
+        m.personId !in excludedIds && (m.personId in includedIds || m.defaultOn)
+
     companion object {
         /** 默认开启的日子：清明、中元、寒衣、忌日、做七（除夕与冬至默认关）。 */
         val DEFAULT_DAYS: Set<TombDay> = setOf(
@@ -138,6 +150,7 @@ object TombCalendar {
     /**
      * “给谁上坟”名单：全部已故、非本人的家人，排序同家庭页
      * （核心家人在前、未关联最后）；UNRELATED 的人也进名单、排最后，标签用姓名。
+     * [TombMourner.defaultOn] 为核心家人（直系亲属至祖辈）开，其余默认关。
      */
     fun mourners(overview: FamilyOverview?): List<TombMourner> {
         if (overview == null) return emptyList()
@@ -148,7 +161,10 @@ object TombCalendar {
             .map { o ->
                 val title = if (o.result.kind == KinshipKind.UNRELATED) null
                 else o.displayTitle
-                TombMourner(o.person.id, title, o.person.name)
+                TombMourner(
+                    o.person.id, title, o.person.name,
+                    defaultOn = o.result.coreGroup != null
+                )
             }
     }
 
@@ -170,7 +186,7 @@ object TombCalendar {
         val out = mutableListOf<TombEvent>()
 
         // ---- 节日：公历今年与明年（农历节日多算一年候选，窗口过滤兜底）----
-        val active = mourners.filter { it.personId !in prefs.excludedIds }
+        val active = mourners.filter { prefs.mournerOn(it) }
         if (active.isNotEmpty()) {
             val personIds = active.map { it.personId }
             val names = active.map { it.label }

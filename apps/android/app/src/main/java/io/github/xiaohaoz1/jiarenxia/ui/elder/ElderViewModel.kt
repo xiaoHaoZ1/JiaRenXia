@@ -49,15 +49,17 @@ class ElderViewModel @Inject constructor(
         val enabled: Boolean,
         val days: Set<TombDay>,
         val zhongyuanDay: Int,
-        val excludedIds: Set<String>
+        val excludedIds: Set<String>,
+        val includedIds: Set<String>
     )
 
     private val tombPrefs = combine(
         settings.tombRemindersEnabled,
         settings.tombDays,
         settings.tombZhongyuanDay,
-        settings.tombExcludedPersonIds
-    ) { en, days, zy, ex -> TombPrefSnapshot(en, days, zy, ex) }
+        settings.tombExcludedPersonIds,
+        settings.tombIncludedPersonIds
+    ) { en, days, zy, ex, inc -> TombPrefSnapshot(en, days, zy, ex, inc) }
 
     val ui: StateFlow<ElderUiState> = combine(
         repository.observeBirthdayEntries(),
@@ -82,7 +84,7 @@ class ElderViewModel @Inject constructor(
             lunar = lunar,
             mourners = TombCalendar.mourners(overview),
             deathEntries = dates,
-            prefs = TombPrefs(tp.days, tp.zhongyuanDay, tp.excludedIds)
+            prefs = TombPrefs(tp.days, tp.zhongyuanDay, tp.excludedIds, tp.includedIds)
         ) else emptyList()
         ElderUiState(
             loading = false,

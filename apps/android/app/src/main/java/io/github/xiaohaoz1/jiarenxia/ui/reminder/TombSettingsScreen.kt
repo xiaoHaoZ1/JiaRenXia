@@ -52,6 +52,7 @@ data class TombSettingsUi(
     val days: Set<TombDay> = TombPrefs.DEFAULT_DAYS,
     val zhongyuanDay: Int = 15,
     val excluded: Set<String> = emptySet(),
+    val included: Set<String> = emptySet(),
     val mourners: List<TombMourner> = emptyList()
 )
 
@@ -68,10 +69,11 @@ class TombSettingsViewModel @Inject constructor(
     val ui: StateFlow<TombSettingsUi> = combine(
         settings.tombDays,
         settings.tombZhongyuanDay,
-        settings.tombExcludedPersonIds
-    ) { d, z, e -> Triple(d, z, e) }
-        .combine(observeOverview()) { (d, z, e), ov ->
-            TombSettingsUi(d, z, e, TombCalendar.mourners(ov))
+        settings.tombExcludedPersonIds,
+        settings.tombIncludedPersonIds
+    ) { d, z, e, i -> TombSettingsUi(d, z, e, i) }
+        .combine(observeOverview()) { st, ov ->
+            st.copy(mourners = TombCalendar.mourners(ov))
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), TombSettingsUi())
 
@@ -87,11 +89,7 @@ class TombSettingsViewModel @Inject constructor(
     }
 
     fun setPersonTomb(on: Boolean, personId: String) {
-        viewModelScope.launch {
-            val cur = settings.tombExcludedPersonIds.first()
-            settings.setTombExcludedPersonIds(
-                if (on) cur - personId else cur + personId)
-        }
+        viewModelScope.launch { settings.setTombMournerOn(personId, on) }
     }
 }
 
@@ -166,14 +164,15 @@ fun TombSettingsContent(
                     SettingsSwitchRow(
                         title = m.label,
                         subtitle = if (m.title != null) m.name else null,
-                        checked = m.personId !in state.excluded,
+                        checked = m.personId !in state.excluded &&
+                            (m.personId in state.included || m.defaultOn),
                         onCheckedChange = { on -> onPersonTomb(on, m.personId) }
                     )
                 }
             }
         }
         if (state.mourners.isNotEmpty()) {
-            SettingsHint("关掉的家人不会出现在清明、中元等节日提醒里；忌日和做七提醒不受影响。")
+            SettingsHint("直系亲属默认开启，其余已故家人可手动打开；关掉的家人不会出现在清明、中元等节日提醒里，忌日和做七提醒不受影响。")
         }
         Spacer(Modifier.height(16.dp))
     }

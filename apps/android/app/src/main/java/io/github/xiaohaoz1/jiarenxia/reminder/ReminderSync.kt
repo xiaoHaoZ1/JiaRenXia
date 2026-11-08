@@ -70,6 +70,7 @@ class ReminderSync @Inject constructor(
                 settings.tombDays,
                 settings.tombZhongyuanDay,
                 settings.tombExcludedPersonIds,
+                settings.tombIncludedPersonIds,
                 settings.homeVisitHolidayNudge
             ) { v ->
                 SettingsWatch(
@@ -80,7 +81,8 @@ class ReminderSync @Inject constructor(
                         .domain.tomb.TombDay>().toSet(),
                     v[9] as Int,
                     (v[10] as Set<*>).filterIsInstance<String>().toSet(),
-                    v[11] as Boolean
+                    (v[11] as Set<*>).filterIsInstance<String>().toSet(),
+                    v[12] as Boolean
                 )
             }
             combine(dataWatch, settingsWatch) { d, s -> ReminderWatch(d, s) }
@@ -111,6 +113,7 @@ class ReminderSync @Inject constructor(
         val tombDays: Set<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay>,
         val tombZhongyuanDay: Int,
         val tombExcludedIds: Set<String>,
+        val tombIncludedIds: Set<String>,
         val homeVisitHolidayNudge: Boolean
     )
 

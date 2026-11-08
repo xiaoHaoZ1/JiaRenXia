@@ -2023,16 +2023,16 @@ class ScreenShotsTest {
 
     // ---------- 上坟提醒设置（FAMILY_AFFAIRS 19） ----------
 
-    /** 上坟设置演示数据：三位已故家人，其中“奶奶”被关掉（只影响节日名单）。 */
+    /** 上坟设置演示数据：三位已故家人——爷爷默认开、奶奶被关掉、大伯（旁系）默认关。 */
     private fun tombSettingsState(
         mourners: List<io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner> =
             listOf(
                 io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner(
-                    "gfd", "爷爷", "杨福生"),
+                    "gfd", "爷爷", "杨福生", defaultOn = true),
                 io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner(
-                    "gmd", "奶奶", "李桂英"),
+                    "gmd", "奶奶", "李桂英", defaultOn = true),
                 io.github.xiaohaoz1.jiarenxia.domain.tomb.TombMourner(
-                    "old", null, "赵老师")
+                    "old", "大伯", "杨建春", defaultOn = false)
             ),
         excluded: Set<String> = setOf("gmd")
     ) = io.github.xiaohaoz1.jiarenxia.ui.reminder.TombSettingsUi(
@@ -2051,8 +2051,8 @@ class ScreenShotsTest {
     }.also {
         assertTexts("哪些日子提醒", "清明节", "中元节", "中元节按哪天",
             "寒衣节", "除夕", "冬至", "忌日", "做七与百日", "给谁上坟",
-            "爷爷", "李桂英", "赵老师",
-            "关掉的家人不会出现在清明、中元等节日提醒里")
+            "爷爷", "李桂英", "大伯",
+            "直系亲属默认开启")
     }
 
     /** 上坟设置·经典。 */

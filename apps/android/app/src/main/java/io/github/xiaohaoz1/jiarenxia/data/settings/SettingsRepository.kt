@@ -81,9 +81,16 @@ interface SettingsRepository {
     val tombZhongyuanDay: Flow<Int>
     suspend fun setTombZhongyuanDay(day: Int)
 
-    /** “给谁上坟”里被关掉的人（只影响节日名单；忌日与做七不受影响）。 */
+    /** “给谁上坟”里被手动关掉的人（只影响节日名单；忌日与做七不受影响）。 */
     val tombExcludedPersonIds: Flow<Set<String>>
     suspend fun setTombExcludedPersonIds(ids: Set<String>)
+
+    /** “给谁上坟”里被手动打开的人（默认关的非直系亲属可勾选）。 */
+    val tombIncludedPersonIds: Flow<Set<String>>
+    suspend fun setTombIncludedPersonIds(ids: Set<String>)
+
+    /** 打开/关掉某位家人的节日上坟：两集合互斥更新。 */
+    suspend fun setTombMournerOn(personId: String, on: Boolean)
 
     /** 回家看看·节前提醒开关（春节/中秋/国庆/成员生日前 7 天），默认开启。 */
     val homeVisitHolidayNudge: Flow<Boolean>
@@ -235,6 +242,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyTombDays = stringSetPreferencesKey("tomb_days")
     private val keyTombZhongyuanDay = intPreferencesKey("tomb_zhongyuan_day")
     private val keyTombExcluded = stringSetPreferencesKey("tomb_excluded_person_ids")
+    private val keyTombIncluded = stringSetPreferencesKey("tomb_included_person_ids")
     private val keyHomeVisitNudge = booleanPreferencesKey("home_visit_holiday_nudge")
     private val keyElderMode = booleanPreferencesKey("elder_mode")
     private val keyNotifRequested = booleanPreferencesKey("notification_permission_requested")
@@ -364,6 +372,25 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
         dataStore.edit { it[keyTombExcluded] = ids }
+    }
+
+    override val tombIncludedPersonIds: Flow<Set<String>> =
+        dataStore.data.map { it[keyTombIncluded] ?: emptySet() }.distinctUntilChanged()
+
+    override suspend fun setTombIncludedPersonIds(ids: Set<String>) {
+        dataStore.edit { it[keyTombIncluded] = ids }
+    }
+
+    override suspend fun setTombMournerOn(personId: String, on: Boolean) {
+        dataStore.edit { p ->
+            if (on) {
+                p[keyTombIncluded] = (p[keyTombIncluded] ?: emptySet()) + personId
+                p[keyTombExcluded] = (p[keyTombExcluded] ?: emptySet()) - personId
+            } else {
+                p[keyTombExcluded] = (p[keyTombExcluded] ?: emptySet()) + personId
+                p[keyTombIncluded] = (p[keyTombIncluded] ?: emptySet()) - personId
+            }
+        }
     }
 
     override val homeVisitHolidayNudge: Flow<Boolean> =

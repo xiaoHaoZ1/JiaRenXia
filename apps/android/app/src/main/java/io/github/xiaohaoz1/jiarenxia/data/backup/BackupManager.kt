@@ -93,6 +93,7 @@ class BackupManager @Inject constructor(
                     tombDays = settings.tombDays.first().map { it.name }.toSet(),
                     tombZhongyuanDay = settings.tombZhongyuanDay.first(),
                     tombExcludedPersonIds = settings.tombExcludedPersonIds.first(),
+                    tombIncludedPersonIds = settings.tombIncludedPersonIds.first(),
                     homeVisitHolidayNudge = settings.homeVisitHolidayNudge.first()
                 ),
                 avatars = avatarMap,
@@ -304,6 +305,9 @@ class BackupManager @Inject constructor(
             it.tombZhongyuanDay?.let { d -> settings.setTombZhongyuanDay(d) }
             it.tombExcludedPersonIds?.let { ids ->
                 settings.setTombExcludedPersonIds(ids)
+            }
+            it.tombIncludedPersonIds?.let { ids ->
+                settings.setTombIncludedPersonIds(ids)
             }
             it.homeVisitHolidayNudge?.let { v -> settings.setHomeVisitHolidayNudge(v) }
             // 旧版激活码 licenseCode 字段：会员功能已下线，恢复时忽略

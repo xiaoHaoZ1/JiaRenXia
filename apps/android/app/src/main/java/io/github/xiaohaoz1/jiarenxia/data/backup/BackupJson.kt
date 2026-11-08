@@ -65,8 +65,10 @@ data class BackupSettings(
     val tombDays: Set<String>? = null,
     /** 中元节按农历十四/十五（可选；缺失/其他 → 保留当前设置）。 */
     val tombZhongyuanDay: Int? = null,
-    /** “给谁上坟”排除的人（可选；缺失 → 保留当前设置）。 */
+    /** “给谁上坟”手动关掉的人（可选；缺失 → 保留当前设置）。 */
     val tombExcludedPersonIds: Set<String>? = null,
+    /** “给谁上坟”手动打开的人（可选；缺失 → 保留当前设置）。 */
+    val tombIncludedPersonIds: Set<String>? = null,
     /** 回家看看·节前提醒开关（可选；缺失 → 保留当前设置）。 */
     val homeVisitHolidayNudge: Boolean? = null,
     /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
@@ -324,6 +326,9 @@ object BackupJson {
                 } ?: JSONObject.NULL)
                 .put("tombZhongyuanDay", it.tombZhongyuanDay ?: JSONObject.NULL)
                 .put("tombExcludedPersonIds", it.tombExcludedPersonIds?.let { ids ->
+                    JSONArray().apply { ids.sorted().forEach { put(it) } }
+                } ?: JSONObject.NULL)
+                .put("tombIncludedPersonIds", it.tombIncludedPersonIds?.let { ids ->
                     JSONArray().apply { ids.sorted().forEach { put(it) } }
                 } ?: JSONObject.NULL)
                 .put("homeVisitHolidayNudge", it.homeVisitHolidayNudge ?: JSONObject.NULL)
@@ -770,6 +775,10 @@ object BackupJson {
                 else o.optInt("tombZhongyuanDay", -1).takeIf { it == 14 || it == 15 },
                 tombExcludedPersonIds = if (o.isNull("tombExcludedPersonIds")) null
                 else o.optJSONArray("tombExcludedPersonIds")?.let { arr ->
+                    (0 until arr.length()).map { arr.getString(it) }.toSet()
+                },
+                tombIncludedPersonIds = if (o.isNull("tombIncludedPersonIds")) null
+                else o.optJSONArray("tombIncludedPersonIds")?.let { arr ->
                     (0 until arr.length()).map { arr.getString(it) }.toSet()
                 },
                 homeVisitHolidayNudge = if (o.isNull("homeVisitHolidayNudge")) null

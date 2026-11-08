@@ -113,7 +113,7 @@ class TombCalendarTest {
         val evs = TombCalendar.events(
             today = LocalDate.of(2026, 3, 1), windowDays = 120,
             lunar = lunar,
-            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生")),
+            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生", defaultOn = true)),
             deathEntries = listOf(deathEntry(gp, 2026, 3, 1)),
             prefs = prefs
         ).filter { it.day == TombDay.MOURNING }
@@ -138,7 +138,7 @@ class TombCalendarTest {
         val evs = TombCalendar.events(
             today = LocalDate.of(2026, 3, 1), windowDays = 120,
             lunar = lunar,
-            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生")),
+            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生", defaultOn = true)),
             deathEntries = listOf(deathEntry(gp, null, 3, 1)),
             prefs = prefs
         )
@@ -153,7 +153,7 @@ class TombCalendarTest {
         val evs = TombCalendar.events(
             today = diedSolar, windowDays = 120,
             lunar = lunar,
-            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生")),
+            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生", defaultOn = true)),
             deathEntries = listOf(
                 deathEntry(gp, 2026, 1, 15, CalendarType.LUNAR)
             ),
@@ -169,7 +169,7 @@ class TombCalendarTest {
         val evs = TombCalendar.events(
             today = LocalDate.of(2026, 3, 1), windowDays = 120,
             lunar = lunar,
-            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生")),
+            mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生", defaultOn = true)),
             deathEntries = listOf(deathEntry(gp, 2026, 3, 1)),
             prefs = TombPrefs(days = TombPrefs.DEFAULT_DAYS - TombDay.MOURNING)
         )
@@ -180,7 +180,7 @@ class TombCalendarTest {
 
     @Test
     fun 节日_清明命中窗口() {
-        val mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生"))
+        val mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生", defaultOn = true))
         // 2026 清明 4/5：03-29（提前 7 天）与 04-04（提前 1 天）命中；04-05 当天不命中
         val at7 = TombCalendar.events(
             LocalDate.of(2026, 3, 29), 30, lunar, mourners, emptyList(), prefs)
@@ -204,7 +204,7 @@ class TombCalendarTest {
 
     @Test
     fun 节日_未启用的日子不出() {
-        val mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生"))
+        val mourners = mournersOf(TombMourner("gp", "爷爷", "杨福生", defaultOn = true))
         val p = TombPrefs(days = TombPrefs.DEFAULT_DAYS - TombDay.QINGMING)
         // 宽窗口覆盖 2026 全年：中元仍在（默认开启），清明被关掉
         val evs = TombCalendar.events(
@@ -221,8 +221,8 @@ class TombCalendarTest {
         assertTrue(none.isEmpty())
         // 全部排除 → 同样没有节日事件
         val mourners = mournersOf(
-            TombMourner("gp", "爷爷", "杨福生"),
-            TombMourner("nm", "奶奶", "李秀兰"))
+            TombMourner("gp", "爷爷", "杨福生", defaultOn = true),
+            TombMourner("nm", "奶奶", "李秀兰", defaultOn = true))
         val allExcluded = TombPrefs(excludedIds = setOf("gp", "nm"))
         val evs = TombCalendar.events(
             LocalDate.of(2025, 9, 1), 30, lunar, mourners, emptyList(), allExcluded)
@@ -239,8 +239,8 @@ class TombCalendarTest {
     @Test
     fun 节日_中元十四变体文案() {
         val mourners = mournersOf(
-            TombMourner("gp", "爷爷", "杨福生"),
-            TombMourner("nm", "奶奶", "李秀兰"))
+            TombMourner("gp", "爷爷", "杨福生", defaultOn = true),
+            TombMourner("nm", "奶奶", "李秀兰", defaultOn = true))
         // 2025 中元（十五）= 9/6；窗口覆盖，取事件本体验证 lunarText
         val evs = TombCalendar.events(
             LocalDate.of(2025, 9, 1), 30, lunar, mourners, emptyList(),
@@ -309,6 +309,52 @@ class TombCalendarTest {
         assertEquals("爷爷", list[0].label)
         assertEquals("老街坊", list[1].label)
         assertNull(list[1].title)
+    }
+
+    @Test
+    fun 名单_直系亲属默认开_旁系与未关联默认关() {
+        val ov = overviewOf(
+            person("gp", "杨福生") to
+                kinshipResult("gp", "爷爷", KinshipKind.DERIVED, true),
+            person("un", "杨建春") to
+                kinshipResult("un", "大伯", KinshipKind.DERIVED, false),
+            person("x", "老街坊") to
+                kinshipResult("x", null, KinshipKind.UNRELATED, false)
+        )
+        val list = TombCalendar.mourners(ov).associateBy { it.personId }
+        assertTrue(list.getValue("gp").defaultOn)
+        assertTrue(!list.getValue("un").defaultOn)
+        assertTrue(!list.getValue("x").defaultOn)
+    }
+
+    @Test
+    fun 节日_非直系默认不进名单_手动开与手动关生效() {
+        val mourners = mournersOf(
+            TombMourner("gp", "爷爷", "杨福生", defaultOn = true),
+            TombMourner("un", "大伯", "杨建春", defaultOn = false)
+        )
+        val today = LocalDate.of(2025, 9, 1)
+        fun roster(p: TombPrefs) = TombCalendar
+            .events(today, 30, lunar, mourners, emptyList(), p)
+            .single { it.day == TombDay.ZHONGYUAN }.names
+
+        // 默认：只有直系亲属在名单里
+        assertEquals(listOf("爷爷"), roster(TombPrefs()))
+        // 手动打开非直系亲属
+        assertEquals(
+            listOf("爷爷", "大伯"), roster(TombPrefs(includedIds = setOf("un"))))
+        // 手动关掉直系亲属
+        assertEquals(
+            listOf("大伯"),
+            roster(TombPrefs(includedIds = setOf("un"), excludedIds = setOf("gp")))
+        )
+        // 两个集合同时含同一 id 时按排除处理（异常数据兜底）
+        assertEquals(
+            listOf("大伯"),
+            roster(
+                TombPrefs(
+                    includedIds = setOf("un", "gp"), excludedIds = setOf("gp")))
+        )
     }
 
     // ---------- 文案 ----------

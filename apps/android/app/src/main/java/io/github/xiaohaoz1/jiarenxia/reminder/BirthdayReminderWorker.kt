@@ -251,7 +251,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
         val prefs = TombPrefs(
             days = days,
             zhongyuanDay = settings.tombZhongyuanDay.first(),
-            excludedIds = settings.tombExcludedPersonIds.first()
+            excludedIds = settings.tombExcludedPersonIds.first(),
+            includedIds = settings.tombIncludedPersonIds.first()
         )
         val reminderOnDeathIds = dateEntries
             .filter {

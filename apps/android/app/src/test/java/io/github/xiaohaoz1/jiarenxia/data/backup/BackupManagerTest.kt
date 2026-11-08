@@ -124,6 +124,20 @@ class BackupManagerTest : RepoTestBase() {
         override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
             tombExcludedPersonIds.value = ids
         }
+        override val tombIncludedPersonIds =
+            kotlinx.coroutines.flow.MutableStateFlow(emptySet<String>())
+        override suspend fun setTombIncludedPersonIds(ids: Set<String>) {
+            tombIncludedPersonIds.value = ids
+        }
+        override suspend fun setTombMournerOn(personId: String, on: Boolean) {
+            if (on) {
+                tombIncludedPersonIds.value += personId
+                tombExcludedPersonIds.value -= personId
+            } else {
+                tombExcludedPersonIds.value += personId
+                tombIncludedPersonIds.value -= personId
+            }
+        }
         override val homeVisitHolidayNudge =
             kotlinx.coroutines.flow.MutableStateFlow(true)
         override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
@@ -922,6 +936,7 @@ class BackupManagerTest : RepoTestBase() {
                 io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.MOURNING))
         fakeSettings.setTombZhongyuanDay(14)
         fakeSettings.setTombExcludedPersonIds(setOf("p1", "p2"))
+        fakeSettings.setTombIncludedPersonIds(setOf("p7"))
         val out = ByteArrayOutputStream()
         backup.export(out, pw)
         val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
@@ -931,6 +946,7 @@ class BackupManagerTest : RepoTestBase() {
         assertEquals(setOf("MOURNING", "QINGMING"), plan.settings?.tombDays)
         assertEquals(14, plan.settings?.tombZhongyuanDay)
         assertEquals(setOf("p1", "p2"), plan.settings?.tombExcludedPersonIds)
+        assertEquals(setOf("p7"), plan.settings?.tombIncludedPersonIds)
 
         // 恢复前把本机设置改成别的值，验证确实被备份值覆盖
         fakeSettings.setTombRemindersEnabled(true)
@@ -939,6 +955,7 @@ class BackupManagerTest : RepoTestBase() {
             io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs.DEFAULT_DAYS)
         fakeSettings.setTombZhongyuanDay(15)
         fakeSettings.setTombExcludedPersonIds(emptySet())
+        fakeSettings.setTombIncludedPersonIds(emptySet())
         backup.restore(plan)
         assertEquals(false, fakeSettings.tombRemindersEnabled.first())
         assertEquals(19 * 60 + 30, fakeSettings.tombReminderMinuteOfDay.first())
@@ -949,6 +966,7 @@ class BackupManagerTest : RepoTestBase() {
             fakeSettings.tombDays.first())
         assertEquals(14, fakeSettings.tombZhongyuanDay.first())
         assertEquals(setOf("p1", "p2"), fakeSettings.tombExcludedPersonIds.first())
+        assertEquals(setOf("p7"), fakeSettings.tombIncludedPersonIds.first())
     }
 
     @Test
@@ -985,6 +1003,7 @@ class BackupManagerTest : RepoTestBase() {
         assertNull(plan.settings?.tombDays)
         assertNull(plan.settings?.tombZhongyuanDay)
         assertNull(plan.settings?.tombExcludedPersonIds)
+        assertNull(plan.settings?.tombIncludedPersonIds)
 
         fakeSettings.setTombRemindersEnabled(false)
         fakeSettings.setTombReminderMinuteOfDay(19 * 60)
@@ -992,6 +1011,7 @@ class BackupManagerTest : RepoTestBase() {
             setOf(io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay.CHUXI))
         fakeSettings.setTombZhongyuanDay(14)
         fakeSettings.setTombExcludedPersonIds(setOf("p9"))
+        fakeSettings.setTombIncludedPersonIds(setOf("p8"))
         backup.restore(plan)
         assertEquals(false, fakeSettings.tombRemindersEnabled.first())
         assertEquals(19 * 60, fakeSettings.tombReminderMinuteOfDay.first())
@@ -1000,6 +1020,7 @@ class BackupManagerTest : RepoTestBase() {
             fakeSettings.tombDays.first())
         assertEquals(14, fakeSettings.tombZhongyuanDay.first())
         assertEquals(setOf("p9"), fakeSettings.tombExcludedPersonIds.first())
+        assertEquals(setOf("p8"), fakeSettings.tombIncludedPersonIds.first())
     }
 
     @Test

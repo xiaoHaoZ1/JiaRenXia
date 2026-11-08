@@ -58,6 +58,19 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setTombExcludedPersonIds(ids: Set<String>) {
         tombExcludedPersonIds.value = ids
     }
+    override val tombIncludedPersonIds = MutableStateFlow(emptySet<String>())
+    override suspend fun setTombIncludedPersonIds(ids: Set<String>) {
+        tombIncludedPersonIds.value = ids
+    }
+    override suspend fun setTombMournerOn(personId: String, on: Boolean) {
+        if (on) {
+            tombIncludedPersonIds.value += personId
+            tombExcludedPersonIds.value -= personId
+        } else {
+            tombExcludedPersonIds.value += personId
+            tombIncludedPersonIds.value -= personId
+        }
+    }
     override val homeVisitHolidayNudge = MutableStateFlow(true)
     override suspend fun setHomeVisitHolidayNudge(enabled: Boolean) {
         homeVisitHolidayNudge.value = enabled
