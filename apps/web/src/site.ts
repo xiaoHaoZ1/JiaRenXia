@@ -31,10 +31,12 @@ export const SITE = {
  * 并同步这里的版本/大小/校验值。version 留空表示暂无测试版。 */
 export const APK_BETA = {
   /** 安装包的 versionName，含 -debug 后缀 */
-  version: "2.4.1-debug",
-  sizeBytes: 25_508_728,
-  sha256: "454bc2481451dc879e1f9c46c606a493976be7184e5353816ca104565a6735c7",
-  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.4.1.apk`,
+  version: "2.4.2-debug",
+  /** 与安装包一致的 versionCode；更新清单 channels.beta 用 */
+  versionCode: 60,
+  sizeBytes: 25_530_009,
+  sha256: "1dac97287874b0c1a4f963a8167f9e206f19611f694979154a7ae41e7b73d932",
+  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.4.2.apk`,
 };
 
 /** 家人侠演示版：demo 构建（applicationId com.jiarenxia.app.demo、debug 签名，
@@ -44,18 +46,20 @@ export const APK_BETA = {
  * 两台手机各装一个即可演示「碰一碰结为夫妻」。version 留空表示暂无演示版。 */
 export const APK_DEMO = {
   /** 安装包的 versionName，含 -demo 后缀 */
-  version: "2.4.1-demo",
+  version: "2.4.2-demo",
+  /** 与安装包一致的 versionCode；更新清单 channels.demo 用 */
+  versionCode: 60,
   groom: {
     label: "朱棣",
-    sizeBytes: 25_717_945,
-    sha256: "12aea7a0c686e483818738145df9c2902c80938537c8edd6985332cb3acdfb0f",
-    file: `${DOWNLOAD_BASE}/jiarenxia-demo-zhudi.apk`,
+    sizeBytes: 25_616_191,
+    sha256: "1b45be437a88ba7a51900b41a10745e787d0c1caabb68fa52181ff5dfe926f96",
+    file: `${DOWNLOAD_BASE}/jiarenxia-demo-zhudi-2.4.2.apk`,
   },
   bride: {
     label: "徐皇后",
-    sizeBytes: 25_718_645,
-    sha256: "b1addd191e91657aed1765d86c2c21f5961aa5c76a1842d10c7e1136f560ef4c",
-    file: `${DOWNLOAD_BASE}/jiarenxia-demo-xu.apk`,
+    sizeBytes: 25_719_841,
+    sha256: "e2725457a29ed7f13158cc5df34ce017f406c166981f931857e8877ff6b6c1c6",
+    file: `${DOWNLOAD_BASE}/jiarenxia-demo-xu-2.4.2.apk`,
   },
 };
 

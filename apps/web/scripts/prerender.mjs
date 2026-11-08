@@ -22,7 +22,7 @@ if (!existsSync(entry)) {
   process.exit(1);
 }
 const {
-  render, OG_IMAGE, SITE_NAME, SITE_URL, SITE, EXTENSIONS,
+  render, OG_IMAGE, SITE_NAME, SITE_URL, SITE, EXTENSIONS, APK_BETA, APK_DEMO,
   allIndexablePaths, canonicalFor, hreflangFor, isIndexable, jsonLdFor, langOf, seoFor,
 } = await import(pathToFileURL(entry).href);
 
@@ -112,6 +112,29 @@ written.push(write("404.html", page("/404")));
 // App 端「联网检查更新」读的版本清单：与 site.ts 同源，随构建重新生成。
 // serve.mjs 对非 assets 一律 no-cache，无需额外处理缓存。
 if (SITE.apkVersion) {
+  // 测试版/演示版渠道清单：App 按 applicationId 后缀选渠道块读；
+  // 顶层字段始终是正式版（旧版客户端只认顶层，不受影响）。
+  const channels = {};
+  if (APK_BETA.version) {
+    channels.beta = {
+      versionCode: APK_BETA.versionCode,
+      versionName: APK_BETA.version,
+      sizeBytes: APK_BETA.sizeBytes,
+      sha256: APK_BETA.sha256,
+      url: APK_BETA.file + "?src=update",
+      notes: "",
+    };
+  }
+  if (APK_DEMO.version) {
+    // 演示版两包同 applicationId，按 BuildConfig.DEMO_ROLE 选 groom/bride 子块
+    channels.demo = {
+      versionCode: APK_DEMO.versionCode,
+      versionName: APK_DEMO.version,
+      notes: "",
+      groom: { url: APK_DEMO.groom.file + "?src=update", sizeBytes: APK_DEMO.groom.sizeBytes, sha256: APK_DEMO.groom.sha256 },
+      bride: { url: APK_DEMO.bride.file + "?src=update", sizeBytes: APK_DEMO.bride.sizeBytes, sha256: APK_DEMO.bride.sha256 },
+    };
+  }
   written.push(
     write(
       "jiarenxia-version.json",
@@ -123,6 +146,7 @@ if (SITE.apkVersion) {
           sha256: SITE.apkSha256,
           url: SITE.apkDownloadUrl + "?src=update",
           notes: SITE.apkNotes || "",
+          ...(Object.keys(channels).length ? { channels } : {}),
         },
         null,
         2

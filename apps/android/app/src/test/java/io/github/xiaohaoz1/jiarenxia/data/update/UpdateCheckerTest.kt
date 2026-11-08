@@ -48,6 +48,63 @@ class UpdateCheckerTest {
         ) is ManifestFetch.Error)
     }
 
+    private fun channelManifest() = """{"versionCode":60,"versionName":"2.4.2",""" +
+            """"sizeBytes":3797503,"sha256":"${"a".repeat(64)}","url":"https://x/release.apk","notes":"正式说明",""" +
+            """"channels":{"beta":{"versionCode":60,"versionName":"2.4.2-debug","sizeBytes":25000000,""" +
+            """"sha256":"${"b".repeat(64)}","url":"https://x/beta.apk"},""" +
+            """"demo":{"versionCode":60,"versionName":"2.4.2-demo",""" +
+            """"groom":{"url":"https://x/groom.apk","sizeBytes":25000001,"sha256":"${"c".repeat(64)}"},""" +
+            """"bride":{"url":"https://x/bride.apk","sizeBytes":25000002,"sha256":"${"d".repeat(64)}"}}}}"""
+
+    @Test
+    fun `渠道识别按包名后缀`() {
+        assertEquals("release", UpdateChecker.channelOf("com.jiarenxia.app"))
+        assertEquals("beta", UpdateChecker.channelOf("com.jiarenxia.app.debug"))
+        assertEquals("demo", UpdateChecker.channelOf("com.jiarenxia.app.demo"))
+    }
+
+    @Test
+    fun `测试版渠道读 channels-beta`() {
+        val r = UpdateChecker.parseManifest(channelManifest(), "beta", "")
+        assertTrue(r is ManifestFetch.Ok)
+        val rel = (r as ManifestFetch.Ok).release
+        assertEquals("2.4.2-debug", rel.versionName)
+        assertEquals("https://x/beta.apk", rel.url)
+        assertEquals("b".repeat(64), rel.sha256)
+    }
+
+    @Test
+    fun `演示版渠道按角色选包`() {
+        val g = UpdateChecker.parseManifest(channelManifest(), "demo", "groom")
+        val b = UpdateChecker.parseManifest(channelManifest(), "demo", "bride")
+        assertEquals("https://x/groom.apk", (g as ManifestFetch.Ok).release.url)
+        assertEquals("https://x/bride.apk", (b as ManifestFetch.Ok).release.url)
+        assertEquals("2.4.2-demo", g.release.versionName)
+        // 角色缺省回落 groom，避免清单有但角色串空时整个失败
+        val d = UpdateChecker.parseManifest(channelManifest(), "demo", "")
+        assertEquals("https://x/groom.apk", (d as ManifestFetch.Ok).release.url)
+    }
+
+    @Test
+    fun `渠道缺块不回落正式版`() {
+        // 清单没有 channels：beta/demo 绝不能拿到正式版的包（签名不同装不上）
+        assertTrue(UpdateChecker.parseManifest(manifest(), "beta", "") is ManifestFetch.Error)
+        assertTrue(UpdateChecker.parseManifest(manifest(), "demo", "groom") is ManifestFetch.Error)
+        // channels 有 beta 没有 demo：demo 仍失败
+        val onlyBeta = """{"versionCode":60,"versionName":"2.4.2","sizeBytes":1,""" +
+                """"sha256":"${"a".repeat(64)}","url":"https://x","channels":{"beta":""" +
+                """{"versionCode":60,"versionName":"2.4.2-debug","sizeBytes":1,""" +
+                """"sha256":"${"b".repeat(64)}","url":"https://x/b"}}}"""
+        assertTrue(UpdateChecker.parseManifest(onlyBeta, "demo", "groom") is ManifestFetch.Error)
+        assertTrue(UpdateChecker.parseManifest(onlyBeta, "beta", "") is ManifestFetch.Ok)
+        // demo 缺角色块也失败
+        val demoNoBride = """{"versionCode":1,"versionName":"x","sizeBytes":1,""" +
+                """"sha256":"${"a".repeat(64)}","url":"https://x","channels":{"demo":""" +
+                """{"versionCode":60,"versionName":"d","groom":{"url":"https://x/g",""" +
+                """"sizeBytes":1,"sha256":"${"c".repeat(64)}"}}}}"""
+        assertTrue(UpdateChecker.parseManifest(demoNoBride, "demo", "bride") is ManifestFetch.Error)
+    }
+
     @Test
     fun `versionCode 比较`() {
         fun rel(code: Int, name: String) =

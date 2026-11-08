@@ -6,7 +6,11 @@
     android:description="@string/tap_service_desc"
     android:requireDeviceUnlock="false"
     android:apduServiceBanner="@drawable/ic_launcher_foreground">
-    <aid-group android:category="other" android:description="@string/tap_aid_desc">
+    <!-- category=payment：演示手机（小米/HyperOS 等）常把钱包设为默认付款应用，
+         碰一碰时钱包会抢前台弹交通卡。声明 payment 后「家人侠-演示版」会出现在
+         系统「默认付款应用」列表，选它即可顶替钱包；代价是必须设为默认 AID 才路由，
+         演示场景可控故可接受（正式/测试版仍用 other）。 -->
+    <aid-group android:category="payment" android:description="@string/tap_aid_desc">
         <aid-filter android:name="F04A52580002" />
     </aid-group>
 </host-apdu-service>

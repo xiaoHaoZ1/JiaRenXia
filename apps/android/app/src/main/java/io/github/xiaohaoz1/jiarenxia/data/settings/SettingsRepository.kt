@@ -11,6 +11,8 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.github.xiaohaoz1.jiarenxia.BuildConfig
+import io.github.xiaohaoz1.jiarenxia.data.update.UpdateChecker
 import io.github.xiaohaoz1.jiarenxia.domain.ceremony.WeddingWords
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombDay
 import io.github.xiaohaoz1.jiarenxia.domain.tomb.TombPrefs
@@ -506,7 +508,10 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     override val updateCheckEnabled: Flow<Boolean> =
-        dataStore.data.map { it[keyUpdateCheckEnabled] ?: false }.distinctUntilChanged()
+        // 测试版/演示版默认开启联网检查更新（内部渠道，靠它推新包）；正式版默认关。
+        dataStore.data.map {
+            it[keyUpdateCheckEnabled] ?: (UpdateChecker.channelOf(BuildConfig.APPLICATION_ID) != "release")
+        }.distinctUntilChanged()
 
     override suspend fun setUpdateCheckEnabled(enabled: Boolean) {
         dataStore.edit { it[keyUpdateCheckEnabled] = enabled }
