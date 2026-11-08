@@ -97,8 +97,8 @@ const T = {
     familyH: "家里谁是谁，一张图认全",
     familyLead: "父母两边、配偶两边、兄弟姐妹和孩子，按辈分排在一起。点到谁，就能看见名字、称谓和他在家里的位置。",
     familyMore: "看看称谓是怎么算的 →",
-    gxTitle: "守护侠（测试版）",
-    gxTextPre: "守护功能由独立应用「守护侠」提供，给需要守护的家人使用。目前是测试版，可以在",
+    gxTitle: "守护侠",
+    gxTextPre: "守护功能由独立应用「守护侠」提供，给需要守护的家人使用。正式版已发布，可以在",
     gxTextLink: "「小侠家族」",
     gxTextPost: "页下载。",
     privacyH: "家里的事，留在家里",
@@ -163,8 +163,8 @@ const T = {
     familyH: "Who's who — the whole family in one graph",
     familyLead: "Both parents' sides, your spouse's side, siblings and children, laid out by generation. Tap anyone to see their name, kinship title, and place in the family.",
     familyMore: "See how kinship titles work →",
-    gxTitle: "ShouHuXia (beta)",
-    gxTextPre: "The guardian feature lives in a separate app, ShouHuXia, for family members who need looking after. It's in beta — get it on the ",
+    gxTitle: "ShouHuXia",
+    gxTextPre: "The guardian feature lives in a separate app, ShouHuXia, for family members who need looking after. The stable release is out — get it on the ",
     gxTextLink: "More apps",
     gxTextPost: " page.",
     privacyH: "Family matters stay in the family",
@@ -372,7 +372,7 @@ function Family() {
   );
 }
 
-/** 守护侠测试版：说明守护由独立应用承担，指向「小侠家族」页下载。 */
+/** 守护侠：说明守护由独立应用承担，指向「小侠家族」页下载。 */
 function GuardianXia() {
   const t = T[useLang()];
   const to = useTo();

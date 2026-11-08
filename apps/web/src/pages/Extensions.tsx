@@ -111,7 +111,7 @@ export default function Extensions() {
               </span>
             )}
             {en && loc ? loc.name : app.name}
-            <span className="tag tag-test">{en && loc ? loc.stage : app.stage}</span>
+            <span className={`tag ${app.stage === "正式版" ? "tag-ok" : "tag-test"}`}>{en && loc ? loc.stage : app.stage}</span>
           </h3>
           <p>{en && loc ? loc.description : app.description}</p>
           {"note" in app && app.note ? (

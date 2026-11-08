@@ -66,28 +66,28 @@ export const EXTENSIONS = [
     id: "shouhuxia",
     name: "守护侠",
     icon: "shield",
-    stage: "测试版",
+    stage: "正式版",
     description:
       "装在长辈手机上：锁屏后太久没人用手机，先响铃请 TA 确认；没人应答就自动打给紧急联系人，" +
       "还能每天发一条平安短信。不联网、不注册，设置只存在这台手机里。",
     version: "1.1.0",
-    released: "2026-10-29",
-    whatsNew: "首页四步设置向导 + 实机演练；可设 1–3 位紧急联系人，报警先群发短信再依次拨号",
-    sizeBytes: 1_670_331,
-    sha256: "92c075ac67dbac7e8bd0ea18e12c5aa8637877435e39696f2568016dbe874cea",
+    released: "2026-11-08",
+    whatsNew: "首个正式版：首次使用四步向导（权限 → 紧急联系人 → 后台保护 → 实机演练）；可设 1–3 位紧急联系人，报警先群发短信再依次拨号",
+    sizeBytes: 1_686_715,
+    sha256: "2b73f45f9ab8fbc3dd0078007a828eca2137fdbb2cfdbfc918a1d7f6a84969ef",
     /** 安装包地址：下载服务按版本命名 */
     file: `${DOWNLOAD_BASE}/shouhuxia-1.1.0.apk`,
     minAndroid: "8.0",
-    note: "测试版：装好后请先按首页向导做一次「实机演练」，确认能响铃、能发短信、能拨通，再开启守护。目前仍在真机测试，暂不建议作为唯一的安全保障。",
+    note: "首次使用请按首页向导完成权限设置和一次「实机演练」，确认能响铃、能发短信、能拨通后，守护即可开启。",
     en: {
       name: "ShouHuXia",
-      stage: "Beta",
+      stage: "Stable",
       description:
         "Installed on an elder's phone: if the phone sits untouched too long after lock, it first " +
         "rings to ask them to confirm; with no answer it automatically calls emergency contacts — " +
         "and can send a daily check-in text. Offline, no sign-up, settings stay on the phone.",
-      whatsNew: "Four-step home setup wizard + live drill; 1–3 emergency contacts; alerts send group texts first, then dial in turn",
-      note: "Beta: after installing, please run the live drill from the home wizard once to confirm it rings, texts and dials before enabling the guard. Still in real-device testing — do not rely on it as the only safety net yet.",
+      whatsNew: "First stable release: four-step first-run wizard (permissions → emergency contacts → background protection → live drill); 1–3 emergency contacts; alerts send group texts first, then dial in turn",
+      note: "On first use, finish the home wizard — permissions plus one live drill — to confirm it can ring, text and dial; the guard can then be enabled.",
     },
   },
   {

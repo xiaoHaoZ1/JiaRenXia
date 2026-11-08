@@ -39,7 +39,7 @@ const T = {
     sourceJrx: "家人侠",
     sourceShx: "守护侠",
     sourcePost: "。",
-    gxPre: "守护功能由独立应用「守护侠」提供（测试版，可在",
+    gxPre: "守护功能由独立应用「守护侠」提供（正式版，可在",
     gxLink: "「小侠家族」",
     gxPost:
       "页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先做一次「实机演练」走一遍流程，确认能响能拨，再放心交给它。",
@@ -79,7 +79,7 @@ const T = {
     sourceJrx: "JiaRenXia",
     sourceShx: "ShouHuXia",
     sourcePost: ".",
-    gxPre: "The guardian feature lives in a separate app, ShouHuXia (beta — get it on the ",
+    gxPre: "The guardian feature lives in a separate app, ShouHuXia (stable release — get it on the ",
     gxLink: "More apps",
     gxPost:
       " page). Phone brands restrict background work and auto-start differently, so after " +
