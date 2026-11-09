@@ -51,13 +51,13 @@ export const PAGES: Record<string, PageSeo> = {
     priority: "0.9",
     changefreq: "weekly",
   },
-  "/extensions": {
-    title: "小侠家族 - 家人侠",
+  "/shouhuxia": {
+    title: "守护侠 — 手机太久没人动，它会替你喊家里人",
     description:
-      "家人侠作者的免费小应用集合。「守护侠」：长辈手机无人应答时自动联系紧急联系人；" +
-      "「朋友侠」：记住朋友的生日与近况，农历公历都行、到点提醒；" +
-      "「饭桶侠」：转盘帮你决定午晚夜宵吃什么，可自己加菜改菜。全都免费、不联网、不用注册。",
-    priority: "0.6",
+      "守护侠是给独居长辈手机用的免费安卓应用：锁屏太久没人用，先响铃请对方确认，" +
+      "没人应答就群发短信、按顺序拨打紧急联系人，还能每天发一条平安短信。" +
+      "不联网、不注册，设置只存在这台手机里。",
+    priority: "0.7",
     changefreq: "monthly",
   },
   "/help": {
@@ -105,13 +105,13 @@ export const PAGES_EN: Record<string, PageSeo> = {
     priority: "0.9",
     changefreq: "weekly",
   },
-  "/extensions": {
-    title: "The Xiaoxia family - JiaRenXia",
+  "/shouhuxia": {
+    title: "ShouHuXia — calls you when an elder's phone sits still too long",
     description:
-      "Free companion apps by the JiaRenXia author: ShouHuXia checks in on elderly phones and calls " +
-      "emergency contacts when unanswered; PengYouXia remembers friends' birthdays; FanTongXia spins " +
-      "a wheel to pick your next meal. All free, offline, no sign-up.",
-    priority: "0.6",
+      "ShouHuXia is a free Android app for an elder who lives alone: if the phone stays untouched " +
+      "too long after lock, it rings to ask for confirmation; with no answer it texts all emergency " +
+      "contacts and dials them in order, plus an optional daily check-in text. Offline, no sign-up.",
+    priority: "0.7",
     changefreq: "monthly",
   },
   "/help": {

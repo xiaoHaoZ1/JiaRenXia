@@ -12,7 +12,7 @@ import { ThemeSwitch } from "./theme";
 const NAV = [
   ["/", { zh: "首页", en: "Home" }],
   ["/download", { zh: "下载", en: "Download" }],
-  ["/extensions", { zh: "小侠家族", en: "More apps" }],
+  ["/shouhuxia", { zh: "守护侠", en: "ShouHuXia" }],
   ["/help", { zh: "帮助", en: "Help" }],
 ] as const;
 

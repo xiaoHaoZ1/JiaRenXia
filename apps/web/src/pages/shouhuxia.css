@@ -1,0 +1,127 @@
+/* 守护侠单品页专用样式（pages/ShouHuXia.tsx）。通用版式类复用 home.css。 */
+
+/* ---------- 首屏 ---------- */
+.shx-hero .hero-visual { padding-top: 30px; }
+.shx-appicon {
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+  background: #f9c147;
+  position: absolute;
+  z-index: 1;
+  left: 4%;
+  top: 0;
+  transform: rotate(-6deg);
+  box-shadow: var(--shadow);
+}
+/* CSS 画的手机：全屏响铃确认页 */
+.shx-phone {
+  width: min(240px, 62vw);
+  aspect-ratio: 9 / 19;
+  padding: 10px;
+  border-radius: 32px;
+  background: #2b2118;
+  box-shadow: 0 24px 48px -20px rgba(90, 40, 25, 0.45);
+}
+.shx-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 12px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, #fdf6ee, #f8ecdd);
+  text-align: center;
+}
+.shx-ring {
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  animation: shx-ring 1.6s ease-in-out infinite;
+}
+@keyframes shx-ring {
+  0%, 100% { transform: rotate(0); }
+  12% { transform: rotate(14deg); }
+  24% { transform: rotate(-12deg); }
+  36% { transform: rotate(9deg); }
+  48% { transform: rotate(-6deg); }
+  60% { transform: rotate(0); }
+}
+.shx-mock-title { color: var(--text); font-size: 19px; font-weight: 700; }
+.shx-mock-ok {
+  padding: 9px 34px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 17px;
+  font-weight: 700;
+}
+.shx-mock-sub { color: var(--text-2); font-size: 12px; line-height: 1.5; }
+/* 浮动卡放到手机左上/右下（float-card 通用样式在 home.css） */
+.shx-hero .fc-title { left: 0; top: 12%; }
+.shx-hero .fc-remind { left: auto; right: -2%; bottom: 6%; }
+
+/* ---------- 工作原理四步 ---------- */
+.shx-steps {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(14px, 2.5vw, 24px);
+  margin: clamp(28px, 4vw, 48px) 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: shxstep;
+}
+.shx-step {
+  position: relative;
+  padding: 22px 20px 20px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--card);
+}
+.shx-step-n {
+  position: absolute;
+  top: -13px;
+  left: 18px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+.shx-step .feature-ico { margin-bottom: 10px; }
+.shx-step h3 { margin: 0 0 0.35em; font-size: 17.5px; line-height: 1.4; }
+.shx-step p { margin: 0; color: var(--text-2); font-size: 14.5px; line-height: 1.7; }
+
+/* ---------- 功能清单 ---------- */
+.shx-featlist { max-width: 720px; margin: clamp(24px, 4vw, 40px) auto 0; }
+
+/* ---------- 丑话说在前面 ---------- */
+.shx-honest { max-width: 720px; margin-inline: auto; width: 100%; }
+.shx-honest h2 { margin: 0.5em 0 0.6em; font-size: clamp(22px, 1.4vw + 16px, 28px); }
+.shx-honest ul { margin: 0; }
+.shx-honest li { color: var(--text-2); }
+
+/* ---------- 下载卡 ---------- */
+.shx-dl { max-width: 720px; margin-inline: auto; width: 100%; }
+.shx-dl h2 { margin: 0.5em 0 0.4em; font-size: clamp(22px, 1.4vw + 16px, 28px); }
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 960px) {
+  .shx-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shx-hero .hero-visual { padding-bottom: 30px; }
+}
+@media (max-width: 560px) {
+  .shx-steps { grid-template-columns: minmax(0, 1fr); max-width: 420px; margin-inline: auto; }
+  .shx-appicon { left: -2px; width: 72px; height: 72px; border-radius: 20px; }
+  .shx-hero .fc-title, .shx-hero .fc-remind { display: none; }
+}

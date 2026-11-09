@@ -187,26 +187,6 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 }
 .card-alt { background: var(--card-alt); }
 
-/* 小侠家族页：应用卡片头（图标 + 名称 + 阶段胶囊） */
-.ext-head { display: flex; align-items: center; gap: 0.7em; margin-top: 0; }
-.ext-ico {
-  width: 44px;
-  height: 44px;
-  flex: none;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 14px;
-  background: var(--primary-bg);
-  color: var(--primary);
-}
-/* 小侠家族：有真实应用图标的条目（前景 PNG + 与启动图标一致的暖黄底） */
-.ext-appicon {
-  width: 44px;
-  height: 44px;
-  flex: none;
-  border-radius: 14px;
-  background: #f9c147;
-}
 /* 下载区：按钮 + 二维码并排，窄屏自动换行 */
 .ext-dl {
   display: flex;
