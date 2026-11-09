@@ -22,7 +22,7 @@ if (!existsSync(entry)) {
   process.exit(1);
 }
 const {
-  render, OG_IMAGE, SITE_NAME, SITE_URL, SITE, EXTENSIONS, APK_BETA, APK_DEMO,
+  render, OG_IMAGE, SITE_NAME, SITE_URL, SITE, SHOUHUXIA, APK_BETA, APK_DEMO,
   allIndexablePaths, canonicalFor, hreflangFor, isIndexable, jsonLdFor, langOf, seoFor,
 } = await import(pathToFileURL(entry).href);
 
@@ -161,9 +161,10 @@ written.push(
     "_redirects",
     [
       "/jiarenxia.apk " + SITE.apkDownloadUrl + "?src=legacy 302",
-      ...EXTENSIONS.map(
-        (app) => `/${app.id}.apk ${app.file}?src=legacy 302`
-      ),
+      `/${SHOUHUXIA.id}.apk ${SHOUHUXIA.file}?src=legacy 302`,
+      // 旧「小侠家族」页地址 → 守护侠单品页（旧链接与旧二维码仍可用）
+      "/extensions /shouhuxia 301",
+      "/en/extensions /en/shouhuxia 301",
       "",
     ].join("\n")
   )

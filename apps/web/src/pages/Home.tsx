@@ -98,9 +98,9 @@ const T = {
     familyLead: "父母两边、配偶两边、兄弟姐妹和孩子，按辈分排在一起。点到谁，就能看见名字、称谓和他在家里的位置。",
     familyMore: "看看称谓是怎么算的 →",
     gxTitle: "守护侠",
-    gxTextPre: "守护功能由独立应用「守护侠」提供，给需要守护的家人使用。正式版已发布，可以在",
-    gxTextLink: "「小侠家族」",
-    gxTextPost: "页下载。",
+    gxTextPre: "守护功能由独立应用「守护侠」提供：装在长辈手机上，手机太久没人动就替你喊家里人。正式版已发布，可以在",
+    gxTextLink: "「守护侠」",
+    gxTextPost: "页了解并下载。",
     privacyH: "家里的事，留在家里",
     privacyLead: "家人的名字、关系、生日和电话，是一个家最私密的东西。所以从一开始，家人侠就只把它们留在你的手机里。",
     privacyLink: "阅读隐私政策",
@@ -164,8 +164,8 @@ const T = {
     familyLead: "Both parents' sides, your spouse's side, siblings and children, laid out by generation. Tap anyone to see their name, kinship title, and place in the family.",
     familyMore: "See how kinship titles work →",
     gxTitle: "ShouHuXia",
-    gxTextPre: "The guardian feature lives in a separate app, ShouHuXia, for family members who need looking after. The stable release is out — get it on the ",
-    gxTextLink: "More apps",
+    gxTextPre: "The guardian feature lives in a separate app, ShouHuXia: installed on an elder's phone, it calls you when the phone sits still too long. The stable release is out — learn more and get it on the ",
+    gxTextLink: "ShouHuXia",
     gxTextPost: " page.",
     privacyH: "Family matters stay in the family",
     privacyLead: "Names, relationships, birthdays and phone numbers are among the most private things a family has. That's why JiaRenXia keeps them only on your phone, from day one.",
@@ -372,7 +372,7 @@ function Family() {
   );
 }
 
-/** 守护侠：说明守护由独立应用承担，指向「小侠家族」页下载。 */
+/** 守护侠：说明守护由独立应用承担，指向「守护侠」页下载。 */
 function GuardianXia() {
   const t = T[useLang()];
   const to = useTo();
@@ -384,7 +384,7 @@ function GuardianXia() {
           <h3 id="gxia-h">{t.gxTitle}</h3>
           <p>
             {t.gxTextPre}
-            <Link to={to("/extensions")}>{t.gxTextLink}</Link>
+            <Link to={to("/shouhuxia")}>{t.gxTextLink}</Link>
             {t.gxTextPost}
           </p>
         </div>

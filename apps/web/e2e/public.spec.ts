@@ -12,7 +12,7 @@ test("公共页面与导航", async ({ page }, testInfo) => {
 
   for (const [path, heading] of [
     ["/download", "下载"],
-    ["/extensions", "小侠家族"],
+    ["/shouhuxia", /它会替/],
     ["/help", "帮助"],
     ["/privacy", "隐私政策"],
     ["/terms", "用户协议"],

@@ -63,87 +63,34 @@ export const APK_DEMO = {
   },
 };
 
-/** 小侠家族页展示的同作者小应用。安装包同样放站点根目录、不入库；
+/** 守护侠单品页展示的应用信息。安装包放站点根目录、不入库；
  * 发新版时更新这里的版本/大小/校验值并替换安装包。version 留空表示尚未发布。 */
-export const EXTENSIONS = [
-  {
-    id: "shouhuxia",
-    name: "守护侠",
-    icon: "shield",
-    stage: "正式版",
+export const SHOUHUXIA = {
+  id: "shouhuxia",
+  name: "守护侠",
+  icon: "shield",
+  stage: "正式版",
+  description:
+    "装在长辈手机上：锁屏后太久没人用手机，先响铃请 TA 确认；没人应答就自动打给紧急联系人，" +
+    "还能每天发一条平安短信。不联网、不注册，设置只存在这台手机里。",
+  version: "1.1.0",
+  /** 发布日期与本版亮点（展示在下载卡上） */
+  released: "2026-11-08",
+  whatsNew: "首个正式版：首次使用四步向导（权限 → 紧急联系人 → 后台保护 → 实机演练）；可设 1–3 位紧急联系人，报警先群发短信再依次拨号",
+  sizeBytes: 1_686_715,
+  sha256: "2b73f45f9ab8fbc3dd0078007a828eca2137fdbb2cfdbfc918a1d7f6a84969ef",
+  /** 安装包地址：下载服务按版本命名 */
+  file: `${DOWNLOAD_BASE}/shouhuxia-1.1.0.apk`,
+  minAndroid: "8.0",
+  note: "首次使用请按首页向导完成权限设置和一次「实机演练」，确认能响铃、能发短信、能拨通后，守护即可开启。",
+  en: {
+    name: "ShouHuXia",
+    stage: "Stable",
     description:
-      "装在长辈手机上：锁屏后太久没人用手机，先响铃请 TA 确认；没人应答就自动打给紧急联系人，" +
-      "还能每天发一条平安短信。不联网、不注册，设置只存在这台手机里。",
-    version: "1.1.0",
-    released: "2026-11-08",
-    whatsNew: "首个正式版：首次使用四步向导（权限 → 紧急联系人 → 后台保护 → 实机演练）；可设 1–3 位紧急联系人，报警先群发短信再依次拨号",
-    sizeBytes: 1_686_715,
-    sha256: "2b73f45f9ab8fbc3dd0078007a828eca2137fdbb2cfdbfc918a1d7f6a84969ef",
-    /** 安装包地址：下载服务按版本命名 */
-    file: `${DOWNLOAD_BASE}/shouhuxia-1.1.0.apk`,
-    minAndroid: "8.0",
-    note: "首次使用请按首页向导完成权限设置和一次「实机演练」，确认能响铃、能发短信、能拨通后，守护即可开启。",
-    en: {
-      name: "ShouHuXia",
-      stage: "Stable",
-      description:
-        "Installed on an elder's phone: if the phone sits untouched too long after lock, it first " +
-        "rings to ask them to confirm; with no answer it automatically calls emergency contacts — " +
-        "and can send a daily check-in text. Offline, no sign-up, settings stay on the phone.",
-      whatsNew: "First stable release: four-step first-run wizard (permissions → emergency contacts → background protection → live drill); 1–3 emergency contacts; alerts send group texts first, then dial in turn",
-      note: "On first use, finish the home wizard — permissions plus one live drill — to confirm it can ring, text and dial; the guard can then be enabled.",
-    },
+      "Installed on an elder's phone: if the phone sits untouched too long after lock, it first " +
+      "rings to ask them to confirm; with no answer it automatically calls emergency contacts — " +
+      "and can send a daily check-in text. Offline, no sign-up, settings stay on the phone.",
+    whatsNew: "First stable release: four-step first-run wizard (permissions → emergency contacts → background protection → live drill); 1–3 emergency contacts; alerts send group texts first, then dial in turn",
+    note: "On first use, finish the home wizard — permissions plus one live drill — to confirm it can ring, text and dial; the guard can then be enabled.",
   },
-  {
-    id: "pengyouxia",
-    name: "朋友侠",
-    icon: "friends",
-    stage: "测试版",
-    description:
-      "家人侠的兄弟应用，把家人换成朋友。记下朋友的生日、喜好和近况，农历公历生日都行，" +
-      "到点提醒该联系了；通讯录导入、加密备份都有——资料同样只存在你自己的手机里。",
-    version: "1.0.0",
-    /** 发布日期与本版亮点（展示在卡片上） */
-    released: "2026-10-17",
-    whatsNew: "首个版本",
-    sizeBytes: 2_230_507,
-    sha256: "c99cd8399aab6f952b0c155533cde21bc7efb7a0de36bc7ea4dc966df10a4c21",
-    /** 安装包地址：下载服务按版本命名 */
-    file: `${DOWNLOAD_BASE}/pengyouxia-1.0.0.apk`,
-    minAndroid: "8.0",
-    en: {
-      name: "PengYouXia",
-      stage: "Beta",
-      description:
-        "JiaRenXia's sibling app — for friends instead of family. Record friends' birthdays, " +
-        "preferences and recent news; lunar and solar birthdays both work, with timely reminders " +
-        "to get in touch. Contacts import and encrypted backup included — data stays on your phone.",
-      whatsNew: "First release",
-    },
-  },
-  {
-    id: "fantongxia",
-    name: "饭桶侠",
-    icon: "wheel",
-    stage: "测试版",
-    description:
-      "一日三餐不知道吃什么，就交给转盘。在家做、出去吃都能转——烤鱼自助烤肉店也行，" +
-      "转盘可以自己加、自己改，午晚夜宵到点提醒，还能把结果一键发给微信好友。",
-    version: "0.1.0",
-    released: "2026-10-27",
-    whatsNew: "首个版本（由「吃什么」改名独立而成）",
-    sizeBytes: 2_073_845,
-    sha256: "6bd661904b5418dfaae6d2b5990ca6f0663616f7bd84c838f21abe43da255f06",
-    file: `${DOWNLOAD_BASE}/fantongxia-0.1.0.apk`,
-    minAndroid: "8.0",
-    en: {
-      name: "FanTongXia",
-      stage: "Beta",
-      description:
-        "Can't decide what to eat? Let the wheel pick — cooking at home or eating out, even a " +
-        "specific buffet or grill place. The wheel is fully editable, meal-time reminders are " +
-        "included, and the result can be sent to a WeChat friend in one tap.",
-      whatsNew: "First release (spun off and renamed from \"ChiShenMe\")",
-    },
-  },
-] as const;
+} as const;

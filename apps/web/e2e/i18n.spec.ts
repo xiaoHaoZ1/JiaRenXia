@@ -42,7 +42,7 @@ test("英文各页直接打开且显示英文标题", async ({ page }, testInfo)
 
   for (const [path, heading] of [
     ["/en/download", "Download"],
-    ["/en/extensions", "More apps"],
+    ["/en/shouhuxia", "sits still"],
     ["/en/help", "Help"],
     ["/en/privacy", "Privacy policy"],
     ["/en/terms", "Terms of use"],

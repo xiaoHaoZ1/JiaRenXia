@@ -34,4 +34,4 @@ export {
   SITE_URL,
 } from "./seo";
 // 转出站点常量：prerender 据此生成 jiarenxia-version.json（App 端更新检查读它）
-export { SITE, APK_BETA, APK_DEMO, EXTENSIONS } from "./site";
+export { SITE, APK_BETA, APK_DEMO, SHOUHUXIA } from "./site";
