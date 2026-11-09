@@ -11,17 +11,17 @@ export const SITE = {
   /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
   guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.4.2",
+  apkVersion: "2.4.3",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 60,
+  apkVersionCode: 61,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "修好选生日年份时「换个年代」透出残影的问题，首页「核心家人」两列改为左对齐。包含 2.4.1 全部新功能：「上坟提醒」（清明、中元、寒衣、除夕、冬至和每位家人的忌日都能提醒，新近去世的家人还会提醒头七到七七和百日）、「回家看看」（选好家里有谁、多久回去一次，按见面记录计时，节前与家人生日前也会提醒）、「长辈模式」（装在长辈手机上，只看家人、打电话和最近的日子）、农历按香港天文台历表换算、生日当天一键发祝福短信。",
+  apkNotes: "「上坟提醒」节日名单默认只含直系亲属（到祖父母一辈），叔姑舅姨、堂表亲仍可手动打开；家事页铃铛改为「提醒」文字按钮并新增引导。包含 2.4 全部新功能：「上坟提醒」（清明、中元、寒衣、除夕、冬至和每位家人的忌日都能提醒，新近去世的家人还会提醒头七到七七和百日）、「回家看看」（选好家里有谁、多久回去一次，按见面记录计时）、「长辈模式」（装在长辈手机上，只看家人、打电话和最近的日子）、农历按香港天文台历表换算、生日当天一键发祝福短信。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
   apkSizeBytes: 3_797_503,
-  apkSha256: "2cb8c0c81f428a8bfdb6017c054caa7b0b1c06a6445fa28be5738209a72cf571",
+  apkSha256: "eda1c3846d0d9930d950dea81868ba30095b095e48831f14cfdedc8797d714e3",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.4.2.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.4.3.apk`,
 };
 
 /** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
@@ -31,12 +31,12 @@ export const SITE = {
  * 并同步这里的版本/大小/校验值。version 留空表示暂无测试版。 */
 export const APK_BETA = {
   /** 安装包的 versionName，含 -debug 后缀 */
-  version: "2.4.2-debug",
+  version: "2.4.3-debug",
   /** 与安装包一致的 versionCode；更新清单 channels.beta 用 */
-  versionCode: 60,
-  sizeBytes: 25_530_009,
-  sha256: "1dac97287874b0c1a4f963a8167f9e206f19611f694979154a7ae41e7b73d932",
-  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.4.2.apk`,
+  versionCode: 61,
+  sizeBytes: 25_546_393,
+  sha256: "dc301c5ef0a913427d213b512083be79304ce0d6237811745c5907ca1d2d51f4",
+  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.4.3.apk`,
 };
 
 /** 家人侠演示版：demo 构建（applicationId com.jiarenxia.app.demo、debug 签名，
@@ -46,20 +46,20 @@ export const APK_BETA = {
  * 两台手机各装一个即可演示「碰一碰结为夫妻」。version 留空表示暂无演示版。 */
 export const APK_DEMO = {
   /** 安装包的 versionName，含 -demo 后缀 */
-  version: "2.4.2-demo",
+  version: "2.4.3-demo",
   /** 与安装包一致的 versionCode；更新清单 channels.demo 用 */
-  versionCode: 60,
+  versionCode: 61,
   groom: {
     label: "朱棣",
-    sizeBytes: 25_616_191,
-    sha256: "1b45be437a88ba7a51900b41a10745e787d0c1caabb68fa52181ff5dfe926f96",
-    file: `${DOWNLOAD_BASE}/jiarenxia-demo-zhudi-2.4.2.apk`,
+    sizeBytes: 25_345_582,
+    sha256: "3f8c08e7de1e7fbb725ddf8611e69c8437b6a598e6274fbbe64bb514545b090b",
+    file: `${DOWNLOAD_BASE}/jiarenxia-demo-zhudi-2.4.3.apk`,
   },
   bride: {
     label: "徐皇后",
-    sizeBytes: 25_719_841,
-    sha256: "e2725457a29ed7f13158cc5df34ce017f406c166981f931857e8877ff6b6c1c6",
-    file: `${DOWNLOAD_BASE}/jiarenxia-demo-xu-2.4.2.apk`,
+    sizeBytes: 25_720_039,
+    sha256: "2e44d53dc10446febbd7eb840de960077fc4111e6010a6de373986dc1347a017",
+    file: `${DOWNLOAD_BASE}/jiarenxia-demo-xu-2.4.3.apk`,
   },
 };
 
