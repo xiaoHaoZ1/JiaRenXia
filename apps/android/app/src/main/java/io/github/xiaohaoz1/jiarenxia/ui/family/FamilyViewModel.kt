@@ -22,7 +22,10 @@ data class FamilyUiState(
     /** personId → 已 N 天未联系（仅逾期者，联系提醒）。 */
     val contactOverdue: Map<String, Int> = emptyMap(),
     /** 在世者覆盖的辈分数（「N 代同堂」；「家书」家庭页摘要用）。 */
-    val generationCount: Int = 0
+    val generationCount: Int = 0,
+    /** personId → 进行中的孕期（家庭页孕周状态用）。 */
+    val pregnancyByPerson: Map<String, io.github.xiaohaoz1.jiarenxia.core.model
+        .Pregnancy> = emptyMap()
 )
 
 /** 家庭页 ViewModel：订阅家庭整体视图与默认号码表。 */
@@ -34,6 +37,8 @@ class FamilyViewModel @Inject constructor(
     val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data
         .ContactRepository,
+    private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
+        .PregnancyRepository,
     private val engine: io.github.xiaohaoz1.jiarenxia.core.kinship
         .KinshipEngine) : ViewModel() {
 
@@ -43,8 +48,9 @@ class FamilyViewModel @Inject constructor(
                 observeOverview(), repository.observeDefaultNumbers()
             ) { ov, nums -> ov to nums },
             contactRepository.observePlanList(),
-            contactRepository.observeAllLogs()
-        ) { (ov, nums), plans, logs ->
+            contactRepository.observeAllLogs(),
+            pregnancyRepository.observeActive()
+        ) { (ov, nums), plans, logs, pregnancies ->
             val today = LocalDate.now()
             val logsByPerson = logs.groupBy { it.personId }
             val overdue = plans.mapNotNull { plan ->
@@ -70,7 +76,8 @@ class FamilyViewModel @Inject constructor(
             } ?: 0
             FamilyUiState(
                 ov, nums, today, contactOverdue = overdue,
-                generationCount = genCount)
+                generationCount = genCount,
+                pregnancyByPerson = pregnancies.associateBy { it.personId })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FamilyUiState())
 
     /** 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。 */

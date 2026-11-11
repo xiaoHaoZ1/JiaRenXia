@@ -332,6 +332,7 @@ fun FamilyContent(
                         JiashuKinRow(
                             o = o,
                             contactDays = st.contactOverdue[o.person.id],
+                            pregnancy = st.pregnancyByPerson[o.person.id],
                             today = st.today,
                             lunar = lunar,
                             onClick = { onOpenPerson(o.person.id) }
@@ -351,6 +352,7 @@ fun FamilyContent(
                             JiashuKinRow(
                                 o = o,
                                 contactDays = st.contactOverdue[o.person.id],
+                                pregnancy = st.pregnancyByPerson[o.person.id],
                                 today = st.today,
                                 lunar = lunar,
                                 onClick = { onOpenPerson(o.person.id) }
@@ -464,6 +466,8 @@ fun FamilyContent(
                                                 today = st.today,
                                                 lunar = lunar,
                                                 contactDays = st.contactOverdue[
+                                                    o.person.id],
+                                                pregnancy = st.pregnancyByPerson[
                                                     o.person.id],
                                                 onClick = {
                                                     onOpenPerson(o.person.id) },
@@ -687,7 +691,8 @@ private fun BirthdayRow(
 /**
  * 核心家人紧凑行（两列之一）：32dp 头像 + 姓名/称谓 + 一条状态小字，
  * 内容块在半格内水平居中；行高由较宽一侧决定时纵向也居中。
- * 状态优先级：已故 > 今天生日 > 30 天内生日 > 联系逾期 > 生日日期；无生日则不显示。
+ * 状态优先级：已故 > 今天生日 > 30 天内生日 > 孕周 > 联系逾期 > 生日日期；无生日则不显示。
+ * 经典主题里 primary 与 seal 同色（生日红），孕周状态改用 tertiary 与生日区分。
  */
 @Composable
 private fun CoreMemberCell(
@@ -696,6 +701,7 @@ private fun CoreMemberCell(
     today: LocalDate,
     lunar: LunarCalendar,
     contactDays: Int?,
+    pregnancy: io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -710,6 +716,12 @@ private fun CoreMemberCell(
         deceased -> "已故" to jrx.deceased
         days == 0 -> "今天" to jrx.seal
         days != null -> (days.toString() + " 天后") to jrx.seal
+        // 孕周状态（在世且有进行中孕期；已故分支已先行返回；
+        // 经典主题 primary=seal 生日红，孕周用 tertiary 区分）
+        pregnancy != null ->
+            io.github.xiaohaoz1.jiarenxia.domain.pregnancy.PregnancyMath
+                .familyShortText(pregnancy.dueDate, today) to
+                MaterialTheme.colorScheme.tertiary
         contactDays != null -> (contactDays.toString() + " 天未联系") to jrx.warning
         nextBirthday != null -> nextBirthday.let { (b, d) ->
             (LunarFormat.lunarShort(b)
@@ -993,13 +1005,14 @@ private fun JiashuGraphRow(onClick: () -> Unit) {
 
 /**
  * 「家书」家人行：姓名 17sp/500 + 称谓细框 + 右侧状态，行间发丝线、不放头像。
- * 状态优先级：已故 → 今天 → N 天后 → N 天未联系 → 生日日期；
- * 生日相关朱砂粗体，未联系墨青粗体，已故整行淡色。
+ * 状态优先级：已故 → 今天 → N 天后 → 孕周 → N 天未联系 → 生日日期；
+ * 生日相关朱砂粗体，未联系墨青粗体，孕周主色，已故整行淡色。
  */
 @Composable
 private fun JiashuKinRow(
     o: PersonOverview,
     contactDays: Int?,
+    pregnancy: io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy? = null,
     today: LocalDate,
     lunar: LunarCalendar,
     onClick: () -> Unit
@@ -1014,6 +1027,11 @@ private fun JiashuKinRow(
         deceased -> "已故" to jrx.deceased
         days == 0 -> "今天" to jrx.seal
         days != null -> (days.toString() + " 天后") to jrx.seal
+        // 孕周状态（在世且有进行中孕期；已故分支已先行返回）
+        pregnancy != null ->
+            io.github.xiaohaoz1.jiarenxia.domain.pregnancy.PregnancyMath
+                .familyShortText(pregnancy.dueDate, today) to
+                MaterialTheme.colorScheme.primary
         contactDays != null -> (contactDays.toString() + " 天未联系") to
             MaterialTheme.colorScheme.primary
         nextBirthday != null -> nextBirthday.let { (b, d) ->

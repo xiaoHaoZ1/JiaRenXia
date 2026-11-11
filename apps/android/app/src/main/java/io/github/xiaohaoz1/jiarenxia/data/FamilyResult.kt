@@ -43,4 +43,8 @@ sealed class FamilyError(val message: String) {
     data object FactContentRequired : FamilyError("请填写内容")
     data object FactLabelRequired : FamilyError("请填写名称")
     data object FactNotFound : FamilyError("这条记录已不存在")
+    data object PregnancyNotFound : FamilyError("孕期记录不存在")
+    data object PregnancyAlreadyActive : FamilyError("这位家人已经有进行中的孕期记录")
+    data object PregnancyInvalidDate : FamilyError("日期不在允许范围内")
+    data object PregnancyPersonIneligible : FamilyError("只有在世的女性家人才能记录孕期")
 }

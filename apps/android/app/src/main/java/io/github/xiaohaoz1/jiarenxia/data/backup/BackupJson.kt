@@ -85,6 +85,13 @@ data class HomeVisitBackup(
     val memberIds: List<String>
 )
 
+/**
+ * 孕期 ↔ 宝宝关联行（备份内 babyIds 的载体；恢复时展开为
+ * pregnancy_babies 行）。本批无写入入口，仅随备份往返。
+ */
+typealias PregnancyBabyLink = io.github.xiaohaoz1.jiarenxia.data.db
+    .PregnancyBabyEntity
+
 /** 解密并校验后的恢复计划：可直接 apply。 */
 data class RestorePlan(
     val summary: BackupSummary,
@@ -108,6 +115,12 @@ data class RestorePlan(
     val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
     /** 回家看看计划（可选键，不升 schemaVersion；旧备份缺失为空）。 */
     val homeVisits: List<HomeVisitBackup> = emptyList(),
+    /**
+     * 孕期记录（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * 每条 = 孕期实体 + 宝宝关联行（babyIds 已过滤为备份内人物）。
+     */
+    val pregnancies: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+        .PregnancyEntity, List<PregnancyBabyLink>>> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -158,6 +171,8 @@ object BackupJson {
         contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
         personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
         homeVisits: List<HomeVisitBackup> = emptyList(),
+        pregnancies: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+            .PregnancyEntity, List<PregnancyBabyLink>>> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -258,6 +273,8 @@ object BackupJson {
                     task.note?.let { put("note", it) }
                     put("enabled", task.enabled)
                     task.remindMinutes?.let { put("remindMinutes", it) }
+                    task.pregnancyId?.let { put("pregnancyId", it) }
+                    if (task.archived) put("archived", true)
                     put("offsets", JSONArray().apply {
                         offsets.sortedBy { it.daysBefore }.forEach { put(it.daysBefore) }
                     })
@@ -304,6 +321,22 @@ object BackupJson {
                     put("createdAt", h.createdAt); put("updatedAt", h.updatedAt)
                     put("memberIds", JSONArray().apply {
                         h.memberIds.forEach { put(it) }
+                    })
+                })
+            }
+        })
+        // 孕期记录（可选键）：babyIds 只写真正关联的宝宝人物
+        json.put("pregnancies", JSONArray().apply {
+            pregnancies.forEach { (preg, babies) ->
+                put(JSONObject().apply {
+                    put("id", preg.id); put("personId", preg.personId)
+                    put("dueEpochDay", preg.dueEpochDay)
+                    preg.lmpEpochDay?.let { put("lmpEpochDay", it) }
+                    put("status", preg.status)
+                    preg.endedEpochDay?.let { put("endedEpochDay", it) }
+                    put("createdAt", preg.createdAt); put("updatedAt", preg.updatedAt)
+                    put("babyIds", JSONArray().apply {
+                        babies.forEach { put(it.babyPersonId) }
                     })
                 })
             }
@@ -605,6 +638,10 @@ object BackupJson {
                             if (it !in 0..1439) fail("task remindMinutes range")
                         }
                     else null,
+                    // 可选键：缺失按 null/false；pregnancyId 悬空引用在校验段置 null
+                    pregnancyId = if (o.isNull("pregnancyId")) null
+                        else o.optString("pregnancyId", null),
+                    archived = o.optBoolean("archived", false),
                     createdAt = o.getLong("createdAt"),
                     updatedAt = o.getLong("updatedAt")
                 ) to offsets
@@ -735,6 +772,49 @@ object BackupJson {
             if (it.createdAt < 0 || it.updatedAt < 0) fail("homeVisit time")
         }
 
+        // 孕期记录（可选键，不升 schemaVersion）：id 唯一、人物存在、
+        // status 合法枚举（与 task kind 一致，非法即 fail）；
+        // babyIds 指向不存在人物的丢弃（不 fail）。
+        val pregnancies = root.optJSONArray("pregnancies")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val pregId = o.getString("id")
+                val babyIds = o.optJSONArray("babyIds")?.let { b ->
+                    (0 until b.length()).map { b.getString(it) }
+                }?.distinct() ?: emptyList()
+                io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity(
+                    id = pregId,
+                    personId = o.getString("personId"),
+                    dueEpochDay = o.getLong("dueEpochDay"),
+                    lmpEpochDay = if (o.has("lmpEpochDay"))
+                        o.getLong("lmpEpochDay") else null,
+                    status = enumOf(
+                        io.github.xiaohaoz1.jiarenxia.core.model
+                            .PregnancyStatus::class.java,
+                        o.optString("status", null), "pregnancy status"
+                    ).name,
+                    endedEpochDay = if (o.has("endedEpochDay"))
+                        o.getLong("endedEpochDay") else null,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to babyIds.filter { it in personIds }
+                    .map {
+                        PregnancyBabyLink(pregId, it)
+                    }
+            }
+        } ?: emptyList()
+        uniqueIds(pregnancies.map { it.first.id }, "pregnancies")
+        pregnancies.forEach { (preg, _) ->
+            if (preg.personId !in personIds) fail("pregnancy->person")
+        }
+        // 事项的 pregnancyId 指向不存在的孕期时置 null（不 fail）
+        val pregnancyIds = pregnancies.map { it.first.id }.toSet()
+        val tasksFixed = tasks.map { (task, offsets) ->
+            if (task.pregnancyId != null && task.pregnancyId !in pregnancyIds) {
+                task.copy(pregnancyId = null) to offsets
+            } else task to offsets
+        }
+
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
             p.avatarPath?.removePrefix("avatars/")
@@ -809,11 +889,12 @@ object BackupJson {
             importantDates = dates,
             prefs = prefs,
             customTitles = customTitles,
-            tasks = tasks,
+            tasks = tasksFixed,
             contactLogs = contactLogs,
             contactPlans = contactPlans,
             personFacts = personFacts,
             homeVisits = homeVisits,
+            pregnancies = pregnancies,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

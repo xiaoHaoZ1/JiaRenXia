@@ -197,6 +197,8 @@ data class CustomTitleEntity(
  * family_tasks 表（DATABASE_SCHEMA v4）：家庭事项。
  * person_id 可空（全家的事）。v13（A6）去掉 policy_id：原挂保单的
  * 缴费事项保留为普通事项，字段与周期不变。
+ * v20 +pregnancy_id / archived：产检事项挂在孕期下，孕期结束后
+ * 未完成的产检转 archived（不计入家事待办与逾期统计）。
  */
 @Entity(
     tableName = "family_tasks",
@@ -206,7 +208,7 @@ data class CustomTitleEntity(
         childColumns = ["person_id"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("person_id")]
+    indices = [Index("person_id"), Index("pregnancy_id")]
 )
 data class FamilyTaskEntity(
     @PrimaryKey val id: String,
@@ -229,6 +231,10 @@ data class FamilyTaskEntity(
     val enabled: Boolean = true,
     /** 一天内提醒时刻（分钟数）；null = 跟随家事提醒时刻设置。 */
     @ColumnInfo(name = "remind_minutes") val remindMinutes: Int? = null,
+    /** 关联孕期 id（产检）；不加外键约束，由仓库维护完整性。 */
+    @ColumnInfo(name = "pregnancy_id") val pregnancyId: String? = null,
+    /** 已归档（孕期结束/出生后未完成的产检）；不计入待办与逾期。 */
+    val archived: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )
@@ -370,6 +376,63 @@ data class HomeVisitPlanEntity(
 data class HomeVisitMemberEntity(
     @ColumnInfo(name = "plan_id") val planId: String,
     @ColumnInfo(name = "person_id") val personId: String
+)
+
+/**
+ * pregnancies：孕期记录（FAMILY_AFFAIRS 26）。
+ * person_id 级联删除（删孕妈人物 → 孕期与关联宝宝行一并消失）；
+ * status 存枚举名 ACTIVE / BORN / ENDED；日期均为 epochDay。
+ */
+@Entity(
+    tableName = "pregnancies",
+    foreignKeys = [ForeignKey(
+        entity = PersonEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["person_id"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [Index("person_id")]
+)
+data class PregnancyEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    @ColumnInfo(name = "due_epoch_day") val dueEpochDay: Long,
+    /** 末次月经第一天（epochDay），可空。 */
+    @ColumnInfo(name = "lmp_epoch_day") val lmpEpochDay: Long?,
+    val status: String,
+    /** BORN / ENDED 的结束日期（epochDay），ACTIVE 为 null。 */
+    @ColumnInfo(name = "ended_epoch_day") val endedEpochDay: Long?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * pregnancy_babies：孕期 ↔ 宝宝人物（一对多，双胞胎等）。
+ * 两端均级联：删孕期 → 关联行消失；删宝宝人物 → 只删关联行。
+ * 本批只建表与备份读写，不提供写入入口。
+ */
+@Entity(
+    tableName = "pregnancy_babies",
+    primaryKeys = ["pregnancy_id", "baby_person_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PregnancyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["pregnancy_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["baby_person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("baby_person_id")]
+)
+data class PregnancyBabyEntity(
+    @ColumnInfo(name = "pregnancy_id") val pregnancyId: String,
+    @ColumnInfo(name = "baby_person_id") val babyPersonId: String
 )
 
 /**

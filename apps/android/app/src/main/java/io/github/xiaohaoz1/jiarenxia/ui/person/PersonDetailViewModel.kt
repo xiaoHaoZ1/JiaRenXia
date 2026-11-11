@@ -46,6 +46,9 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
         values[5] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>
     @Suppress("UNCHECKED_CAST")
     val facts get() = values[6] as List<PersonFact>
+    @Suppress("UNCHECKED_CAST")
+    val pregnancies get() = values[7] as List<io.github.xiaohaoz1.jiarenxia
+        .core.model.Pregnancy>
 }
 
 data class PersonDetailUiState(
@@ -69,6 +72,15 @@ data class PersonDetailUiState(
         emptyList(),
     /** 「关于TA」记录，按创建时间升序。 */
     val facts: List<PersonFact> = emptyList(),
+    /** 这个人的孕期记录（ACTIVE 在前）。 */
+    val pregnancies: List<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy> =
+        emptyList(),
+    /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
+    val canRecordPregnancy: Boolean = false,
+    /** 女性在世且无 ACTIVE 孕期（不限关系）→ ⋮ 菜单“记录孕期”（菜单本身只对非“我”显示）。 */
+    val canRecordPregnancyMenu: Boolean = false,
+    /** 操作成功后的轻提示（结束/删除孕期记录）。 */
+    val notice: String? = null,
     /** 共同父母推荐（无配偶且恰有一位异性共同父母）：记为夫妻+纪念日。 */
     val weddingCandidateId: String? = null,
     val weddingCandidateName: String? = null,
@@ -80,7 +92,16 @@ data class PersonDetailUiState(
     val ageText: String? = null,
     val error: String? = null,
     val deleted: Boolean = false
-)
+) {
+    /** 进行中的孕期；人物已故时为 null（孕期卡不显示，数据保留在 [pregnancies]）。 */
+    val activePregnancy: io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?
+        get() = if (detail?.person?.livingStatus ==
+            io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE)
+            pregnancies.firstOrNull {
+                it.status == io.github.xiaohaoz1.jiarenxia.core.model
+                    .PregnancyStatus.ACTIVE
+            } else null
+}
 
 @HiltViewModel
 class PersonDetailViewModel @Inject constructor(
@@ -93,7 +114,9 @@ class PersonDetailViewModel @Inject constructor(
     private val engine: KinshipEngine,
     observeOverview: ObserveFamilyOverview,
     val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
-    private val factRepository: io.github.xiaohaoz1.jiarenxia.data.PersonFactRepository
+    private val factRepository: io.github.xiaohaoz1.jiarenxia.data.PersonFactRepository,
+    private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
+        .PregnancyRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -110,7 +133,8 @@ class PersonDetailViewModel @Inject constructor(
                 repository.observeDateEntries(),
                 contactRepository.observePlans(),
                 contactRepository.observeLogs(personId),
-                factRepository.observeForPerson(personId)
+                factRepository.observeForPerson(personId),
+                pregnancyRepository.observeForPerson(personId)
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -159,6 +183,39 @@ class PersonDetailViewModel @Inject constructor(
                                 comb.contactPlans[personId],
                             contactLogs = comb.contactLogs,
                             facts = comb.facts,
+                            pregnancies = comb.pregnancies,
+                            canRecordPregnancy = run {
+                                val p = detail?.person ?: return@run false
+                                if (p.gender != io.github.xiaohaoz1.jiarenxia
+                                        .core.model.Gender.FEMALE ||
+                                    p.livingStatus != io.github.xiaohaoz1.jiarenxia
+                                        .core.model.LivingStatus.ALIVE
+                                ) return@run false
+                                val selfId = overview?.self?.person?.id
+                                val isSelfOrSpouse = p.isSelf ||
+                                    (selfId != null && detail.relationships.any {
+                                        it.type == io.github.xiaohaoz1.jiarenxia
+                                            .core.model.RelationshipType.SPOUSE &&
+                                            setOf(it.sourcePersonId,
+                                                it.targetPersonId) ==
+                                                setOf(personId, selfId)
+                                    })
+                                isSelfOrSpouse && comb.pregnancies.none {
+                                    it.status == io.github.xiaohaoz1.jiarenxia
+                                        .core.model.PregnancyStatus.ACTIVE
+                                }
+                            },
+                            canRecordPregnancyMenu = run {
+                                val p = detail?.person ?: return@run false
+                                p.gender == io.github.xiaohaoz1.jiarenxia
+                                    .core.model.Gender.FEMALE &&
+                                    p.livingStatus == io.github.xiaohaoz1.jiarenxia
+                                        .core.model.LivingStatus.ALIVE &&
+                                    comb.pregnancies.none {
+                                        it.status == io.github.xiaohaoz1.jiarenxia
+                                            .core.model.PregnancyStatus.ACTIVE
+                                    }
+                            },
                             // “记为夫妻”候选只给“我”的页面用，其他人不查
                             weddingCandidateId = weddingCandidate?.id,
                             weddingCandidateName = weddingCandidate?.name,
@@ -184,6 +241,62 @@ class PersonDetailViewModel @Inject constructor(
     }
 
     fun onErrorShown() = _ui.update { it.copy(error = null) }
+
+    fun onNoticeShown() = _ui.update { it.copy(notice = null) }
+
+    /** 新建孕期记录（预产期或末次月经二选一由调用方换算好）。 */
+    fun createPregnancy(due: java.time.LocalDate, lmp: java.time.LocalDate?) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.create(
+                personId, due, lmp, java.time.LocalDate.now())
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 修改预产期/末次月经（仅 ACTIVE）。 */
+    fun updatePregnancyDates(
+        id: String, due: java.time.LocalDate, lmp: java.time.LocalDate?
+    ) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.updateDates(
+                id, due, lmp, java.time.LocalDate.now())
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 结束这条孕期记录：未完成产检自动归档。 */
+    fun endPregnancy(id: String) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.end(id, java.time.LocalDate.now())
+            when (r) {
+                is FamilyResult.Success -> _ui.update {
+                    it.copy(notice = "已结束这条孕期记录")
+                }
+                is FamilyResult.Failure -> _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 删除孕期记录（连同关联产检事项）。 */
+    fun deletePregnancy(id: String) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.delete(id)
+            when (r) {
+                is FamilyResult.Success -> _ui.update {
+                    it.copy(notice = "已删除孕期记录")
+                }
+                is FamilyResult.Failure -> _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 某次孕期关联的全部事项（含归档与已办），供历史对话框订阅。 */
+    fun tasksForPregnancy(pregnancyId: String) =
+        taskRepository.observeTasksForPregnancy(pregnancyId)
 
     fun setSiblingOrder(relId: String, subjectId: String, order: RelativeAgeOrder?) {
         viewModelScope.launch {

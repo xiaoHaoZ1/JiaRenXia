@@ -97,17 +97,18 @@ object Routes {
         "&roles=" + roles.joinToString(",") +
         "&anchors=" + anchors.joinToString(",")
     const val TASK_EDIT =
-        "task/edit?taskId={taskId}&kind={kind}&personId={personId}&shared={shared}"
+        "task/edit?taskId={taskId}&kind={kind}&personId={personId}&shared={shared}&pregnancyId={pregnancyId}"
 
-    /** 事项编辑页：taskId 空 = 新建；kind/personId/shared 为新建预填参数。 */
+    /** 事项编辑页：taskId 空 = 新建；kind/personId/shared/pregnancyId 为新建预填参数。 */
         fun shareImport(uri: String?): String =
         if (uri == null) "share/import" else "share/import?uri=" + uri
 
 fun taskEdit(
         taskId: String = "", kind: String = "", personId: String = "",
-        shared: String = ""
+        shared: String = "", pregnancyId: String = ""
     ): String = "task/edit?taskId=" + taskId + "&kind=" + kind +
-        "&personId=" + personId + "&shared=" + shared
+        "&personId=" + personId + "&shared=" + shared +
+        "&pregnancyId=" + pregnancyId
 
     /** 家人共享导入（FAMILY_AFFAIRS 9.4）：uri 为可选来源（外部 intent）。 */
     const val SHARE_IMPORT = "share/import?uri={uri}"
@@ -414,6 +415,11 @@ fun AppNavHost(
                     navController.popBackStack()
                 },
                 onAddTask = { navController.navigate(Routes.taskEdit(personId = it)) },
+                onAddPrenatalCheckup = { personId, pregnancyId ->
+                    navController.navigate(
+                        Routes.taskEdit(personId = personId, pregnancyId = pregnancyId)
+                    )
+                },
                 onOpenTaskDetail = { navController.navigate(Routes.taskEdit(taskId = it)) }
             )
         }
@@ -671,7 +677,8 @@ fun AppNavHost(
                 navArgument("taskId") { type = NavType.StringType; defaultValue = "" },
                 navArgument("kind") { type = NavType.StringType; defaultValue = "" },
                 navArgument("personId") { type = NavType.StringType; defaultValue = "" },
-                navArgument("shared") { type = NavType.StringType; defaultValue = "" }
+                navArgument("shared") { type = NavType.StringType; defaultValue = "" },
+                navArgument("pregnancyId") { type = NavType.StringType; defaultValue = "" }
             )
         ) {
             io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditScreen(

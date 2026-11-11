@@ -88,6 +88,12 @@ import io.github.xiaohaoz1.jiarenxia.ui.person.PhoneRowState
 import io.github.xiaohaoz1.jiarenxia.ui.person.RelationRow
 import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorBody
 import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorMode
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyCard
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyDateDialog
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyEndDialog
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyHistoryCard
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyHistoryDialog
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyInputMode
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeDueRow
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderContent
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderUiState
@@ -140,8 +146,10 @@ class ScreenShotsTest {
     }
 
     /**
-     * 大字号（×1.3，约等于应用内“特大”级别）截图：用 LocalDensity 覆盖模拟
-     * 应用内字号系数（同 MainActivity 的 density 覆盖方式），文件名加 _lg。
+     * 大字号（×1.3，约等于应用内“特大”级别）截图：文件名加 _lg。
+     * AlertDialog 在独立窗口渲染，CompositionLocal 的 LocalDensity 传不进去；
+     * 直接改本 Activity 的 Resources 配置 fontScale（对话框窗口共用同一
+     * Resources），截图后恢复，不影响其他用例。
      * [scale] 默认 1.3；需要验证字号上限时传 1.6（外观与字号滑杆的最大值）。
      */
     private fun shotLarge(
@@ -152,12 +160,12 @@ class ScreenShotsTest {
             io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
         content: @Composable () -> Unit
     ) {
-        composeRule.setContent {
-            val d = androidx.compose.ui.platform.LocalDensity.current
-            androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.ui.platform.LocalDensity provides
-                    androidx.compose.ui.unit.Density(d.density, d.fontScale * scale)
-            ) {
+        val res = composeRule.activity.resources
+        val cfg = android.content.res.Configuration(res.configuration)
+        cfg.fontScale = scale
+        res.updateConfiguration(cfg, res.displayMetrics)
+        try {
+            composeRule.setContent {
                 JiaRenXiaTheme(
                     mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT,
                     style = style
@@ -168,10 +176,13 @@ class ScreenShotsTest {
                     ) { content() }
                 }
             }
+            composeRule.onRoot().captureRoboImage(
+                File("build/outputs/roborazzi/b_${name}_lg.png").absolutePath
+            )
+        } finally {
+            cfg.fontScale = 1.0f
+            res.updateConfiguration(cfg, res.displayMetrics)
         }
-        composeRule.onRoot().captureRoboImage(
-            File("build/outputs/roborazzi/b_${name}_lg.png").absolutePath
-        )
     }
 
     /** 截图后断言当前层次里存在指定文案（自定义称呼覆盖的回归防线）。 */
@@ -3128,5 +3139,287 @@ class ScreenShotsTest {
         "blessing_dialog_nophone_classic",
         io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
         number = null)
+
+    // ---------- 孕期记录截图（FAMILY_AFFAIRS 26）----------
+
+    /** 演示孕期：wife（李雪，我的配偶）的一次孕期记录。 */
+    private fun demoPregnancy(
+        due: LocalDate,
+        lmp: LocalDate? = null,
+        status: io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus =
+            io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ACTIVE,
+        endedOn: LocalDate? = null
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy(
+        id = "pg-demo", personId = "wife", dueDate = due, lmpDate = lmp,
+        status = status, endedOn = endedOn, createdAt = 1L, updatedAt = 1L
+    )
+
+    /** 产检事项样例（不重复，到期日 = anchorDate）。 */
+    private fun prenatalTask(
+        id: String, anchor: LocalDate,
+        done: Boolean = false, archived: Boolean = false
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask(
+        id = id, personId = "wife",
+        kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CHECKUP,
+        title = "妻子的产检", anchorDate = anchor,
+        repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+        periodIndex = 0, done = done, enabled = true,
+        offsets = setOf(0), pregnancyId = "pg-demo", archived = archived
+    )
+
+    @Test
+    fun pregnancyCard() {
+        // 孕 32 周 3 天：预产期 = 今天 + 53 天；末次月经 = 预产期 - 280 天
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = prenatalTask("pt1", Demo.today.plusDays(3)),
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 32 周 3 天", "下次产检", "记下次产检")
+        }
+    }
+
+    @Test
+    fun pregnancyCardOverdue() {
+        // 已过预产期 3 天；无末次月经；下次产检已逾期 2 天
+        shot("pregnancy_card_overdue") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(Demo.today.minusDays(3)),
+                    nextCheckup = prenatalTask("pt1", Demo.today.minusDays(2)),
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 40 周 3 天", "已过 3 天", "已逾期 2 天")
+            assertNoTexts("末次月经")
+        }
+    }
+
+    @Test
+    fun pregnancyCardNoneCheckup() {
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_none_checkup") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null,
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 32 周 3 天", "还没有记下次产检")
+        }
+    }
+
+    @Test
+    fun pregnancyDialogDue() {
+        // 新建「记录孕期」：填预产期，已选合法日期 → 预览孕周
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_dialog_due") {
+            PregnancyDateDialog(
+                title = "记录孕期",
+                mode = PregnancyInputMode.PRE_DUE,
+                existing = null, today = Demo.today,
+                onSave = { _, _ -> }, onDismiss = {},
+                initialPicked = due
+            )
+        }.also {
+            assertTexts("记录孕期", "填预产期", "填末次月经",
+                "现在孕 32 周 3 天", "保存")
+        }
+    }
+
+    @Test
+    fun pregnancyDialogLmpError() {
+        // 填末次月经：选了未来日期 → 非法提示
+        shot("pregnancy_dialog_lmp_error") {
+            PregnancyDateDialog(
+                title = "记录孕期",
+                mode = PregnancyInputMode.LMP,
+                existing = null, today = Demo.today,
+                onSave = { _, _ -> }, onDismiss = {},
+                initialPicked = Demo.today.plusDays(1)
+            )
+        }.also {
+            assertTexts("末次月经要在 46 周前到今天之间")
+        }
+    }
+
+    @Test
+    fun pregnancyEndDialog() {
+        shot("pregnancy_end_dialog") {
+            PregnancyEndDialog(onConfirm = {}, onDismiss = {})
+        }.also {
+            assertTexts("结束这条孕期记录？", "结束记录", "取消")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryCard() {
+        // 孕期记录卡：一条已结束 + 一条已出生
+        val ended = demoPregnancy(
+            Demo.today.minusDays(200), status =
+                io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ENDED,
+            endedOn = Demo.today.minusDays(30))
+        val born = demoPregnancy(
+            Demo.today.minusDays(400), status =
+                io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.BORN,
+            endedOn = Demo.today.minusDays(120))
+        shot("pregnancy_history_card") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyHistoryCard(
+                    pregnancies = listOf(ended, born), onOpen = {})
+            }
+        }.also {
+            assertTexts("孕期记录", "预产期", "已结束", "宝宝已出生")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryDialog() {
+        // 历史详情：已结束孕期 + 已办/已归档产检行
+        val ended = demoPregnancy(
+            Demo.today.minusDays(200), lmp = Demo.today.minusDays(480),
+            status = io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ENDED,
+            endedOn = Demo.today.minusDays(30))
+        shot("pregnancy_history_dialog") {
+            PregnancyHistoryDialog(
+                pregnancy = ended,
+                tasks = listOf(
+                    prenatalTask("h1", Demo.today.minusDays(60), done = true),
+                    prenatalTask("h2", Demo.today.minusDays(40), archived = true)
+                ),
+                today = Demo.today,
+                onDelete = {}, onDismiss = {}
+            )
+        }.also {
+            assertTexts("孕期记录", "已结束于", "产检", "已办", "已归档",
+                "删除这条记录", "关闭")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun importantDatesAddDue() = shot("important_dates_add_due") {
+        // “我”的配偶（李雪）详情页：「重要日期」卡末尾出现“添加预产期”
+        val base = Demo.detailOf("wife")
+        PersonDetailContent(
+            lunar = Demo.lunar,
+            st = base.copy(canRecordPregnancy = true),
+            today = Demo.today, snackbar = SnackbarHostState(),
+            onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+            onDial = {}, onSetReminder = { _, _ -> },
+            onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {},
+            onDeletePerson = {},
+            onSetSiblingOrder = { _, _, _ -> }, onRemoveRelation = {}
+        )
+    }.also {
+        assertTexts("重要日期", "添加预产期")
+    }
+
+    @Test
+    fun taskEditPrenatal() = shot("task_edit_prenatal") {
+        // 产检事项编辑：模板锁“产检”、关联人锁定、隐藏重复、顶部说明
+        io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditUiState(
+                taskId = null,
+                kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CHECKUP,
+                personId = "wife",
+                pregnancyId = "pg-demo",
+                title = "妻子的产检",
+                anchorDate = Demo.today.plusDays(10),
+                repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+                offsets = setOf(1, 0),
+                persons = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.task.TaskPersonOption(
+                        "wife", "李雪", "李雪（妻子）")
+                )
+            ),
+            cb = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditCallbacks(),
+            onDone = {}
+        )
+    }.also {
+        assertTexts("产检", "这条产检属于孕期记录，孕期结束后会自动归档。")
+        assertNoTexts("重复")
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCorePregnancy() {
+        // 经典家庭页：配偶行显示孕周状态（primary 色）
+        val preg = demoPregnancy(Demo.today.plusDays(53))
+        shot(
+            "family_core_pregnancy",
+            style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+        ) {
+            FamilyContent(
+                Demo.familyState().copy(
+                    pregnancyByPerson = mapOf("wife" to preg)
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("孕 32 周 3 天")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCorePregnancyJiashu() {
+        // 家书家庭页：同一孕周状态
+        val preg = demoPregnancy(Demo.today.plusDays(53))
+        shot("family_core_pregnancy_jiashu") {
+            FamilyContent(
+                Demo.familyState().copy(
+                    pregnancyByPerson = mapOf("wife" to preg)
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("孕 32 周 3 天")
+        }
+    }
+
+    @Test
+    fun pregnancyCardLg() {
+        val due = Demo.today.plusDays(53)
+        shotLarge("pregnancy_card") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = prenatalTask("pt1", Demo.today.plusDays(3)),
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }
+    }
+
+    @Test
+    fun pregnancyDialogDueLg() {
+        val due = Demo.today.plusDays(53)
+        shotLarge("pregnancy_dialog_due") {
+            PregnancyDateDialog(
+                title = "记录孕期",
+                mode = PregnancyInputMode.PRE_DUE,
+                existing = null, today = Demo.today,
+                onSave = { _, _ -> }, onDismiss = {},
+                initialPicked = due
+            )
+        }
+    }
 
 }

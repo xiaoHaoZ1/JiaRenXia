@@ -447,3 +447,21 @@ val MIGRATION_18_19 = object : Migration(18, 19) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_home_visit_members_person_id` ON `home_visit_members` (`person_id`)")
     }
 }
+
+/**
+ * v19 → v20：孕期记录（FAMILY_AFFAIRS 26）——
+ * pregnancies（挂在女性人物下，person_id 级联）+
+ * pregnancy_babies（孕期↔宝宝一对多，两端级联）；
+ * family_tasks +pregnancy_id（不加外键，仓库维护）/ +archived。
+ */
+val MIGRATION_19_20 = object : Migration(19, 20) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `pregnancies` (`id` TEXT NOT NULL, `person_id` TEXT NOT NULL, `due_epoch_day` INTEGER NOT NULL, `lmp_epoch_day` INTEGER, `status` TEXT NOT NULL, `ended_epoch_day` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pregnancies_person_id` ON `pregnancies` (`person_id`)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `pregnancy_babies` (`pregnancy_id` TEXT NOT NULL, `baby_person_id` TEXT NOT NULL, PRIMARY KEY(`pregnancy_id`, `baby_person_id`), FOREIGN KEY(`pregnancy_id`) REFERENCES `pregnancies`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`baby_person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_pregnancy_babies_baby_person_id` ON `pregnancy_babies` (`baby_person_id`)")
+        db.execSQL("ALTER TABLE `family_tasks` ADD COLUMN `pregnancy_id` TEXT")
+        db.execSQL("ALTER TABLE `family_tasks` ADD COLUMN `archived` INTEGER NOT NULL DEFAULT 0")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_family_tasks_pregnancy_id` ON `family_tasks` (`pregnancy_id`)")
+    }
+}

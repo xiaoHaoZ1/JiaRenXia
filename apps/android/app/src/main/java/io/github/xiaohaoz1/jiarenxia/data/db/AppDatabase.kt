@@ -22,6 +22,8 @@ import androidx.room.RoomDatabase
  *   其余字段（id、周期、期数、办理记录、提醒）原样保留。
  * v18 +person_facts（「关于TA」，私密：进备份、不进共享/碰一碰/合并）。
  * v19 +home_visit_plans / home_visit_members（回家看看，FAMILY_AFFAIRS 20）。
+ * v20 +pregnancies / pregnancy_babies（孕期记录，FAMILY_AFFAIRS 26）；
+ *   family_tasks +pregnancy_id / archived（产检事项与归档）。
  */
 @Database(
     entities = [
@@ -42,9 +44,11 @@ import androidx.room.RoomDatabase
         TapDeviceEntity::class,
         PersonAliasEntity::class,
         HomeVisitPlanEntity::class,
-        HomeVisitMemberEntity::class
+        HomeVisitMemberEntity::class,
+        PregnancyEntity::class,
+        PregnancyBabyEntity::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -64,6 +68,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun personAliasDao(): PersonAliasDao
     abstract fun homeVisitPlanDao(): HomeVisitPlanDao
     abstract fun homeVisitMemberDao(): HomeVisitMemberDao
+    abstract fun pregnancyDao(): PregnancyDao
+    abstract fun pregnancyBabyDao(): PregnancyBabyDao
 }
 
 /**
@@ -79,6 +85,9 @@ internal suspend fun AppDatabase.clearTables() {
     // 回家看看：成员表先清（外键也级联，这里显式保序）
     homeVisitMemberDao().deleteAll()
     homeVisitPlanDao().deleteAll()
+    // 孕期：关联表先清，再清孕期（均在 persons 之前）
+    pregnancyBabyDao().deleteAll()
+    pregnancyDao().deleteAll()
     contactLogDao().deleteAll()
     contactPlanDao().deleteAll()
     personFactDao().deleteAll()

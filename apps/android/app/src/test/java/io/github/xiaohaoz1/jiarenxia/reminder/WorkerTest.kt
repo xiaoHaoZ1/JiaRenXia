@@ -581,6 +581,9 @@ private class FakeTaskRepo(
     override fun observeTasks() = kotlinx.coroutines.flow.flowOf(tasks)
     override fun observeTasksForPerson(personId: String) =
         kotlinx.coroutines.flow.flowOf(tasks.filter { it.personId == personId })
+    override fun observeTasksForPregnancy(pregnancyId: String) =
+        kotlinx.coroutines.flow.flowOf(
+            tasks.filter { it.pregnancyId == pregnancyId })
     override suspend fun getTasks() = tasks
     override suspend fun getTask(id: String) = tasks.firstOrNull { it.id == id }
     override suspend fun save(draft: io.github.xiaohaoz1.jiarenxia.data.TaskDraft) =

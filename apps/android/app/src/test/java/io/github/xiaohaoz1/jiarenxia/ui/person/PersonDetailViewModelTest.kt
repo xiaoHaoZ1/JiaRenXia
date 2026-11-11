@@ -7,10 +7,15 @@ import io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue
 import io.github.xiaohaoz1.jiarenxia.core.model.CalendarType
 import io.github.xiaohaoz1.jiarenxia.core.model.Gender
 import io.github.xiaohaoz1.jiarenxia.core.model.FactCategory
+import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
+import io.github.xiaohaoz1.jiarenxia.core.model.Person
+import io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy
+import io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationRole
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
 import io.github.xiaohaoz1.jiarenxia.data.AppEvents
+import io.github.xiaohaoz1.jiarenxia.data.PersonDetail
 import io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository
 import io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepositoryImpl
 import io.github.xiaohaoz1.jiarenxia.data.IdGenerator
@@ -77,6 +82,11 @@ class PersonDetailViewModelTest : RepoTestBase() {
             PersonFactRepositoryImpl(
                 db,
                 object : IdGenerator { override fun newId() = "f-" + (++seq) },
+                object : TimeSource { override fun now() = now }
+            ),
+            io.github.xiaohaoz1.jiarenxia.data.PregnancyRepositoryImpl(
+                db,
+                object : IdGenerator { override fun newId() = "g-" + (++seq) },
                 object : TimeSource { override fun now() = now }
             )
         ).also(viewModels::add)
@@ -179,5 +189,24 @@ class PersonDetailViewModelTest : RepoTestBase() {
             .any { it.type == RelationshipType.SPOUSE })
         assertTrue(db.relationshipDao().getParentRecords(son)
             .none { it.sourcePersonId == yang })
+    }
+
+    @Test
+    fun 已故人物有进行中孕期_孕期卡不显示() {
+        // activePregnancy 由 detail.person.livingStatus + pregnancies 推出：
+        // 已故 → null（卡片隐藏、数据仍在 pregnancies 里）
+        val preg = Pregnancy(
+            id = "pg1", personId = "p1",
+            dueDate = java.time.LocalDate.of(2027, 1, 20), lmpDate = null,
+            status = PregnancyStatus.ACTIVE, endedOn = null)
+        fun state(status: LivingStatus) = PersonDetailUiState(
+            detail = PersonDetail(
+                person = Person("p1", "王阿姨", Gender.FEMALE,
+                    livingStatus = status),
+                phones = emptyList(), birthdays = emptyMap(),
+                relationships = emptyList()),
+            pregnancies = listOf(preg))
+        assertNull(state(LivingStatus.DECEASED).activePregnancy)
+        assertEquals(preg, state(LivingStatus.ALIVE).activePregnancy)
     }
 }

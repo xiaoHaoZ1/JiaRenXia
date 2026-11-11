@@ -175,6 +175,21 @@ interface FamilyTaskDao {
     @Transaction
     @Query("SELECT * FROM family_tasks WHERE person_id = :personId")
     fun observeForPersonWithOffsets(personId: String): Flow<List<FamilyTaskWithOffsets>>
+    /** 孕期关联事项（含归档与已办；孕期记录/历史用）。 */
+    @Transaction
+    @Query("SELECT * FROM family_tasks WHERE pregnancy_id = :pregnancyId")
+    fun observeForPregnancyWithOffsets(pregnancyId: String): Flow<List<FamilyTaskWithOffsets>>
+    /**
+     * 归档未完成事项：孕期结束/出生后，把这次孕期关联的
+     * 未办（done=0）且未归档的事项整体转 archived。
+     */
+    @Query(
+        "UPDATE family_tasks SET archived = 1, updated_at = :updatedAt " +
+            "WHERE pregnancy_id = :pregnancyId AND done = 0 AND archived = 0"
+    )
+    suspend fun archiveUnfinishedForPregnancy(pregnancyId: String, updatedAt: Long)
+    @Query("DELETE FROM family_tasks WHERE pregnancy_id = :pregnancyId")
+    suspend fun deleteForPregnancy(pregnancyId: String)
     @Transaction
     @Query("SELECT * FROM family_tasks WHERE id = :id")
     suspend fun getWithOffsets(id: String): FamilyTaskWithOffsets?
@@ -296,4 +311,42 @@ interface HomeVisitMemberDao {
     @Query("SELECT * FROM home_visit_members WHERE plan_id = :planId")
     suspend fun getForPlan(planId: String): List<HomeVisitMemberEntity>
     @Query("DELETE FROM home_visit_members") suspend fun deleteAll()
+}
+
+/** pregnancies DAO：孕期记录。 */
+@Dao
+interface PregnancyDao {
+    @Upsert suspend fun upsert(entity: PregnancyEntity)
+    @Insert suspend fun insertAll(entities: List<PregnancyEntity>)
+    @Query("SELECT * FROM pregnancies WHERE id = :id")
+    suspend fun get(id: String): PregnancyEntity?
+    /** 该人物全部孕期：ACTIVE 在前，其余按 updated_at 倒序。 */
+    @Query(
+        "SELECT * FROM pregnancies WHERE person_id = :personId " +
+            "ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END, " +
+            "updated_at DESC"
+    )
+    fun observeForPerson(personId: String): Flow<List<PregnancyEntity>>
+    /** 全部 ACTIVE 孕期（家庭页状态用）。 */
+    @Query("SELECT * FROM pregnancies WHERE status = 'ACTIVE'")
+    fun observeActive(): Flow<List<PregnancyEntity>>
+    @Query("SELECT * FROM pregnancies WHERE status = 'ACTIVE'")
+    suspend fun getActive(): List<PregnancyEntity>
+    @Query("SELECT * FROM pregnancies") suspend fun getAll(): List<PregnancyEntity>
+    @Query("SELECT * FROM pregnancies") fun observeAll(): Flow<List<PregnancyEntity>>
+    @Query("DELETE FROM pregnancies WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM pregnancies") suspend fun deleteAll()
+}
+
+/** pregnancy_babies DAO：孕期 ↔ 宝宝人物关联（两端级联）。 */
+@Dao
+interface PregnancyBabyDao {
+    @Insert suspend fun insertAll(entities: List<PregnancyBabyEntity>)
+    @Query("SELECT * FROM pregnancy_babies WHERE pregnancy_id = :pregnancyId")
+    suspend fun getForPregnancy(pregnancyId: String): List<PregnancyBabyEntity>
+    @Query("SELECT * FROM pregnancy_babies") suspend fun getAll(): List<PregnancyBabyEntity>
+    @Query("SELECT * FROM pregnancy_babies") fun observeAll(): Flow<List<PregnancyBabyEntity>>
+    @Query("DELETE FROM pregnancy_babies WHERE pregnancy_id = :pregnancyId")
+    suspend fun deleteForPregnancy(pregnancyId: String)
+    @Query("DELETE FROM pregnancy_babies") suspend fun deleteAll()
 }

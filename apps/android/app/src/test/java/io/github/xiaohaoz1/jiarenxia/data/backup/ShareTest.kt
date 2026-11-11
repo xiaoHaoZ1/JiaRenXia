@@ -81,11 +81,58 @@ class ShareTest : RepoTestBase() {
     @Test
     fun 私密模块一律不写入() = runTest {
         seedFamily()
-        // 库里有事项/人情/保单数据（TestFamily 已播种）
+        // 库里有事项/人情/保单/孕期数据（TestFamily 已播种；孕期手工补一条）
+        val mom = db.personDao().getAll().first { it.gender ==
+            io.github.xiaohaoz1.jiarenxia.core.model.Gender.FEMALE }
+        db.pregnancyDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity(
+                id = "pg-share", personId = mom.id, dueEpochDay = 20300,
+                lmpEpochDay = null, status = "ACTIVE", endedEpochDay = null,
+                createdAt = 1, updatedAt = 1))
+        )
         val plan = exportPlan()
         assertTrue(plan.tasks.isEmpty())
+        assertTrue(plan.pregnancies.isEmpty())
         val partial = exportPlan(personIds = motherScope())
         assertTrue(partial.tasks.isEmpty())
+        assertTrue(partial.pregnancies.isEmpty())
+    }
+
+    @Test
+    fun 我不是X_孕期被剥离() = runTest {
+        seedFamily()
+        // 手工加一条孕期 + 产检事项，走“我不是 X”备份导入路径
+        val mom = db.personDao().getAll().first { it.gender ==
+            io.github.xiaohaoz1.jiarenxia.core.model.Gender.FEMALE }
+        db.pregnancyDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity(
+                id = "pg-strip", personId = mom.id, dueEpochDay = 20300,
+                lmpEpochDay = 20020, status = "ACTIVE", endedEpochDay = null,
+                createdAt = 1, updatedAt = 1))
+        )
+        db.familyTaskDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
+                id = "pren-strip", personId = mom.id, kind = "CHECKUP",
+                title = "产检", anchorEpochDay = 20250, repeat = "NONE",
+                periodIndex = 0, lastDoneEpochDay = null, done = false,
+                amountFen = null, note = null, enabled = true,
+                pregnancyId = "pg-strip", archived = false,
+                createdAt = 1, updatedAt = 1))
+        )
+        db.familyTaskOffsetDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db
+                .FamilyTaskOffsetEntity("o-strip", "pren-strip", 0))
+        )
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        val full = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        assertEquals(1, full.pregnancies.size)
+        // ShareImport.fromBackup：孕期与事项一并剥掉
+        val stripped = io.github.xiaohaoz1.jiarenxia.domain.ShareImport
+            .fromBackup(full)
+        assertTrue(stripped.pregnancies.isEmpty())
+        assertTrue(stripped.tasks.isEmpty())
     }
 
     @Test

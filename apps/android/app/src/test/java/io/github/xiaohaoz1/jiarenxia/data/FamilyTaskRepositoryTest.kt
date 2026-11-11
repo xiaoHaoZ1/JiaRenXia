@@ -234,4 +234,100 @@ class FamilyTaskRepositoryTest : RepoTestBase() {
         assertEquals("换证件", t.title)
         assertEquals(setOf(3), t.offsets)
     }
+
+    // ---------- 孕期关联与归档（v20） ----------
+
+    private val today = LocalDate.of(2026, 10, 2)
+
+    private fun newPregRepo() = PregnancyRepositoryImpl(
+        db = db,
+        ids = object : IdGenerator { override fun newId() = "pg-x" },
+        clock = object : TimeSource { override fun now() = now }
+    )
+
+    /** “我” + 一位在世女性（妹妹）。 */
+    private suspend fun femalePerson(): Pair<String, String> {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        val sis = repo.createRelative(
+            PersonDraft("李雪", Gender.FEMALE), me,
+            io.github.xiaohaoz1.jiarenxia.core.model.RelationRole.SISTER
+        ).ok()
+        return me to sis
+    }
+
+    private suspend fun activePregnancy(personId: String): String =
+        newPregRepo().create(personId, today.plusDays(54), null, today).ok()
+
+    @Test
+    fun `新建产检校验孕期`() = runTest {
+        val (me, pid) = femalePerson()
+        val pregId = activePregnancy(pid)
+        // 正常：ACTIVE + 人物匹配
+        val ok = tasks.save(
+            draft(personId = pid, repeat = TaskRepeat.NONE)
+                .copy(pregnancyId = pregId)
+        )
+        assertTrue(ok is FamilyResult.Success)
+        // 孕期不存在
+        assertErr(
+            tasks.save(draft(personId = pid, repeat = TaskRepeat.NONE)
+                .copy(pregnancyId = "ghost")),
+            FamilyError.PregnancyNotFound
+        )
+        // 人物不匹配（挂到别人名下）
+        val other = repo.createRelative(
+            PersonDraft("王芳", Gender.FEMALE), me,
+            io.github.xiaohaoz1.jiarenxia.core.model.RelationRole.SISTER).ok()
+        assertErr(
+            tasks.save(draft(personId = other, repeat = TaskRepeat.NONE)
+                .copy(pregnancyId = pregId)),
+            FamilyError.PregnancyNotFound
+        )
+        // 孕期已结束 → 不可再挂
+        newPregRepo().end(pregId, today).ok()
+        assertErr(
+            tasks.save(draft(personId = pid, repeat = TaskRepeat.NONE)
+                .copy(pregnancyId = pregId)),
+            FamilyError.PregnancyNotFound
+        )
+    }
+
+    @Test
+    fun `编辑保留pregnancyId与archived`() = runTest {
+        val (_, pid) = femalePerson()
+        val pregId = activePregnancy(pid)
+        val id = tasks.save(
+            draft(personId = pid, repeat = TaskRepeat.NONE, title = "产检一")
+                .copy(pregnancyId = pregId)
+        ).ok()
+        // 编辑时 draft 里塞别的 pregnancyId/没有 archived 字段——
+        // 旧行的 pregnancy_id 必须保留
+        tasks.save(
+            draft(personId = pid, repeat = TaskRepeat.NONE, title = "产检改")
+                .copy(id = id, pregnancyId = "other-preg")
+        ).ok()
+        val t = tasks.getTask(id)!!
+        assertEquals(pregId, t.pregnancyId)
+        assertEquals(false, t.archived)
+    }
+
+    @Test
+    fun `归档事项对外不可见但按孕期可查`() = runTest {
+        val (_, pid) = femalePerson()
+        val pregId = activePregnancy(pid)
+        val tArchived = tasks.save(
+            draft(personId = pid, repeat = TaskRepeat.NONE)
+                .copy(pregnancyId = pregId)
+        ).ok()
+        // 直接置 archived（模拟孕期结束归档）
+        db.familyTaskDao().archiveUnfinishedForPregnancy(pregId, now)
+        // 三条读路径都不含归档事项
+        assertTrue(tasks.observeTasks().first().none { it.id == tArchived })
+        assertTrue(tasks.observeTasksForPerson(pid).first()
+            .none { it.id == tArchived })
+        assertTrue(tasks.getTasks().none { it.id == tArchived })
+        // getTask 与按孕期查询仍可见
+        assertEquals(true, tasks.getTask(tArchived)!!.archived)
+        assertEquals(1, tasks.observeTasksForPregnancy(pregId).first().size)
+    }
 }

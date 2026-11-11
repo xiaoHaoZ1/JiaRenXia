@@ -28,7 +28,9 @@ data class TaskDraft(
     val enabled: Boolean = true,
     val offsets: Set<Int> = setOf(0),
     /** 一天内提醒时刻（分钟数）；null = 跟随家事提醒时刻设置。 */
-    val remindMinutes: Int? = null
+    val remindMinutes: Int? = null,
+    /** 关联孕期 id（产检）；仅新建时生效，编辑时保留旧值。 */
+    val pregnancyId: String? = null
 )
 
 /**
@@ -36,10 +38,16 @@ data class TaskDraft(
  * 写入统一走 db.withTransaction；offsets 以子表整组替换。
  */
 interface FamilyTaskRepository {
+    /** 家事页/小部件/提醒/导出用：不含已归档事项。 */
     fun observeTasks(): Flow<List<FamilyTask>>
     fun observeTasksForPerson(personId: String): Flow<List<FamilyTask>>
     suspend fun getTasks(): List<FamilyTask>
     suspend fun getTask(id: String): FamilyTask?
+    /**
+     * 某次孕期关联的全部事项（含归档与已办），按到期日排序；
+     * 供孕期记录/历史展示。
+     */
+    fun observeTasksForPregnancy(pregnancyId: String): Flow<List<FamilyTask>>
     /** 新建（draft.id == null）或更新；返回事项 id。 */
     suspend fun save(draft: TaskDraft): FamilyResult<String>
     /** “办完”：重复事项推进到 today 之后最近一期；不重复置 done。 */
@@ -64,16 +72,29 @@ class FamilyTaskRepositoryImpl @Inject constructor(
     private val offsetDao get() = db.familyTaskOffsetDao()
 
     // 观察与读取都走 @Transaction 的两表快照：
-    // 不暴露“新事项配旧 offsets”的中间态，拼装也只有一处
+    // 不暴露“新事项配旧 offsets”的中间态，拼装也只有一处；
+    // 已归档事项只在 observeTasksForPregnancy / getTask 中可见
     override fun observeTasks(): Flow<List<FamilyTask>> =
-        taskDao.observeAllWithOffsets().map { l -> l.map { it.toModel() } }
+        taskDao.observeAllWithOffsets().map { l ->
+            l.filter { !it.task.archived }.map { it.toModel() }
+        }
 
     override fun observeTasksForPerson(personId: String): Flow<List<FamilyTask>> =
         // 只读该人物名下事项及其 offsets
-        taskDao.observeForPersonWithOffsets(personId).map { l -> l.map { it.toModel() } }
+        taskDao.observeForPersonWithOffsets(personId).map { l ->
+            l.filter { !it.task.archived }.map { it.toModel() }
+        }
+
+    override fun observeTasksForPregnancy(pregnancyId: String): Flow<List<FamilyTask>> =
+        taskDao.observeForPregnancyWithOffsets(pregnancyId).map { l ->
+            l.map { it.toModel() }
+                .sortedBy { TaskSchedule.dueDate(it) }
+        }
 
     override suspend fun getTasks(): List<FamilyTask> =
-        taskDao.getAllWithOffsets().map { it.toModel() }
+        taskDao.getAllWithOffsets()
+            .filter { !it.task.archived }
+            .map { it.toModel() }
 
     override suspend fun getTask(id: String): FamilyTask? =
         taskDao.getWithOffsets(id)?.toModel()
@@ -112,6 +133,23 @@ class FamilyTaskRepositoryImpl @Inject constructor(
             if (draft.personId != null && db.personDao().getById(draft.personId) == null) {
                 return@withTransaction FamilyResult.Failure(FamilyError.PersonNotFound)
             }
+            // 新建产检事项：孕期须存在、ACTIVE，且事项挂在孕妈名下；
+            // 编辑时 pregnancy_id / archived 保留旧行值（draft 值忽略）
+            val pregnancyId: String? = if (old == null) {
+                val pid = draft.pregnancyId
+                if (pid != null) {
+                    val preg = db.pregnancyDao().get(pid)
+                    if (preg == null ||
+                        preg.status != io.github.xiaohaoz1.jiarenxia.core.model
+                            .PregnancyStatus.ACTIVE.name ||
+                        preg.personId != draft.personId
+                    ) {
+                        return@withTransaction FamilyResult.Failure(
+                            FamilyError.PregnancyNotFound)
+                    }
+                }
+                pid
+            } else old.pregnancyId
             val id = draft.id ?: ids.newId()
             taskDao.upsert(
                 FamilyTaskEntity(
@@ -128,6 +166,8 @@ class FamilyTaskRepositoryImpl @Inject constructor(
                     note = draft.note?.trim()?.ifEmpty { null },
                     enabled = draft.enabled,
                     remindMinutes = draft.remindMinutes,
+                    pregnancyId = pregnancyId,
+                    archived = old?.archived ?: false,
                     createdAt = old?.createdAt ?: now,
                     updatedAt = now
                 )
@@ -194,6 +234,8 @@ class FamilyTaskRepositoryImpl @Inject constructor(
         note = note,
         enabled = enabled,
         offsets = offsets,
-        remindMinutes = remindMinutes
+        remindMinutes = remindMinutes,
+        pregnancyId = pregnancyId,
+        archived = archived
     )
 }

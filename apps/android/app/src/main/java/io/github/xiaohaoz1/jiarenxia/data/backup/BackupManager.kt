@@ -56,7 +56,8 @@ class BackupManager @Inject constructor(
                 snapshotTables()
             }
             val (persons2, phones, rels, dates, prefs, offsets, titles, tasks, taskOffsets,
-                contactLogs, contactPlans, personFacts, homeVisits) = persons
+                contactLogs, contactPlans, personFacts, homeVisits,
+                pregnancies, pregnancyBabies) = persons
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -77,6 +78,9 @@ class BackupManager @Inject constructor(
                 contactPlans = contactPlans,
                 personFacts = personFacts,
                 homeVisits = homeVisits,
+                pregnancies = pregnancies.map { p ->
+                    p to pregnancyBabies.filter { it.pregnancyId == p.id }
+                },
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
                     remindersEnabled = settings.remindersEnabled.first(),
@@ -139,7 +143,7 @@ class BackupManager @Inject constructor(
         }
         val snap = db.withTransaction { snapshotTables() }
         val (allPersons, allPhones, allRels, allDates, allPrefs, allOffsets, _,
-            _, _, _, _, _, _) = snap
+            _, _, _, _, _, _, _, _) = snap
         val keep = personIds
             ?: allPersons.mapTo(HashSet()) { it.id }
         val persons = allPersons.filter { it.id in keep }
@@ -215,7 +219,9 @@ class BackupManager @Inject constructor(
                     memberIds = members[p.id].orEmpty().map { it.personId }
                 )
             }
-        }
+        },
+        pregnancies = db.pregnancyDao().getAll(),
+        pregnancyBabies = db.pregnancyBabyDao().getAll()
     )
 
     // ---------- 检查 ----------
@@ -423,7 +429,13 @@ class BackupManager @Inject constructor(
         if (includePrivate) {
             plan.customTitles.forEach { db.customTitleDao().upsert(it) }
         }
-        // 家庭事项同样依赖 persons
+        // 家庭事项同样依赖 persons；孕期在事项之前（事项可挂 pregnancy_id）
+        if (includePrivate) {
+            plan.pregnancies.forEach { (preg, babies) ->
+                db.pregnancyDao().insertAll(listOf(preg))
+                if (babies.isNotEmpty()) db.pregnancyBabyDao().insertAll(babies)
+            }
+        }
         plan.tasks.forEach { (task, offsets) ->
             db.familyTaskDao().insertAll(listOf(task))
             if (offsets.isNotEmpty()) db.familyTaskOffsetDao().insertAll(offsets)
@@ -470,7 +482,7 @@ class BackupManager @Inject constructor(
         personIds: Set<String>? = null
     ): ByteArray = withContext(Dispatchers.IO) {
         val snap = db.withTransaction { snapshotTables() }
-        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _) = snap
+        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _, _, _) = snap
         val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id }
         require(allPersons.firstOrNull { it.isSelf }?.id in keep) {
             "碰一碰资料包必须包含“我”"
@@ -673,6 +685,10 @@ class BackupManager @Inject constructor(
         val contactLogs: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactLogEntity>,
         val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity>,
         val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity>,
-        val homeVisits: List<HomeVisitBackup>
+        val homeVisits: List<HomeVisitBackup>,
+        val pregnancies: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .PregnancyEntity>,
+        val pregnancyBabies: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .PregnancyBabyEntity>
     )
 }

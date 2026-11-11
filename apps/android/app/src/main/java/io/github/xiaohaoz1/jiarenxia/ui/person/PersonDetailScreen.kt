@@ -66,6 +66,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -136,6 +137,7 @@ fun PersonDetailScreen(
     onOpenGraph: (String) -> Unit = {},
     onOpenAffairs: () -> Unit = {},
     onAddTask: (String) -> Unit = {},
+    onAddPrenatalCheckup: (String, String) -> Unit = { _, _ -> },
     onOpenTaskDetail: (String) -> Unit = {},
     viewModel: PersonDetailViewModel = hiltViewModel()
 ) {
@@ -146,6 +148,7 @@ fun PersonDetailScreen(
     val context = LocalContext.current
 
     LaunchedEffect(st.error) { st.error?.let { snackbar.showSnackbar(it); viewModel.onErrorShown() } }
+    LaunchedEffect(st.notice) { st.notice?.let { snackbar.showSnackbar(it); viewModel.onNoticeShown() } }
     LaunchedEffect(st.deleted) { if (st.deleted) onBack() }
 
     PersonDetailContent(
@@ -160,7 +163,13 @@ fun PersonDetailScreen(
         onOpenGraph = onOpenGraph,
         onOpenAffairs = onOpenAffairs,
         onAddTask = onAddTask,
+        onAddPrenatalCheckup = onAddPrenatalCheckup,
         onOpenTaskDetail = onOpenTaskDetail,
+        observePregnancyTasks = viewModel::tasksForPregnancy,
+        onCreatePregnancy = viewModel::createPregnancy,
+        onUpdatePregnancyDates = viewModel::updatePregnancyDates,
+        onEndPregnancy = viewModel::endPregnancy,
+        onDeletePregnancy = viewModel::deletePregnancy,
         onDial = { number ->
             st.detail?.person?.let { p ->
                 // “联系上了吗”提示用的称呼：称谓优先，本人与无称谓回退姓名
@@ -217,7 +226,18 @@ fun PersonDetailContent(
     onOpenGraph: (String) -> Unit = {},
     onOpenAffairs: () -> Unit = {},
     onAddTask: (String) -> Unit = {},
+    /** 记下次产检：跳事项编辑页（personId + pregnancyId）。 */
+    onAddPrenatalCheckup: (String, String) -> Unit = { _, _ -> },
     onOpenTaskDetail: (String) -> Unit = {},
+    /** 某次孕期关联事项（含归档/已办），供历史对话框订阅。 */
+    observePregnancyTasks: (String) -> kotlinx.coroutines.flow.Flow<
+        List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>> =
+        { kotlinx.coroutines.flow.flowOf(emptyList()) },
+    onCreatePregnancy: (LocalDate, LocalDate?) -> Unit = { _, _ -> },
+    onUpdatePregnancyDates: (String, LocalDate, LocalDate?) -> Unit =
+        { _, _, _ -> },
+    onEndPregnancy: (String) -> Unit = {},
+    onDeletePregnancy: (String) -> Unit = {},
     onDial: (String) -> Unit,
     /** 生日提醒开关：第一个参数为历法槽位（阳历/农历）。 */
     onSetReminder: (
@@ -270,6 +290,20 @@ fun PersonDetailContent(
     var showDelete by remember { mutableStateOf(false) }
     var ageDialogFor by remember { mutableStateOf<RelationRow?>(null) }
     var deleteRelFor by remember { mutableStateOf<RelationRow?>(null) }
+    // 孕期相关对话框状态
+    var showNewPregnancy by remember { mutableStateOf(false) }
+    var editPregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    var endPregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    var deletePregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    var historyPregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
 
     val dial = onDial
 
@@ -316,6 +350,16 @@ fun PersonDetailContent(
                                         onClick = {
                                             menuOpen = false
                                             onOpenGraph(p.id)
+                                        }
+                                    )
+                                }
+                                // 记录孕期：女性在世且无进行中孕期（不限关系）
+                                if (st.canRecordPregnancyMenu) {
+                                    DropdownMenuItem(
+                                        text = { Text("记录孕期") },
+                                        onClick = {
+                                            menuOpen = false
+                                            showNewPregnancy = true
                                         }
                                     )
                                 }
@@ -479,6 +523,32 @@ fun PersonDetailContent(
                         label = "添加关系",
                         onClick = { onRelate(person.id) }
                     )
+                }
+
+                // 孕期卡片（进行中的孕期；快捷操作行之后、「重要日期」之前；
+                // 人物已故时 activePregnancy 为 null，不显示）
+                st.activePregnancy?.let { preg ->
+                    // 下次产检：该孕期未办未归档事项中到期日最早的一条
+                    //（st.tasks 已由仓库排除归档项）
+                    val nextCheckup = st.tasks
+                        .filter { !it.done && it.pregnancyId == preg.id }
+                        .minByOrNull {
+                            io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
+                                .dueDate(it)
+                        }
+                    PregnancyCard(
+                        pregnancy = preg,
+                        nextCheckup = nextCheckup,
+                        today = today,
+                        onEditDates = { editPregnancyFor = preg },
+                        onEnd = { endPregnancyFor = preg },
+                        onDelete = { deletePregnancyFor = preg },
+                        onOpenTask = onOpenTaskDetail,
+                        onAddCheckup = {
+                            onAddPrenatalCheckup(person.id, preg.id)
+                        }
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 // 重要日期卡片（生日 / 结婚纪念日 / 忌日）
@@ -689,6 +759,18 @@ fun PersonDetailContent(
                                 onClick = { deathDialog = true }
                             )
                         }
+                    }
+
+                    // 添加预产期：女性在世、无进行中孕期、是“我”或“我”的配偶
+                    if (st.canRecordPregnancy) {
+                        HorizontalDivider(
+                            Modifier.padding(vertical = 10.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                        AddDateRow(
+                            label = "添加预产期",
+                            onClick = { showNewPregnancy = true }
+                        )
                     }
                 }
                 coupleDialog?.let { dlgType ->
@@ -1062,6 +1144,19 @@ fun PersonDetailContent(
                 }
                 Spacer(Modifier.height(12.dp))
 
+                // 孕期记录卡片（有 BORN/ENDED 孕期时；「关系」之后、「备注」之前）
+                PregnancyHistoryCard(
+                    pregnancies = st.pregnancies,
+                    onOpen = { historyPregnancyFor = it }
+                )
+                if (st.pregnancies.any {
+                        it.status != io.github.xiaohaoz1.jiarenxia.core.model
+                            .PregnancyStatus.ACTIVE
+                    }
+                ) {
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // 备注卡片
                 if (!person.note.isNullOrBlank()) {
                     JrxCard(Modifier.fillMaxWidth()) {
@@ -1190,6 +1285,71 @@ fun PersonDetailContent(
             confirmText = "删除",
             onConfirm = { showDelete = false; onDeletePerson() },
             onDismiss = { showDelete = false }
+        )
+    }
+
+    // ---- 孕期相关对话框 ----
+    // 新建孕期（预产期 / 末次月经二选一）
+    if (showNewPregnancy) {
+        PregnancyDateDialog(
+            title = "记录孕期",
+            mode = PregnancyInputMode.PRE_DUE,
+            existing = null,
+            today = today,
+            onSave = { due, lmp ->
+                onCreatePregnancy(due, lmp)
+                showNewPregnancy = false
+            },
+            onDismiss = { showNewPregnancy = false }
+        )
+    }
+    // 改预产期（有末次月经默认按末次月经编辑）
+    editPregnancyFor?.let { p ->
+        PregnancyDateDialog(
+            title = "改预产期",
+            mode = initialPregnancyMode(p),
+            existing = p,
+            today = today,
+            onSave = { due, lmp ->
+                onUpdatePregnancyDates(p.id, due, lmp)
+                editPregnancyFor = null
+            },
+            onDismiss = { editPregnancyFor = null }
+        )
+    }
+    // 结束孕期确认
+    endPregnancyFor?.let {
+        PregnancyEndDialog(
+            onConfirm = {
+                onEndPregnancy(it.id)
+                endPregnancyFor = null
+            },
+            onDismiss = { endPregnancyFor = null }
+        )
+    }
+    // 删除孕期确认（活动卡片菜单与历史对话框共用）
+    deletePregnancyFor?.let {
+        PregnancyDeleteDialog(
+            onConfirm = {
+                onDeletePregnancy(it.id)
+                deletePregnancyFor = null
+            },
+            onDismiss = { deletePregnancyFor = null }
+        )
+    }
+    // 孕期记录详情（含该孕期全部产检事项）
+    historyPregnancyFor?.let { p ->
+        val histTasks by observePregnancyTasks(p.id)
+            .collectAsState(initial = emptyList())
+        PregnancyHistoryDialog(
+            pregnancy = p,
+            tasks = histTasks,
+            today = today,
+            onDelete = {
+                deletePregnancyFor = p
+                historyPregnancyFor = null
+            },
+            onDismiss = { historyPregnancyFor = null }
         )
     }
 }
