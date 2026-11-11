@@ -52,9 +52,9 @@ export const PAGES: Record<string, PageSeo> = {
     changefreq: "weekly",
   },
   "/shouhuxia": {
-    title: "守护侠 — 手机太久没人动，它会替你喊家里人",
+    title: "守护家人侠 — 手机太久没人动，它会替你喊家里人",
     description:
-      "守护侠是给独居长辈手机用的免费安卓应用：锁屏太久没人用，先响铃请对方确认，" +
+      "守护家人侠是给独居长辈手机用的免费安卓应用：锁屏太久没人用，先响铃请对方确认，" +
       "没人应答就群发短信、按顺序拨打紧急联系人，还能每天发一条平安短信。" +
       "不联网、不注册，设置只存在这台手机里。",
     priority: "0.7",
@@ -106,9 +106,9 @@ export const PAGES_EN: Record<string, PageSeo> = {
     changefreq: "weekly",
   },
   "/shouhuxia": {
-    title: "ShouHuXia — calls you when an elder's phone sits still too long",
+    title: "FamilyGuardian — calls you when an elder's phone sits still too long",
     description:
-      "ShouHuXia is a free Android app for an elder who lives alone: if the phone stays untouched " +
+      "FamilyGuardian is a free Android app for an elder who lives alone: if the phone stays untouched " +
       "too long after lock, it rings to ask for confirmation; with no answer it texts all emergency " +
       "contacts and dials them in order, plus an optional daily check-in text. Offline, no sign-up.",
     priority: "0.7",

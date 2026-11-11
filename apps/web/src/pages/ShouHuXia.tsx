@@ -1,4 +1,4 @@
-// 守护侠单品宣传页：首屏（图标 + 主宣传语 + CSS 画的响铃确认手机）、
+// 守护家人侠单品宣传页：首屏（图标 + 主宣传语 + CSS 画的响铃确认手机）、
 // 工作原理四步、功能清单、丑话说在前面、下载卡（版本/校验/安装步骤/扫码）、
 // 隐私三点。版本与校验值集中在 site.ts 的 SHOUHUXIA。
 
@@ -14,11 +14,11 @@ import "./shouhuxia.css";
 
 const T = {
   zh: {
-    kicker: "守护侠 · 装在长辈手机上的守夜人",
+    kicker: "守护家人侠 · 装在长辈手机上的守夜人",
     h1a: "手机太久",
     h1a2: "没人动，",
     h1b: "它会替 TA 喊你。",
-    lead: "守护侠装在独居长辈的手机上：锁屏后太久没人用，先大声响铃请 TA 确认；还是没人应答，就先给紧急联系人群发短信，再按顺序拨过去。不联网、不注册，设置只存在这台手机里。",
+    lead: "守护家人侠装在独居长辈的手机上：锁屏后太久没人用，先大声响铃请 TA 确认；还是没人应答，就先给紧急联系人群发短信，再按顺序拨过去。不联网、不注册，设置只存在这台手机里。",
     downloadBtn: "下载安装包",
     howBtn: "看看它怎么工作",
     releasedMain: `Android 正式版 ${SHOUHUXIA.version} 已发布`,
@@ -71,17 +71,17 @@ const T = {
     privacyH2: "不外传",
     privacyLead: "紧急联系人和设置只存在这台手机里；拨号和短信走运营商网络，只联系你设定的人。",
     privacyPoints: [
-      ["cloudOff", "不联网", "守护侠本身不需要联网，没有任何账号和服务器。"],
+      ["cloudOff", "不联网", "守护家人侠本身不需要联网，没有任何账号和服务器。"],
       ["userCheck", "不注册", "装完按向导设好就用，没有登录这回事。"],
       ["lock", "只在本机", "配置存在设备加密存储区，不参与云备份；日志里的手机号一律打码。"],
     ] as [IconName, string, string][],
   },
   en: {
-    kicker: "ShouHuXia · a watchful companion on an elder's phone",
+    kicker: "FamilyGuardian · a watchful companion on an elder's phone",
     h1a: "If the phone sits still",
     h1a2: "too long,",
     h1b: "it calls you for them.",
-    lead: "ShouHuXia lives on the phone of an elder who lives alone: if it stays untouched too long after lock, it first rings loudly to ask them to confirm; with no answer, it texts all emergency contacts and dials them in order. Offline, no sign-up — settings stay on the phone.",
+    lead: "FamilyGuardian lives on the phone of an elder who lives alone: if it stays untouched too long after lock, it first rings loudly to ask them to confirm; with no answer, it texts all emergency contacts and dials them in order. Offline, no sign-up — settings stay on the phone.",
     downloadBtn: "Download APK",
     howBtn: "See how it works",
     releasedMain: `Android release ${SHOUHUXIA.version} is out`,
@@ -134,7 +134,7 @@ const T = {
     privacyH2: "nothing leaves the phone",
     privacyLead: "Contacts and settings live only on this phone; calls and texts go over the carrier network, only to the people you chose.",
     privacyPoints: [
-      ["cloudOff", "Offline", "ShouHuXia needs no internet — there are no accounts and no servers."],
+      ["cloudOff", "Offline", "FamilyGuardian needs no internet — there are no accounts and no servers."],
       ["userCheck", "No sign-up", "Finish the wizard and it just works; there is no login."],
       ["lock", "On-device only", "Settings live in device-encrypted storage, excluded from cloud backup; phone numbers are masked in logs."],
     ] as [IconName, string, string][],

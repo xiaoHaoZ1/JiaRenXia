@@ -8,7 +8,7 @@ export const SITE = {
   contactEmail: "2107290326@qq.com",
   /** 公开源码仓库（GPL-3.0）。 */
   sourceUrl: "https://github.com/xiaoHaoZ1/JiaRenXia",
-  /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
+  /** 守护家人侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
   guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
   apkVersion: "2.4.3",
@@ -63,34 +63,34 @@ export const APK_DEMO = {
   },
 };
 
-/** 守护侠单品页展示的应用信息。安装包放站点根目录、不入库；
+/** 守护家人侠单品页展示的应用信息。安装包放站点根目录、不入库；
  * 发新版时更新这里的版本/大小/校验值并替换安装包。version 留空表示尚未发布。 */
 export const SHOUHUXIA = {
   id: "shouhuxia",
-  name: "守护侠",
+  name: "守护家人侠",
   icon: "shield",
   stage: "正式版",
   description:
     "装在长辈手机上：锁屏后太久没人用手机，先响铃请 TA 确认；没人应答就自动打给紧急联系人，" +
     "还能每天发一条平安短信。不联网、不注册，设置只存在这台手机里。",
-  version: "1.1.0",
+  version: "1.2.0",
   /** 发布日期与本版亮点（展示在下载卡上） */
-  released: "2026-11-08",
-  whatsNew: "首个正式版：首次使用四步向导（权限 → 紧急联系人 → 后台保护 → 实机演练）；可设 1–3 位紧急联系人，报警先群发短信再依次拨号",
-  sizeBytes: 1_686_715,
-  sha256: "2b73f45f9ab8fbc3dd0078007a828eca2137fdbb2cfdbfc918a1d7f6a84969ef",
+  released: "2026-11-11",
+  whatsNew: "更名「守护家人侠」：应用名、短信前缀与界面文案更新；功能同 1.1.0（四步向导、1–3 位紧急联系人、报警先短信再依次拨号）。注意：升级后原演练记录失效，重新开启守护前需再做一次实机演练。",
+  sizeBytes: 1_686_751,
+  sha256: "ee757d83a52d5adc8be09c7346fc0a2bf7cae435115373a1cfa099ee0a8259b4",
   /** 安装包地址：下载服务按版本命名 */
-  file: `${DOWNLOAD_BASE}/shouhuxia-1.1.0.apk`,
+  file: `${DOWNLOAD_BASE}/shouhuxia-1.2.0.apk`,
   minAndroid: "8.0",
   note: "首次使用请按首页向导完成权限设置和一次「实机演练」，确认能响铃、能发短信、能拨通后，守护即可开启。",
   en: {
-    name: "ShouHuXia",
+    name: "FamilyGuardian",
     stage: "Stable",
     description:
       "Installed on an elder's phone: if the phone sits untouched too long after lock, it first " +
       "rings to ask them to confirm; with no answer it automatically calls emergency contacts — " +
       "and can send a daily check-in text. Offline, no sign-up, settings stay on the phone.",
-    whatsNew: "First stable release: four-step first-run wizard (permissions → emergency contacts → background protection → live drill); 1–3 emergency contacts; alerts send group texts first, then dial in turn",
+    whatsNew: "Renamed to FamilyGuardian (守护家人侠): app name, SMS prefix and UI copy updated; same features as 1.1.0. Note: the drill record from older versions becomes invalid — run a new live drill before re-enabling the guard.",
     note: "On first use, finish the home wizard — permissions plus one live drill — to confirm it can ring, text and dial; the guard can then be enabled.",
   },
 } as const;

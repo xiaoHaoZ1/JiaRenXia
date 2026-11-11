@@ -35,14 +35,14 @@ const T = {
       "一部手机装朱棣，另一部装徐皇后。",
     downloadDemoGroom: "下载演示版 · 朱棣",
     downloadDemoBride: "下载演示版 · 徐皇后",
-    sourcePre: "家人侠和守护侠的源代码以 GPL-3.0 协议公开：",
+    sourcePre: "家人侠和守护家人侠的源代码以 GPL-3.0 协议公开：",
     sourceJrx: "家人侠",
-    sourceShx: "守护侠",
+    sourceShx: "守护家人侠",
     sourcePost: "。",
-    gxPre: "守护功能由独立应用「守护侠」提供（正式版，可在",
-    gxLink: "「守护侠」",
+    gxPre: "守护功能由独立应用「守护家人侠」提供（正式版，可在",
+    gxLink: "「守护家人侠」",
     gxPost:
-      "页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护侠后请先做一次「实机演练」走一遍流程，确认能响能拨，再放心交给它。",
+      "页下载）。各家品牌手机对后台、自启动的限制不一样，装好守护家人侠后请先做一次「实机演练」走一遍流程，确认能响能拨，再放心交给它。",
     free: "家人侠完全免费：所有功能，包括导出表格和高清关系图，不收取任何费用。",
   },
   en: {
@@ -75,12 +75,12 @@ const T = {
       "\"tap to become spouses\": install Zhu Di on one phone and Empress Xu on the other.",
     downloadDemoGroom: "Download demo · Zhu Di",
     downloadDemoBride: "Download demo · Empress Xu",
-    sourcePre: "The source code of JiaRenXia and ShouHuXia is published under GPL-3.0: ",
+    sourcePre: "The source code of JiaRenXia and FamilyGuardian is published under GPL-3.0: ",
     sourceJrx: "JiaRenXia",
-    sourceShx: "ShouHuXia",
+    sourceShx: "FamilyGuardian",
     sourcePost: ".",
-    gxPre: "The guardian feature lives in a separate app, ShouHuXia (stable release — get it on the ",
-    gxLink: "ShouHuXia",
+    gxPre: "The guardian feature lives in a separate app, FamilyGuardian (stable release — get it on the ",
+    gxLink: "FamilyGuardian",
     gxPost:
       " page). Phone brands restrict background work and auto-start differently, so after " +
       "installing please run the built-in live drill once to confirm it can ring and dial " +

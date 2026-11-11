@@ -16,7 +16,7 @@
 - `:core:model` — 纯 Kotlin/JVM 库，领域模型，不依赖 Android。
 - `:core:kinship` — 纯 Kotlin/JVM 库，亲属关系推导引擎，依赖 `:core:model`，JUnit 单元测试。
 - `:core:designsystem` — Android 库，主题与通用组件（JrxCard、PageHeader 等），不依赖数据层。
-- 守护侠已于 2026-10-23 拆出为独立工程，含 `:guardianapp` 与 `:feature:guardian`；`:core:designsystem` 为拆分时的快照副本，两边各自演进。守护侠正式版与家人侠共用同一把签名密钥。
+- 守护家人侠已于 2026-10-23 拆出为独立工程，含 `:guardianapp` 与 `:feature:guardian`；`:core:designsystem` 为拆分时的快照副本，两边各自演进。守护家人侠正式版与家人侠共用同一把签名密钥。
 - `:baselineprofile` — Baseline Profile 生成模块。
 
 ## 构建 / 测试 / 安装（本机 Windows 环境）
@@ -106,7 +106,7 @@ gradlew.bat :app:assembleRelease
 
 ## 守护（已拆出）
 
-守护模块随守护侠拆到独立工程（2026-10-23），开发约定见该仓库 AGENTS.md，
+守护模块随守护家人侠拆到独立工程（2026-10-23），开发约定见该仓库 AGENTS.md，
 设计文档见该仓库 `docs/GUARDIAN_MODULE.md`。家人侠自 C3 起不含守护代码。
 
 ## 架构指引

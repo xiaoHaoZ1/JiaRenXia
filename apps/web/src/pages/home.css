@@ -252,7 +252,7 @@
   50% { transform: translateY(-8px); }
 }
 
-/* ---------- 守护侠预告 ---------- */
+/* ---------- 守护家人侠预告 ---------- */
 .home-gxia { display: flex; justify-content: center; }
 .gxia-card {
   display: flex;
@@ -274,7 +274,7 @@
   background: var(--tertiary-bg);
   color: var(--tertiary);
 }
-/* 守护侠真实应用图标（前景 PNG + 与启动图标一致的暖黄底） */
+/* 守护家人侠真实应用图标（前景 PNG + 与启动图标一致的暖黄底） */
 .gxia-appicon {
   width: 64px;
   height: 64px;

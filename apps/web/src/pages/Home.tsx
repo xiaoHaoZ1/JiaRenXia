@@ -1,4 +1,4 @@
-// 首页：首屏（主宣传语 + App 截图）、日常场景、一家人、守护侠预告、隐私承诺、结尾引导。
+// 首页：首屏（主宣传语 + App 截图）、日常场景、一家人、守护家人侠预告、隐私承诺、结尾引导。
 // 称谓演示已移到帮助页（/help#kinship）。截图取自 docs/images（合成数据生成），图中人名均为虚构。
 
 import { Link } from "react-router";
@@ -97,9 +97,9 @@ const T = {
     familyH: "家里谁是谁，一张图认全",
     familyLead: "父母两边、配偶两边、兄弟姐妹和孩子，按辈分排在一起。点到谁，就能看见名字、称谓和他在家里的位置。",
     familyMore: "看看称谓是怎么算的 →",
-    gxTitle: "守护侠",
-    gxTextPre: "守护功能由独立应用「守护侠」提供：装在长辈手机上，手机太久没人动就替你喊家里人。正式版已发布，可以在",
-    gxTextLink: "「守护侠」",
+    gxTitle: "守护家人侠",
+    gxTextPre: "守护功能由独立应用「守护家人侠」提供：装在长辈手机上，手机太久没人动就替你喊家里人。正式版已发布，可以在",
+    gxTextLink: "「守护家人侠」",
     gxTextPost: "页了解并下载。",
     privacyH: "家里的事，留在家里",
     privacyLead: "家人的名字、关系、生日和电话，是一个家最私密的东西。所以从一开始，家人侠就只把它们留在你的手机里。",
@@ -163,9 +163,9 @@ const T = {
     familyH: "Who's who — the whole family in one graph",
     familyLead: "Both parents' sides, your spouse's side, siblings and children, laid out by generation. Tap anyone to see their name, kinship title, and place in the family.",
     familyMore: "See how kinship titles work →",
-    gxTitle: "ShouHuXia",
-    gxTextPre: "The guardian feature lives in a separate app, ShouHuXia: installed on an elder's phone, it calls you when the phone sits still too long. The stable release is out — learn more and get it on the ",
-    gxTextLink: "ShouHuXia",
+    gxTitle: "FamilyGuardian",
+    gxTextPre: "The guardian feature lives in a separate app, FamilyGuardian: installed on an elder's phone, it calls you when the phone sits still too long. The stable release is out — learn more and get it on the ",
+    gxTextLink: "FamilyGuardian",
     gxTextPost: " page.",
     privacyH: "Family matters stay in the family",
     privacyLead: "Names, relationships, birthdays and phone numbers are among the most private things a family has. That's why JiaRenXia keeps them only on your phone, from day one.",
@@ -372,7 +372,7 @@ function Family() {
   );
 }
 
-/** 守护侠：说明守护由独立应用承担，指向「守护侠」页下载。 */
+/** 守护家人侠：说明守护由独立应用承担，指向「守护家人侠」页下载。 */
 function GuardianXia() {
   const t = T[useLang()];
   const to = useTo();
