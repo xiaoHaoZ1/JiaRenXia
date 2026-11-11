@@ -1,5 +1,5 @@
-// 下载页：纯静态。安装包走下载服务 dl.jiarenxia.com（R2 + 版本命名）。
-// 走外部地址（版本与校验值在 site.ts 同步维护）。
+// 下载页：纯静态。安装包走下载服务 dl.jiarenxia.com（R2 + 版本命名）；
+// 正式版另有 GitHub Release 备用链接。走外部地址（版本与校验值在 site.ts 同步维护）。
 
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
@@ -17,6 +17,9 @@ const T = {
     version: "版本：",
     size: "大小：",
     downloadStable: "下载安装包",
+    mirrorPre: "下载太慢或打不开？可以试试",
+    mirrorLink: "备用下载（GitHub）",
+    mirrorPost: "，安装包完全相同，可用上面的 SHA-256 核对。",
     betaTitle: "Android 测试版（Beta）",
     betaIntro:
       "开发中的功能抢先体验。它与正式版是两个独立应用（桌面图标名「家人侠-测试版」），" +
@@ -55,6 +58,9 @@ const T = {
     version: "Version: ",
     size: "Size: ",
     downloadStable: "Download APK",
+    mirrorPre: "Download slow or failing? Try the ",
+    mirrorLink: "backup link (GitHub)",
+    mirrorPost: " — it's the identical file; verify it with the SHA-256 above.",
     betaTitle: "Android beta",
     betaIntro:
       "Try upcoming features early. It's a separate app from the release (icon name " +
@@ -121,6 +127,13 @@ export default function Download() {
             >
               {t.downloadStable}
             </a>
+            {SITE.apkGithubUrl && (
+              <p className="muted">
+                {t.mirrorPre}
+                <a href={SITE.apkGithubUrl} rel="noopener">{t.mirrorLink}</a>
+                {t.mirrorPost}
+              </p>
+            )}
           </>
         ) : (
           <>

@@ -1,6 +1,7 @@
 // 站点常量：本站为纯静态页面，部署在 Cloudflare Pages。发新版 APK 时更新
 // 这里的版本，并把安装包按「名字-版本.apk」上传到 R2 桶 jrx-download
-//（wrangler r2 object put，见 docs/deployment/LOCAL_WINDOWS.md）。
+//（wrangler r2 object put，见 docs/deployment/LOCAL_WINDOWS.md）；
+// 正式包还要用 gh release create v<版本> 传到 GitHub Release 并更新 apkGithubUrl。
 
 export const DOWNLOAD_BASE = "https://dl.jiarenxia.com";
 
@@ -22,6 +23,10 @@ export const SITE = {
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
   apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.4.4.apk`,
+  /** 备用下载：同一个正式包上传到公开仓库 GitHub Release（tag v<版本>，文件名同 R2），
+   * 国内部分线路比 dl 快。留空则下载页不显示备用链接；须与 apkVersion 一致，
+   * 不一致时 prerender 直接让构建失败。 */
+  apkGithubUrl: "https://github.com/xiaoHaoZ1/JiaRenXia/releases/download/v2.4.4/jiarenxia-2.4.4.apk",
 };
 
 /** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
