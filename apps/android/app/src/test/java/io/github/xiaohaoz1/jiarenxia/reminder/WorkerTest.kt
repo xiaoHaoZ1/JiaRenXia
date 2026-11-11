@@ -227,6 +227,10 @@ class WorkerTest {
         taskRepo: FakeTaskRepo = FakeTaskRepo(),
         homeRepo: io.github.xiaohaoz1.jiarenxia.data.HomeVisitRepository =
             io.github.xiaohaoz1.jiarenxia.data.FakeHomeVisitRepository(),
+        pregRepo: io.github.xiaohaoz1.jiarenxia.data.PregnancyRepository =
+            FakePregnancyRepo(),
+        bagRepo: io.github.xiaohaoz1.jiarenxia.data.ChecklistRepository =
+            FakeChecklistRepo(),
         clock: TimeSource = FakeClock(LocalDate.now().atTime(12, 0)),
         dateEntries: List<io.github.xiaohaoz1.jiarenxia.data.DateEntry> = emptyList(),
         spouse: Person? = null,
@@ -254,7 +258,7 @@ class WorkerTest {
                     BirthdayReminderWorker(
                         appContext, params, repo, taskRepo,
                         io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository(),
-                        homeRepo, settings, overview,
+                        homeRepo, pregRepo, bagRepo, settings, overview,
                         io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar(),
                         clock
                     )
@@ -490,6 +494,149 @@ class WorkerTest {
         assertTrue(postedTexts().none { it.contains("过期的事") })
     }
 
+    // ---------- 36 周待产包提醒（FAMILY_AFFAIRS 26） ----------
+
+    /** 今天正好是预产期 −28 天的 ACTIVE 孕期（孕妈为 extraPersons 里的在世女性）。 */
+    private fun birthBagPreg(
+        id: String, personId: String, due: LocalDate,
+        status: io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus =
+            io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ACTIVE
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy(
+        id = id, personId = personId, dueDate = due, lmpDate = null,
+        status = status, endedOn = null, babyIds = emptyList(),
+        createdAt = 1, updatedAt = 1)
+
+    private val bagMom = Person(
+        id = "bmom", name = "李雪", gender = Gender.FEMALE)
+
+    private fun birthBagPregs(
+        vararg pregs: io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy
+    ) = FakePregnancyRepo(pregs.filter {
+        it.status == io.github.xiaohaoz1.jiarenxia.core.model
+            .PregnancyStatus.ACTIVE
+    })
+
+    @Test
+    fun 孕36周当天_发待产包提醒() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        val preg = birthBagPreg("g1", "bmom", today.plusDays(28))
+        buildWorker(
+            settings,
+            pregRepo = birthBagPregs(preg),
+            extraPersons = listOf(bagMom),
+            rels = listOf(io.github.xiaohaoz1.jiarenxia.core.model.Relationship(
+                id = "r1", sourcePersonId = "me", targetPersonId = "bmom",
+                type = io.github.xiaohaoz1.jiarenxia.core.model
+                    .RelationshipType.SPOUSE))
+        ).doWork()
+        // 配偶的称谓是“妻子”（displayTitle），不是姓名
+        assertTrue(postedTexts().any { it == "妻子孕 36 周了，待产包备齐了吗？" })
+    }
+
+    @Test
+    fun 孕36周前后一天_不发() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        // due = today+27 → 36 周提醒日是昨天；due = today+29 → 明天
+        buildWorker(
+            settings,
+            pregRepo = birthBagPregs(
+                birthBagPreg("g1", "bmom", today.plusDays(27)),
+                birthBagPreg("g2", "bmom2", today.plusDays(29))
+            ),
+            extraPersons = listOf(bagMom,
+                Person(id = "bmom2", name = "王芳", gender = Gender.FEMALE))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("待产包") })
+    }
+
+    @Test
+    fun 待产包全勾完_不发() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        val preg = birthBagPreg("g1", "bmom", today.plusDays(28))
+        buildWorker(
+            settings,
+            pregRepo = birthBagPregs(preg),
+            bagRepo = FakeChecklistRepo(
+                io.github.xiaohaoz1.jiarenxia.data.ChecklistProgress(
+                    checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+                        id = "c1", kind = io.github.xiaohaoz1.jiarenxia.core.model
+                            .ChecklistKind.BIRTH_BAG, title = "待产包",
+                        personId = "bmom", pregnancyId = "g1"),
+                    checkedCount = 28, totalCount = 28)),
+            extraPersons = listOf(bagMom)
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("待产包") })
+    }
+
+    @Test
+    fun 事项开关关_不发待产包提醒() = runTest {
+        val settings = FakeSettings()
+        settings.taskRemindersEnabled.value = false
+        val today = LocalDate.now()
+        val preg = birthBagPreg("g1", "bmom", today.plusDays(28))
+        buildWorker(
+            settings,
+            pregRepo = birthBagPregs(preg),
+            extraPersons = listOf(bagMom)
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("待产包") })
+    }
+
+    @Test
+    fun 孕期已结束_不发待产包提醒() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        val ended = birthBagPreg("g1", "bmom", today.plusDays(28),
+            io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ENDED)
+        // FakePregnancyRepo 只回 ACTIVE；ENDED 存在但 observeActive 为空
+        buildWorker(
+            settings,
+            pregRepo = FakePregnancyRepo(listOf(ended)),
+            extraPersons = listOf(bagMom)
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("待产包") })
+    }
+
+    @Test
+    fun 孕妈已故_不发待产包提醒() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        val dead = bagMom.copy(
+            livingStatus = io.github.xiaohaoz1.jiarenxia.core.model
+                .LivingStatus.DECEASED)
+        val preg = birthBagPreg("g1", "bmom", today.plusDays(28))
+        buildWorker(
+            settings,
+            pregRepo = birthBagPregs(preg),
+            extraPersons = listOf(dead)
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("待产包") })
+    }
+
+    @Test
+    fun 同日重复运行_不重复发() = runTest {
+        val settings = FakeSettings()
+        val today = LocalDate.now()
+        val preg = birthBagPreg("g1", "bmom", today.plusDays(28))
+        val worker = buildWorker(
+            settings,
+            pregRepo = birthBagPregs(preg),
+            extraPersons = listOf(bagMom),
+            rels = listOf(io.github.xiaohaoz1.jiarenxia.core.model.Relationship(
+                id = "r1", sourcePersonId = "me", targetPersonId = "bmom",
+                type = io.github.xiaohaoz1.jiarenxia.core.model
+                    .RelationshipType.SPOUSE))
+        )
+        worker.doWork()
+        worker.doWork()
+        val count = postedTexts().count {
+            it == "妻子孕 36 周了，待产包备齐了吗？" }
+        assertEquals(1, count)
+    }
+
     // ---------- 上坟提醒（忌日归属上坟段，FAMILY_AFFAIRS 19） ----------
 
     /** 今天是忌日的已故家人（阳历，带年份）。 */
@@ -592,4 +739,58 @@ private class FakeTaskRepo(
     override suspend fun restore(task: io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask) =
         FamilyResult.Success(Unit)
     override suspend fun delete(id: String) {}
+}
+
+/** 孕期仓储 fake：observeActive 只回传入的 ACTIVE 列表。 */
+private class FakePregnancyRepo(
+    private val all: List<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy> = emptyList()
+) : io.github.xiaohaoz1.jiarenxia.data.PregnancyRepository {
+    private val active get() = all.filter {
+        it.status == io.github.xiaohaoz1.jiarenxia.core.model
+            .PregnancyStatus.ACTIVE
+    }
+    override fun observeForPerson(personId: String) =
+        kotlinx.coroutines.flow.flowOf(all.filter { it.personId == personId })
+    override fun observeActive() = kotlinx.coroutines.flow.flowOf(active)
+    override suspend fun get(id: String) = all.firstOrNull { it.id == id }
+    override suspend fun create(
+        personId: String,
+        due: LocalDate, lmp: LocalDate?, today: LocalDate
+    ) = FamilyResult.Success("new-preg")
+    override suspend fun updateDates(
+        id: String, due: LocalDate, lmp: LocalDate?, today: LocalDate
+    ) = FamilyResult.Success(Unit)
+    override suspend fun end(id: String, today: LocalDate) = FamilyResult.Success(Unit)
+    override suspend fun delete(id: String) = FamilyResult.Success(Unit)
+}
+
+/** 清单仓储 fake：observeForPregnancy 按 pregnancyId+kind 返回预置进度。 */
+private class FakeChecklistRepo(
+    vararg private val progress: io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress
+) : io.github.xiaohaoz1.jiarenxia.data.ChecklistRepository {
+    override fun observe(id: String) = kotlinx.coroutines.flow.flowOf(null)
+    override fun observeForPregnancy(
+        pregnancyId: String,
+        kind: io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
+    ) = kotlinx.coroutines.flow.flowOf(
+        progress.firstOrNull {
+            it.checklist.pregnancyId == pregnancyId && it.checklist.kind == kind
+        })
+    override fun observeAll() =
+        kotlinx.coroutines.flow.flowOf(progress.toList())
+    override suspend fun get(id: String) = null
+    override suspend fun createFromTemplate(
+        kind: io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind,
+        pregnancyId: String
+    ) = FamilyResult.Success("new-checklist")
+    override suspend fun setChecked(itemId: String, checked: Boolean) =
+        FamilyResult.Success(Unit)
+    override suspend fun addItem(
+        checklistId: String, groupName: String, title: String
+    ) = FamilyResult.Success("new-item")
+    override suspend fun renameItem(itemId: String, title: String) =
+        FamilyResult.Success(Unit)
+    override suspend fun deleteItem(itemId: String) = FamilyResult.Success(Unit)
+    override suspend fun deleteChecklist(id: String) = FamilyResult.Success(Unit)
 }

@@ -150,6 +150,7 @@ object ShareImport {
         personFacts = emptyList(),
         homeVisits = emptyList(),
         pregnancies = emptyList(),
+        checklists = emptyList(),
         settings = null,
         summary = plan.summary.copy(tasks = 0)
     )

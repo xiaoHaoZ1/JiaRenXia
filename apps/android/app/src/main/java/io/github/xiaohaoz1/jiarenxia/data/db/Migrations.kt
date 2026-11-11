@@ -465,3 +465,15 @@ val MIGRATION_19_20 = object : Migration(19, 20) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_family_tasks_pregnancy_id` ON `family_tasks` (`pregnancy_id`)")
     }
 }
+
+/** v20 → v21：清单两表（待产包等，FAMILY_AFFAIRS 26）。 */
+val MIGRATION_20_21 = object : Migration(20, 21) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `checklists` (`id` TEXT NOT NULL, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `person_id` TEXT, `pregnancy_id` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`pregnancy_id`) REFERENCES `pregnancies`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_checklists_person_id` ON `checklists` (`person_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_checklists_pregnancy_id` ON `checklists` (`pregnancy_id`)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `checklist_items` (`id` TEXT NOT NULL, `checklist_id` TEXT NOT NULL, `group_name` TEXT NOT NULL, `title` TEXT NOT NULL, `note` TEXT, `checked` INTEGER NOT NULL, `sort_order` INTEGER NOT NULL, `person_id` TEXT, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`checklist_id`) REFERENCES `checklists`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_checklist_items_checklist_id` ON `checklist_items` (`checklist_id`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_checklist_items_person_id` ON `checklist_items` (`person_id`)")
+    }
+}

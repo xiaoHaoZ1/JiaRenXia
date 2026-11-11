@@ -166,6 +166,12 @@ abstract class AppBindsModule {
         impl: io.github.xiaohaoz1.jiarenxia.data.PregnancyRepositoryImpl
     ): io.github.xiaohaoz1.jiarenxia.data.PregnancyRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindChecklistRepository(
+        impl: io.github.xiaohaoz1.jiarenxia.data.ChecklistRepositoryImpl
+    ): io.github.xiaohaoz1.jiarenxia.data.ChecklistRepository
+
     /** 碰一碰配对存储：Room（v9）实现；旧 JSON 文件记录首次访问时迁入。 */
     @Binds
     @Singleton

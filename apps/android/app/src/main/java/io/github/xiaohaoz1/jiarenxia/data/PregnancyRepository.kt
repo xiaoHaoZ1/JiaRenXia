@@ -60,6 +60,7 @@ class PregnancyRepositoryImpl @Inject constructor(
     private val dao get() = db.pregnancyDao()
     private val babyDao get() = db.pregnancyBabyDao()
     private val taskDao get() = db.familyTaskDao()
+    private val checklistDao get() = db.checklistDao()
 
     override fun observeForPerson(personId: String): Flow<List<Pregnancy>> =
         combine(
@@ -191,6 +192,9 @@ class PregnancyRepositoryImpl @Inject constructor(
                 ?: return@withTransaction FamilyResult.Failure(FamilyError.PregnancyNotFound)
             // 关联产检事项一并删除（不论状态）；babies 行经外键级联
             taskDao.deleteForPregnancy(id)
+            // 待产包清单先删（条目级联）；其他种类的清单靠 pregnancy_id
+            // 的 ON DELETE SET NULL 保留，为第 3 批做准备
+            checklistDao.deleteBirthBagsForPregnancy(id)
             dao.delete(id)
             FamilyResult.Success(Unit)
         }

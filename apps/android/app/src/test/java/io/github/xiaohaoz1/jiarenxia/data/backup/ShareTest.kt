@@ -90,12 +90,27 @@ class ShareTest : RepoTestBase() {
                 lmpEpochDay = null, status = "ACTIVE", endedEpochDay = null,
                 createdAt = 1, updatedAt = 1))
         )
+        // 清单（待产包）同属私密数据，一并不写入
+        db.checklistDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+                id = "cl-share", kind = "BIRTH_BAG", title = "待产包",
+                personId = mom.id, pregnancyId = "pg-share",
+                createdAt = 1, updatedAt = 1))
+        )
+        db.checklistItemDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                id = "ci-share", checklistId = "cl-share", groupName = "证件资料",
+                title = "医保卡", note = null, checked = false,
+                sortOrder = 0, personId = null, createdAt = 1, updatedAt = 1))
+        )
         val plan = exportPlan()
         assertTrue(plan.tasks.isEmpty())
         assertTrue(plan.pregnancies.isEmpty())
+        assertTrue(plan.checklists.isEmpty())
         val partial = exportPlan(personIds = motherScope())
         assertTrue(partial.tasks.isEmpty())
         assertTrue(partial.pregnancies.isEmpty())
+        assertTrue(partial.checklists.isEmpty())
     }
 
     @Test
@@ -123,16 +138,31 @@ class ShareTest : RepoTestBase() {
             listOf(io.github.xiaohaoz1.jiarenxia.data.db
                 .FamilyTaskOffsetEntity("o-strip", "pren-strip", 0))
         )
+        // 挂在孕期上的待产包清单也要被剥掉
+        db.checklistDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+                id = "cl-strip", kind = "BIRTH_BAG", title = "待产包",
+                personId = mom.id, pregnancyId = "pg-strip",
+                createdAt = 1, updatedAt = 1))
+        )
+        db.checklistItemDao().insertAll(
+            listOf(io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                id = "ci-strip", checklistId = "cl-strip", groupName = "证件资料",
+                title = "医保卡", note = null, checked = false,
+                sortOrder = 0, personId = null, createdAt = 1, updatedAt = 1))
+        )
         val out = ByteArrayOutputStream()
         backup.export(out, pw)
         val full = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
             .getOrThrow()
         assertEquals(1, full.pregnancies.size)
-        // ShareImport.fromBackup：孕期与事项一并剥掉
+        assertEquals(1, full.checklists.size)
+        // ShareImport.fromBackup：孕期、事项与清单一并剥掉
         val stripped = io.github.xiaohaoz1.jiarenxia.domain.ShareImport
             .fromBackup(full)
         assertTrue(stripped.pregnancies.isEmpty())
         assertTrue(stripped.tasks.isEmpty())
+        assertTrue(stripped.checklists.isEmpty())
     }
 
     @Test

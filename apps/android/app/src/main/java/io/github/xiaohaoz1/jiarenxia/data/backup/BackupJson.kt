@@ -121,6 +121,13 @@ data class RestorePlan(
      */
     val pregnancies: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
         .PregnancyEntity, List<PregnancyBabyLink>>> = emptyList(),
+    /**
+     * 清单（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * 每条 = 清单实体 + 其条目。
+     */
+    val checklists: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+        .ChecklistEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+        .ChecklistItemEntity>>> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -173,6 +180,9 @@ object BackupJson {
         homeVisits: List<HomeVisitBackup> = emptyList(),
         pregnancies: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
             .PregnancyEntity, List<PregnancyBabyLink>>> = emptyList(),
+        checklists: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+            .ChecklistEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+            .ChecklistItemEntity>>> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -341,6 +351,35 @@ object BackupJson {
                 })
             }
         })
+        // 清单（可选键）：非空才写——分享/碰一碰文件不携带此键
+        if (checklists.isNotEmpty()) {
+            json.put("checklists", JSONArray().apply {
+                checklists.forEach { (cl, items) ->
+                    put(JSONObject().apply {
+                        put("id", cl.id); put("kind", cl.kind)
+                        put("title", cl.title)
+                        cl.personId?.let { put("personId", it) }
+                        cl.pregnancyId?.let { put("pregnancyId", it) }
+                        put("createdAt", cl.createdAt); put("updatedAt", cl.updatedAt)
+                        put("items", JSONArray().apply {
+                            items.forEach { it ->
+                                put(JSONObject().apply {
+                                    put("id", it.id)
+                                    put("groupName", it.groupName)
+                                    put("title", it.title)
+                                    it.note?.let { n -> put("note", n) }
+                                    put("checked", it.checked)
+                                    put("sortOrder", it.sortOrder)
+                                    it.personId?.let { p -> put("personId", p) }
+                                    put("createdAt", it.createdAt)
+                                    put("updatedAt", it.updatedAt)
+                                })
+                            }
+                        })
+                    })
+                }
+            })
+        }
         settings?.let {
             json.put("settings", JSONObject()
                 .put("themeMode", it.themeMode.name)
@@ -815,6 +854,64 @@ object BackupJson {
             } else task to offsets
         }
 
+        // 清单（可选键，不升 schemaVersion）：kind 非法即 fail；
+        // personId/pregnancyId（含条目 personId）悬空引用置 null（不 fail）；
+        // 标题 trim 后 1–30 字，超长/为空 fail。
+        val checklistsRaw = root.optJSONArray("checklists")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val clId = o.getString("id")
+                val items = o.optJSONArray("items")?.let { it2 ->
+                    (0 until it2.length()).map { j ->
+                        val io2 = it2.getJSONObject(j)
+                        io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                            id = io2.getString("id"),
+                            checklistId = clId,
+                            groupName = io2.getString("groupName"),
+                            title = io2.getString("title"),
+                            note = if (io2.has("note")) io2.getString("note") else null,
+                            checked = io2.optBoolean("checked", false),
+                            sortOrder = io2.optInt("sortOrder", 0),
+                            personId = if (io2.isNull("personId")) null
+                                else io2.optString("personId", null),
+                            createdAt = io2.getLong("createdAt"),
+                            updatedAt = io2.getLong("updatedAt")
+                        )
+                    }
+                } ?: emptyList()
+                io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+                    id = clId,
+                    kind = enumOf(
+                        io.github.xiaohaoz1.jiarenxia.core.model
+                            .ChecklistKind::class.java,
+                        o.optString("kind", null), "checklist kind"
+                    ).name,
+                    title = o.getString("title"),
+                    personId = if (o.isNull("personId")) null
+                        else o.optString("personId", null),
+                    pregnancyId = if (o.isNull("pregnancyId")) null
+                        else o.optString("pregnancyId", null),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to items
+            }
+        } ?: emptyList()
+        uniqueIds(checklistsRaw.map { it.first.id }, "checklists")
+        uniqueIds(checklistsRaw.flatMap { it.second }.map { it.id }, "checklistItems")
+        val checklists = checklistsRaw.map { (cl, items) ->
+            if (cl.title.trim().isEmpty() || cl.title.length > 30) fail("checklist title")
+            items.forEach {
+                if (it.title.trim().isEmpty() || it.title.length > 30)
+                    fail("checklist item title")
+            }
+            cl.copy(
+                personId = cl.personId?.takeIf { it in personIds },
+                pregnancyId = cl.pregnancyId?.takeIf { it in pregnancyIds }
+            ) to items.map {
+                it.copy(personId = it.personId?.takeIf { p -> p in personIds })
+            }
+        }
+
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
             p.avatarPath?.removePrefix("avatars/")
@@ -895,6 +992,7 @@ object BackupJson {
             personFacts = personFacts,
             homeVisits = homeVisits,
             pregnancies = pregnancies,
+            checklists = checklists,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

@@ -50,6 +50,10 @@ class BirthdayReminderWorker @AssistedInject constructor(
         .ContactRepository,
     private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
         .HomeVisitRepository,
+    private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
+        .PregnancyRepository,
+    private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistRepository,
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
@@ -326,16 +330,93 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 val at = d.task.remindMinutes?.let { ReminderTiming.timeOf(it) } ?: global
                 !nowTime.isBefore(at)
             }
-        if (dues.isEmpty()) return
-        ensureTaskChannel()
-        val nm = NotificationManagerCompat.from(context)
-        dues.forEach { d ->
-            val key = "task:" + d.task.id + ":" + TaskSchedule.dueDate(d.task).toEpochDay() +
-                ":" + d.daysBefore
-            if (key in posted) return@forEach
-            runCatching { nm.notify(taskNotificationId(d), buildTask(d)) }
-                .onSuccess { posted += key }
+        if (dues.isNotEmpty()) {
+            ensureTaskChannel()
+            val nm = NotificationManagerCompat.from(context)
+            dues.forEach { d ->
+                val key = "task:" + d.task.id + ":" + TaskSchedule.dueDate(d.task).toEpochDay() +
+                    ":" + d.daysBefore
+                if (key in posted) return@forEach
+                runCatching { nm.notify(taskNotificationId(d), buildTask(d)) }
+                    .onSuccess { posted += key }
+            }
         }
+        // 36 周待产包提醒（FAMILY_AFFAIRS 26）：与事项同渠道同每日时刻
+        postBirthBagNotifications(today, nowTime, global, posted)
+    }
+
+    /**
+     * 36 周待产包提醒：预产期前 28 天当天，孕期 ACTIVE、孕妈在世、
+     * 待产包未备齐（或还没有清单）时发一次；改预产期自然按新日期算，
+     * 不存额外状态。点开孕妈的人物详情页。
+     */
+    private suspend fun postBirthBagNotifications(
+        today: LocalDate,
+        nowTime: java.time.LocalTime,
+        global: java.time.LocalTime,
+        posted: MutableSet<String>
+    ) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        // 家庭事项每日时刻未到不发（与事项段同一口径，含当天补跑）
+        if (nowTime.isBefore(global)) return
+        val active = pregnancyRepository.observeActive().first()
+        if (active.isEmpty()) return
+        val overview = observeOverview().first() ?: return
+        val nm = NotificationManagerCompat.from(context)
+        active.forEach { preg ->
+            // 今天 == 预产期 − 28 天（孕 36 周）
+            if (today != preg.dueDate.minusDays(28)) return@forEach
+            val entry = overview.byId[preg.personId] ?: return@forEach
+            val person = entry.person
+            if (person.livingStatus !=
+                io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            ) return@forEach
+            // 已有待产包且全部勾完 → 不提醒；没有清单或未备齐 → 提醒
+            val bag = checklistRepository.observeForPregnancy(
+                preg.id,
+                io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.BIRTH_BAG
+            ).first()
+            if (bag != null && bag.totalCount > 0 &&
+                bag.checkedCount == bag.totalCount
+            ) return@forEach
+            val key = "birthbag:" + preg.id + ":" + today.toEpochDay()
+            if (key in posted) return@forEach
+            val text = if (person.isSelf) "孕 36 周了，待产包备齐了吗？"
+            else {
+                val title = entry.displayTitle.ifBlank { person.name }
+                title + "孕 36 周了，待产包备齐了吗？"
+            }
+            runCatching {
+                nm.notify(key.hashCode(), buildBirthBag(key, text, person.id))
+            }.onSuccess { posted += key }
+        }
+    }
+
+    /** 36 周提醒通知：家庭事项渠道，点开孕妈人物详情页。 */
+    private fun buildBirthBag(
+        key: String, text: String, personId: String
+    ): android.app.Notification {
+        ensureTaskChannel()
+        val intent = PendingIntent.getActivity(
+            context, key.hashCode(),
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, TASK_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有家庭事项提醒")
+            .build()
+        return NotificationCompat.Builder(context, TASK_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
     }
 
     private fun taskNotificationId(d: DueTask): Int =

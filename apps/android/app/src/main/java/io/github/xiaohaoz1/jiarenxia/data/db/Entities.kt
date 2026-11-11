@@ -529,3 +529,81 @@ data class PersonAliasEntity(
     @ColumnInfo(name = "local_person_id") val localPersonId: String,
     @ColumnInfo(name = "created_at") val createdAt: Long
 )
+
+/**
+ * checklists：清单（FAMILY_AFFAIRS 26，待产包等）。
+ * person_id / pregnancy_id 均可空：孕期删除时 pregnancy_id 经
+ * SET NULL 保留清单（为第 3 批做准备）；人物删除时 person_id 级联。
+ */
+@Entity(
+    tableName = "checklists",
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PregnancyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["pregnancy_id"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [Index("person_id"), Index("pregnancy_id")]
+)
+data class ChecklistEntity(
+    @PrimaryKey val id: String,
+    val kind: String,
+    val title: String,
+    @ColumnInfo(name = "person_id") val personId: String?,
+    @ColumnInfo(name = "pregnancy_id") val pregnancyId: String?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * checklist_items：清单条目（checklist 级联）。
+ * person_id 本批不写（第 3 批按宝宝用），外键照常建好。
+ */
+@Entity(
+    tableName = "checklist_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = ChecklistEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["checklist_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("checklist_id"), Index("person_id")]
+)
+data class ChecklistItemEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "checklist_id") val checklistId: String,
+    @ColumnInfo(name = "group_name") val groupName: String,
+    val title: String,
+    val note: String?,
+    val checked: Boolean,
+    @ColumnInfo(name = "sort_order") val sortOrder: Int,
+    @ColumnInfo(name = "person_id") val personId: String?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/** 清单 + 其条目（一致快照查询用）。 */
+data class ChecklistWithItems(
+    @Embedded val checklist: ChecklistEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "checklist_id"
+    )
+    val items: List<ChecklistItemEntity>
+)

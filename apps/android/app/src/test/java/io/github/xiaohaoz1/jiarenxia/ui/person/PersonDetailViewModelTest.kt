@@ -88,6 +88,11 @@ class PersonDetailViewModelTest : RepoTestBase() {
                 db,
                 object : IdGenerator { override fun newId() = "g-" + (++seq) },
                 object : TimeSource { override fun now() = now }
+            ),
+            io.github.xiaohaoz1.jiarenxia.data.ChecklistRepositoryImpl(
+                db,
+                object : IdGenerator { override fun newId() = "c-" + (++seq) },
+                object : TimeSource { override fun now() = now }
             )
         ).also(viewModels::add)
     }

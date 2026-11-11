@@ -139,6 +139,8 @@ fun PersonDetailScreen(
     onAddTask: (String) -> Unit = {},
     onAddPrenatalCheckup: (String, String) -> Unit = { _, _ -> },
     onOpenTaskDetail: (String) -> Unit = {},
+    /** 打开清单页（待产包等）。 */
+    onOpenChecklist: (String) -> Unit = {},
     viewModel: PersonDetailViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -150,6 +152,13 @@ fun PersonDetailScreen(
     LaunchedEffect(st.error) { st.error?.let { snackbar.showSnackbar(it); viewModel.onErrorShown() } }
     LaunchedEffect(st.notice) { st.notice?.let { snackbar.showSnackbar(it); viewModel.onNoticeShown() } }
     LaunchedEffect(st.deleted) { if (st.deleted) onBack() }
+    // 待产包建好后跳清单页
+    LaunchedEffect(st.pendingChecklistId) {
+        st.pendingChecklistId?.let {
+            onOpenChecklist(it)
+            viewModel.onPendingChecklistHandled()
+        }
+    }
 
     PersonDetailContent(
         st = st,
@@ -165,6 +174,8 @@ fun PersonDetailScreen(
         onAddTask = onAddTask,
         onAddPrenatalCheckup = onAddPrenatalCheckup,
         onOpenTaskDetail = onOpenTaskDetail,
+        onOpenChecklist = onOpenChecklist,
+        onEnsureBirthBag = viewModel::openBirthBag,
         observePregnancyTasks = viewModel::tasksForPregnancy,
         onCreatePregnancy = viewModel::createPregnancy,
         onUpdatePregnancyDates = viewModel::updatePregnancyDates,
@@ -229,6 +240,10 @@ fun PersonDetailContent(
     /** 记下次产检：跳事项编辑页（personId + pregnancyId）。 */
     onAddPrenatalCheckup: (String, String) -> Unit = { _, _ -> },
     onOpenTaskDetail: (String) -> Unit = {},
+    /** 打开清单页（待产包等）。 */
+    onOpenChecklist: (String) -> Unit = {},
+    /** 无清单时先按模板创建待产包（成功后经 pendingChecklistId 跳转）。 */
+    onEnsureBirthBag: (String) -> Unit = {},
     /** 某次孕期关联事项（含归档/已办），供历史对话框订阅。 */
     observePregnancyTasks: (String) -> kotlinx.coroutines.flow.Flow<
         List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>> =
@@ -546,6 +561,12 @@ fun PersonDetailContent(
                         onOpenTask = onOpenTaskDetail,
                         onAddCheckup = {
                             onAddPrenatalCheckup(person.id, preg.id)
+                        },
+                        birthBag = st.birthBagByPregnancy[preg.id],
+                        onOpenBirthBag = {
+                            val bag = st.birthBagByPregnancy[preg.id]
+                            if (bag != null) onOpenChecklist(bag.checklist.id)
+                            else onEnsureBirthBag(preg.id)
                         }
                     )
                     Spacer(Modifier.height(12.dp))
@@ -1345,6 +1366,11 @@ fun PersonDetailContent(
             pregnancy = p,
             tasks = histTasks,
             today = today,
+            birthBag = st.birthBagByPregnancy[p.id],
+            onOpenBirthBag = { bag ->
+                historyPregnancyFor = null
+                onOpenChecklist(bag.checklist.id)
+            },
             onDelete = {
                 deletePregnancyFor = p
                 historyPregnancyFor = null

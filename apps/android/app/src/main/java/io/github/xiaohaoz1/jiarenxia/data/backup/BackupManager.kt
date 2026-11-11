@@ -57,7 +57,7 @@ class BackupManager @Inject constructor(
             }
             val (persons2, phones, rels, dates, prefs, offsets, titles, tasks, taskOffsets,
                 contactLogs, contactPlans, personFacts, homeVisits,
-                pregnancies, pregnancyBabies) = persons
+                pregnancies, pregnancyBabies, checklists, checklistItems) = persons
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -80,6 +80,9 @@ class BackupManager @Inject constructor(
                 homeVisits = homeVisits,
                 pregnancies = pregnancies.map { p ->
                     p to pregnancyBabies.filter { it.pregnancyId == p.id }
+                },
+                checklists = checklists.map { cl ->
+                    cl to checklistItems.filter { it.checklistId == cl.id }
                 },
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
@@ -143,7 +146,7 @@ class BackupManager @Inject constructor(
         }
         val snap = db.withTransaction { snapshotTables() }
         val (allPersons, allPhones, allRels, allDates, allPrefs, allOffsets, _,
-            _, _, _, _, _, _, _, _) = snap
+            _, _, _, _, _, _, _, _, _, _) = snap
         val keep = personIds
             ?: allPersons.mapTo(HashSet()) { it.id }
         val persons = allPersons.filter { it.id in keep }
@@ -221,7 +224,9 @@ class BackupManager @Inject constructor(
             }
         },
         pregnancies = db.pregnancyDao().getAll(),
-        pregnancyBabies = db.pregnancyBabyDao().getAll()
+        pregnancyBabies = db.pregnancyBabyDao().getAll(),
+        checklists = db.checklistDao().getAll(),
+        checklistItems = db.checklistItemDao().getAll()
     )
 
     // ---------- 检查 ----------
@@ -435,6 +440,11 @@ class BackupManager @Inject constructor(
                 db.pregnancyDao().insertAll(listOf(preg))
                 if (babies.isNotEmpty()) db.pregnancyBabyDao().insertAll(babies)
             }
+            // 清单依赖 persons + pregnancies（person_id / pregnancy_id 外键）
+            plan.checklists.forEach { (cl, items) ->
+                db.checklistDao().insertAll(listOf(cl))
+                if (items.isNotEmpty()) db.checklistItemDao().insertAll(items)
+            }
         }
         plan.tasks.forEach { (task, offsets) ->
             db.familyTaskDao().insertAll(listOf(task))
@@ -482,7 +492,7 @@ class BackupManager @Inject constructor(
         personIds: Set<String>? = null
     ): ByteArray = withContext(Dispatchers.IO) {
         val snap = db.withTransaction { snapshotTables() }
-        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _, _, _) = snap
+        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _, _, _, _, _) = snap
         val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id }
         require(allPersons.firstOrNull { it.isSelf }?.id in keep) {
             "碰一碰资料包必须包含“我”"
@@ -689,6 +699,10 @@ class BackupManager @Inject constructor(
         val pregnancies: List<io.github.xiaohaoz1.jiarenxia.data.db
             .PregnancyEntity>,
         val pregnancyBabies: List<io.github.xiaohaoz1.jiarenxia.data.db
-            .PregnancyBabyEntity>
+            .PregnancyBabyEntity>,
+        val checklists: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .ChecklistEntity>,
+        val checklistItems: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .ChecklistItemEntity>
     )
 }

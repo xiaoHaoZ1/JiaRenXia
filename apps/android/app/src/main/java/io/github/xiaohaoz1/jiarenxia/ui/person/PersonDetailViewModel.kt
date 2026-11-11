@@ -49,6 +49,9 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
     @Suppress("UNCHECKED_CAST")
     val pregnancies get() = values[7] as List<io.github.xiaohaoz1.jiarenxia
         .core.model.Pregnancy>
+    @Suppress("UNCHECKED_CAST")
+    val checklists get() = values[8] as List<io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress>
 }
 
 data class PersonDetailUiState(
@@ -75,6 +78,11 @@ data class PersonDetailUiState(
     /** 这个人的孕期记录（ACTIVE 在前）。 */
     val pregnancies: List<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy> =
         emptyList(),
+    /** 各孕期的待产包进度（pregnancyId → ChecklistProgress；无清单不在表内）。 */
+    val birthBagByPregnancy: Map<String, io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress> = emptyMap(),
+    /** 待产包按模板建好后的待跳转清单 id（页面消费后清空）。 */
+    val pendingChecklistId: String? = null,
     /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
     val canRecordPregnancy: Boolean = false,
     /** 女性在世且无 ACTIVE 孕期（不限关系）→ ⋮ 菜单“记录孕期”（菜单本身只对非“我”显示）。 */
@@ -116,7 +124,9 @@ class PersonDetailViewModel @Inject constructor(
     val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
     private val factRepository: io.github.xiaohaoz1.jiarenxia.data.PersonFactRepository,
     private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
-        .PregnancyRepository
+        .PregnancyRepository,
+    private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -134,7 +144,8 @@ class PersonDetailViewModel @Inject constructor(
                 contactRepository.observePlans(),
                 contactRepository.observeLogs(personId),
                 factRepository.observeForPerson(personId),
-                pregnancyRepository.observeForPerson(personId)
+                pregnancyRepository.observeForPerson(personId),
+                checklistRepository.observeAll()
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -184,6 +195,13 @@ class PersonDetailViewModel @Inject constructor(
                             contactLogs = comb.contactLogs,
                             facts = comb.facts,
                             pregnancies = comb.pregnancies,
+                            birthBagByPregnancy = comb.checklists
+                                .filter {
+                                    it.checklist.kind == io.github.xiaohaoz1
+                                        .jiarenxia.core.model.ChecklistKind.BIRTH_BAG &&
+                                        it.checklist.pregnancyId != null
+                                }
+                                .associateBy { it.checklist.pregnancyId!! },
                             canRecordPregnancy = run {
                                 val p = detail?.person ?: return@run false
                                 if (p.gender != io.github.xiaohaoz1.jiarenxia
@@ -297,6 +315,27 @@ class PersonDetailViewModel @Inject constructor(
     /** 某次孕期关联的全部事项（含归档与已办），供历史对话框订阅。 */
     fun tasksForPregnancy(pregnancyId: String) =
         taskRepository.observeTasksForPregnancy(pregnancyId)
+
+    /**
+     * 孕期卡“待产包”入口：按模板建清单（幂等，已有直接返回），
+     * 成功后把清单 id 放进 pendingChecklistId 由页面跳转；失败走 error。
+     */
+    fun openBirthBag(pregnancyId: String) {
+        viewModelScope.launch {
+            val r = checklistRepository.createFromTemplate(
+                io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.BIRTH_BAG,
+                pregnancyId
+            )
+            when (r) {
+                is FamilyResult.Success -> _ui.update {
+                    it.copy(pendingChecklistId = r.value)
+                }
+                is FamilyResult.Failure -> _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    fun onPendingChecklistHandled() = _ui.update { it.copy(pendingChecklistId = null) }
 
     fun setSiblingOrder(relId: String, subjectId: String, order: RelativeAgeOrder?) {
         viewModelScope.launch {

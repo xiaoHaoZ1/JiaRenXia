@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask
 import io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy
 import io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
+import io.github.xiaohaoz1.jiarenxia.data.ChecklistProgress
 import io.github.xiaohaoz1.jiarenxia.domain.pregnancy.PregnancyMath
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
 import io.github.xiaohaoz1.jiarenxia.ui.common.JrxDatePickerDialog
@@ -61,6 +63,8 @@ internal fun cnFullDate(d: LocalDate): String = d.format(CN_FULL_DATE)
  * 下次产检与“记下次产检”入口；右上角菜单：改预产期 / 结束 / 删除。
  *
  * @param nextCheckup 该孕期未办未归档事项中到期日最早的一条（可为 null）
+ * @param birthBag 该孕期待产包进度（无清单为 null；点击由调用方决定
+ *   直接进清单页还是先按模板创建）
  */
 @Composable
 fun PregnancyCard(
@@ -71,7 +75,9 @@ fun PregnancyCard(
     onEnd: () -> Unit,
     onDelete: () -> Unit,
     onOpenTask: (String) -> Unit,
-    onAddCheckup: () -> Unit
+    onAddCheckup: () -> Unit,
+    birthBag: ChecklistProgress? = null,
+    onOpenBirthBag: () -> Unit = {}
 ) {
     JrxCard(Modifier.fillMaxWidth()) {
         Row(
@@ -167,6 +173,43 @@ fun PregnancyCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 6.dp)
+            )
+        }
+        // 待产包入口（下次产检之后、「记下次产检」之前）
+        val bagText: Pair<String, androidx.compose.ui.graphics.Color> = when {
+            birthBag == null -> "还没准备" to
+                MaterialTheme.colorScheme.onSurfaceVariant
+            birthBag.totalCount == 0 -> "还没有条目" to
+                MaterialTheme.colorScheme.onSurfaceVariant
+            birthBag.checkedCount == birthBag.totalCount -> "都备齐了" to
+                MaterialTheme.colorScheme.primary
+            else -> "已备 " + birthBag.checkedCount + " / " +
+                birthBag.totalCount to MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .semantics(mergeDescendants = true) {}
+                .clickable { onOpenBirthBag() }
+                .padding(vertical = 6.dp)
+        ) {
+            Text(
+                "待产包",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                bagText.first,
+                style = MaterialTheme.typography.bodyMedium,
+                color = bagText.second
+            )
+            Spacer(Modifier.width(6.dp))
+            Icon(
+                Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp)
             )
         }
         TextButton(onClick = onAddCheckup) { Text("记下次产检") }
@@ -447,6 +490,7 @@ fun PregnancyDeleteDialog(
  * 预产期 / 末次月经 / 结束信息 + 该孕期全部产检事项（含已办与已归档）。
  *
  * @param tasks 由调用方订阅 observeTasksForPregnancy 得到
+ * @param birthBag 该孕期待产包进度（有清单才显示「待产包」小节）
  */
 @Composable
 fun PregnancyHistoryDialog(
@@ -454,7 +498,9 @@ fun PregnancyHistoryDialog(
     tasks: List<FamilyTask>,
     today: LocalDate,
     onDelete: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    birthBag: ChecklistProgress? = null,
+    onOpenBirthBag: (ChecklistProgress) -> Unit = {}
 ) {
     var showDelete by remember { mutableStateOf(false) }
     AlertDialog(
@@ -507,6 +553,20 @@ fun PregnancyHistoryDialog(
                         Text(
                             t.title + " · " + mdDate(due) + " · " + state,
                             style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+                // 待产包小节（有清单才显示；点击关闭对话框跳清单页）
+                birthBag?.let { bag ->
+                    Spacer(Modifier.height(8.dp))
+                    Text("待产包", style = MaterialTheme.typography.titleSmall)
+                    TextButton(onClick = {
+                        onDismiss()
+                        onOpenBirthBag(bag)
+                    }) {
+                        Text(
+                            "查看待产包（已备 " + bag.checkedCount +
+                                " / " + bag.totalCount + "）"
                         )
                     }
                 }

@@ -47,4 +47,8 @@ sealed class FamilyError(val message: String) {
     data object PregnancyAlreadyActive : FamilyError("这位家人已经有进行中的孕期记录")
     data object PregnancyInvalidDate : FamilyError("日期不在允许范围内")
     data object PregnancyPersonIneligible : FamilyError("只有在世的女性家人才能记录孕期")
+    data object ChecklistNotFound : FamilyError("清单不存在")
+    data object ChecklistItemNotFound : FamilyError("清单条目不存在")
+    data object InvalidChecklistTitle : FamilyError("名称需要 1–30 个字")
+    data object ChecklistGroupInvalid : FamilyError("分组不正确")
 }

@@ -350,3 +350,52 @@ interface PregnancyBabyDao {
     suspend fun deleteForPregnancy(pregnancyId: String)
     @Query("DELETE FROM pregnancy_babies") suspend fun deleteAll()
 }
+
+/** checklists DAO：清单（待产包等）。 */
+@Dao
+interface ChecklistDao {
+    @Upsert suspend fun upsert(entity: ChecklistEntity)
+    @Insert suspend fun insertAll(entities: List<ChecklistEntity>)
+    @Query("SELECT * FROM checklists WHERE id = :id")
+    suspend fun get(id: String): ChecklistEntity?
+    @Query("SELECT * FROM checklists WHERE id = :id")
+    fun observe(id: String): Flow<ChecklistEntity?>
+    /** 该孕期某类清单（至多一张；createFromTemplate 幂等判断用）。 */
+    @Query("SELECT * FROM checklists WHERE pregnancy_id = :pregnancyId AND kind = :kind")
+    suspend fun getForPregnancy(pregnancyId: String, kind: String): ChecklistEntity?
+    @Query("SELECT * FROM checklists WHERE pregnancy_id = :pregnancyId AND kind = :kind")
+    fun observeForPregnancy(pregnancyId: String, kind: String): Flow<ChecklistEntity?>
+    /** 36 周提醒用：该孕期的清单（任意 kind）。 */
+    @Query("SELECT * FROM checklists WHERE pregnancy_id = :pregnancyId")
+    suspend fun getAllForPregnancy(pregnancyId: String): List<ChecklistEntity>
+    /** 删除孕期时显式删 BIRTH_BAG 清单（其他 kind 靠 SET NULL 保留）。 */
+    @Query("DELETE FROM checklists WHERE pregnancy_id = :pregnancyId AND kind = 'BIRTH_BAG'")
+    suspend fun deleteBirthBagsForPregnancy(pregnancyId: String)
+    @Query("SELECT * FROM checklists") suspend fun getAll(): List<ChecklistEntity>
+    @Query("SELECT * FROM checklists") fun observeAll(): Flow<List<ChecklistEntity>>
+    @Query("DELETE FROM checklists WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM checklists") suspend fun deleteAll()
+}
+
+/** checklist_items DAO：清单条目（checklist / person 两端级联）。 */
+@Dao
+interface ChecklistItemDao {
+    @Upsert suspend fun upsert(entity: ChecklistItemEntity)
+    @Insert suspend fun insertAll(entities: List<ChecklistItemEntity>)
+    @Query("SELECT * FROM checklist_items WHERE id = :id")
+    suspend fun get(id: String): ChecklistItemEntity?
+    @Query("SELECT * FROM checklist_items WHERE checklist_id = :checklistId")
+    suspend fun getForChecklist(checklistId: String): List<ChecklistItemEntity>
+    /** 组内末尾追加：取该组最大 sort_order。 */
+    @Query(
+        "SELECT COALESCE(MAX(sort_order), -1) FROM checklist_items " +
+            "WHERE checklist_id = :checklistId AND group_name = :groupName"
+    )
+    suspend fun maxSortOrder(checklistId: String, groupName: String): Int
+    @Query("SELECT * FROM checklist_items") suspend fun getAll(): List<ChecklistItemEntity>
+    @Query("SELECT * FROM checklist_items") fun observeAll(): Flow<List<ChecklistItemEntity>>
+    @Query("DELETE FROM checklist_items WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM checklist_items WHERE checklist_id = :checklistId")
+    suspend fun deleteForChecklist(checklistId: String)
+    @Query("DELETE FROM checklist_items") suspend fun deleteAll()
+}

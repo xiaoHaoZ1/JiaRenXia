@@ -99,6 +99,10 @@ object Routes {
     const val TASK_EDIT =
         "task/edit?taskId={taskId}&kind={kind}&personId={personId}&shared={shared}&pregnancyId={pregnancyId}"
 
+    /** 清单页（待产包等，FAMILY_AFFAIRS 26）。 */
+    const val CHECKLIST = "checklist/{checklistId}"
+    fun checklist(id: String) = "checklist/" + id
+
     /** 事项编辑页：taskId 空 = 新建；kind/personId/shared/pregnancyId 为新建预填参数。 */
         fun shareImport(uri: String?): String =
         if (uri == null) "share/import" else "share/import?uri=" + uri
@@ -420,7 +424,17 @@ fun AppNavHost(
                         Routes.taskEdit(personId = personId, pregnancyId = pregnancyId)
                     )
                 },
-                onOpenTaskDetail = { navController.navigate(Routes.taskEdit(taskId = it)) }
+                onOpenTaskDetail = { navController.navigate(Routes.taskEdit(taskId = it)) },
+                onOpenChecklist = { navController.navigate(Routes.checklist(it)) }
+            )
+        }
+
+        composable(
+            Routes.CHECKLIST,
+            arguments = listOf(navArgument("checklistId") { type = NavType.StringType })
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistScreen(
+                onDone = { navController.popBackStack() }
             )
         }
 

@@ -3422,4 +3422,259 @@ class ScreenShotsTest {
         }
     }
 
+    // ---------- 清单 / 待产包截图（FAMILY_AFFAIRS 26 第 2 批）----------
+
+    /** 由模板生成演示待产包：checked 下标的条目置已勾；dropTitles 删除指定条目。 */
+    private fun demoBirthBag(
+        checked: Set<Int> = emptySet(),
+        dropTitles: Set<String> = emptySet()
+    ): io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel {
+        var i = 0
+        val items = io.github.xiaohaoz1.jiarenxia.domain.checklist
+            .ChecklistTemplates.BIRTH_BAG_ITEMS
+            .filter { it.title !in dropTitles }
+            .map { t ->
+                val idx = i++
+                io.github.xiaohaoz1.jiarenxia.core.model.ChecklistItem(
+                    id = "ci-" + idx, checklistId = "cl-demo",
+                    groupName = t.groupName, title = t.title, note = t.note,
+                    checked = idx in checked, sortOrder = idx,
+                    personId = "wife", createdAt = 1, updatedAt = 1
+                )
+            }
+        return io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel(
+            checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+                id = "cl-demo",
+                kind = io.github.xiaohaoz1.jiarenxia.core.model
+                    .ChecklistKind.BIRTH_BAG,
+                title = "待产包", personId = "wife",
+                pregnancyId = "pg-demo", createdAt = 1, updatedAt = 1
+            ),
+            items = items
+        )
+    }
+
+    private fun checklistState(
+        model: io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel
+    ) = io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistUiState(
+        loading = false, model = model
+    )
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistBirthBag() {
+        // 前 12 条已勾（跨三个组、含多条 note 行），进度“已备 12 / 28”
+        shot("checklist_birth_bag") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(demoBirthBag(checked = (0..11).toSet())),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("待产包", "已备 12 / 28", "证件资料", "妈妈用品",
+                "宝宝用品", "查看出处", "母子健康手册", "各地名称可能不同")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistBirthBagDone() {
+        shot("checklist_birth_bag_done") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(
+                    demoBirthBag(checked = (0..27).toSet())),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("待产包", "都备齐了")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistEmptyGroup() {
+        // 「证件资料」整组删空：卡内只剩“这一组还没有东西”+“添加”
+        shot("checklist_empty_group") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(
+                    demoBirthBag(dropTitles = setOf(
+                        "夫妻双方身份证", "医保卡", "母子健康手册",
+                        "产科病历和孕期检查资料", "住院押金"))),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("证件资料", "这一组还没有东西", "妈妈用品", "宝宝用品")
+        }
+    }
+
+    @Test
+    fun checklistAddDialog() {
+        // AlertDialog 弹层 + 输入框在 Robolectric 下无法进入 idle
+        // （同 blessingDialogShot 的做法）：渲染同款卡片内容。
+        shot("checklist_add_dialog") {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape
+                        .RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text(
+                            "添加到「证件资料」",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        // 初始空输入：保存禁用（与真对话框初始态一致）
+                        androidx.compose.material3.OutlinedTextField(
+                            value = "",
+                            onValueChange = {},
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(enabled = false, onClick = {}) {
+                                Text("保存")
+                            }
+                        }
+                    }
+                }
+            }
+        }.also {
+            assertTexts("添加到「证件资料」", "保存", "取消")
+        }
+    }
+
+    @Test
+    fun checklistDeleteDialog() {
+        shot("checklist_delete_dialog") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistDeleteDialog(
+                title = "待产包",
+                onConfirm = {}, onDismiss = {}
+            )
+        }.also {
+            assertTexts("删除待产包清单？", "删除", "取消")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistBirthBagLg() {
+        shotLarge("checklist_birth_bag") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(demoBirthBag(checked = (0..11).toSet())),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }
+    }
+
+    private fun demoBagProgress(
+        checked: Int, total: Int = 28
+    ) = io.github.xiaohaoz1.jiarenxia.data.ChecklistProgress(
+        checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+            id = "cl-demo",
+            kind = io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
+                .BIRTH_BAG,
+            title = "待产包", personId = "wife", pregnancyId = "pg-demo",
+            createdAt = 1, updatedAt = 1
+        ),
+        checkedCount = checked, totalCount = total
+    )
+
+    @Test
+    fun pregnancyCardBagNone() {
+        // 还没有清单：值“还没准备”
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_bag_none") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {},
+                    birthBag = null
+                )
+            }
+        }.also {
+            assertTexts("待产包", "还没准备")
+        }
+    }
+
+    @Test
+    fun pregnancyCardBagProgress() {
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_bag_progress") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {},
+                    birthBag = demoBagProgress(12)
+                )
+            }
+        }.also {
+            assertTexts("待产包", "已备 12 / 28")
+        }
+    }
+
+    @Test
+    fun pregnancyCardBagDone() {
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_bag_done") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {},
+                    birthBag = demoBagProgress(28)
+                )
+            }
+        }.also {
+            assertTexts("待产包", "都备齐了")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryDialogBag() {
+        // 历史详情：产检小节后出现「待产包」入口
+        val ended = demoPregnancy(
+            Demo.today.minusDays(200), lmp = Demo.today.minusDays(480),
+            status = io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
+                .ENDED,
+            endedOn = Demo.today.minusDays(30))
+        shot("pregnancy_history_dialog_bag") {
+            PregnancyHistoryDialog(
+                pregnancy = ended,
+                tasks = listOf(
+                    prenatalTask("h1", Demo.today.minusDays(60), done = true)
+                ),
+                today = Demo.today,
+                birthBag = demoBagProgress(12),
+                onDelete = {}, onDismiss = {}
+            )
+        }.also {
+            assertTexts("孕期记录", "产检", "待产包",
+                "查看待产包（已备 12 / 28）")
+        }
+    }
+
 }
