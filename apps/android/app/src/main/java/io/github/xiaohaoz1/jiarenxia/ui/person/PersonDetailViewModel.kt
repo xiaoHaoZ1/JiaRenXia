@@ -124,6 +124,9 @@ data class PersonDetailUiState(
     val parentCompletion: io.github.xiaohaoz1.jiarenxia.data.CommonChildrenAsk? = null,
     /** 年龄文案：“62 岁”/“享年 81 岁”/“享年约 81 岁”。 */
     val ageText: String? = null,
+    /** 「问一问」称呼与年龄（孕期卡/新生宝宝卡入口用；无总览为 null）。 */
+    val askPerson: io.github.xiaohaoz1.jiarenxia.domain.ask.AskText.PersonAsk? =
+        null,
     val error: String? = null,
     val deleted: Boolean = false
 ) {
@@ -327,6 +330,13 @@ class PersonDetailViewModel @Inject constructor(
                                                 it.person.id == personId
                                         }?.date, java.time.LocalDate.now(),
                                         lunar)
+                            },
+                            // 「问一问」称呼与年龄：我视角 displayTitle + AgeMath.ageAt
+                            askPerson = overview?.byId?.get(personId)?.let { o ->
+                                io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+                                    .personAsk(
+                                        o, o.birthdays,
+                                        java.time.LocalDate.now(), lunar)
                             }
                         )
                     }

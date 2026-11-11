@@ -10,6 +10,9 @@ import io.github.xiaohaoz1.jiarenxia.core.model.Medication
 import io.github.xiaohaoz1.jiarenxia.data.FamilyResult
 import io.github.xiaohaoz1.jiarenxia.data.MedicationDraft
 import io.github.xiaohaoz1.jiarenxia.data.MedicationRepository
+import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
 import io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
 import java.time.LocalDate
 import javax.inject.Inject
@@ -57,7 +60,9 @@ data class MedEditUiState(
     val saving: Boolean = false,
     val error: String? = null,
     val saved: Boolean = false,
-    val deleted: Boolean = false
+    val deleted: Boolean = false,
+    /** 「问一问」称呼与年龄（总览算好；无总览为 null，界面用保守回退）。 */
+    val askPerson: AskText.PersonAsk? = null
 ) {
     /** 保存按钮可点：药名非空、选了怎么吃；短期时天数合法或勾了待确认。 */
     val canSave: Boolean
@@ -78,7 +83,9 @@ data class MedEditUiState(
 @HiltViewModel
 class MedEditViewModel @Inject constructor(
     savedState: SavedStateHandle,
-    private val medicationRepository: MedicationRepository
+    private val medicationRepository: MedicationRepository,
+    observeOverview: ObserveFamilyOverview,
+    private val lunar: LunarCalendar
 ) : ViewModel() {
 
     private val _ui = MutableStateFlow(MedEditUiState())
@@ -97,6 +104,7 @@ class MedEditViewModel @Inject constructor(
                         personId = personId,
                         existing = med,
                         loaded = true,
+                        askPerson = _ui.value.askPerson,
                         name = med.name,
                         purpose = med.purpose ?: "",
                         dose = med.dose ?: "",
@@ -118,6 +126,18 @@ class MedEditViewModel @Inject constructor(
             }
         } else {
             _ui.value = _ui.value.copy(loaded = true)
+        }
+        // 「问一问」称呼与年龄：我视角 displayTitle + AgeMath.ageAt（只读已记录字段）
+        viewModelScope.launch {
+            observeOverview().collect { ov ->
+                val o = ov?.byId?.get(personId)
+                _ui.value = _ui.value.copy(
+                    askPerson = o?.let {
+                        AskText.personAsk(
+                            it, it.birthdays, LocalDate.now(), lunar)
+                    }
+                )
+            }
         }
     }
 

@@ -4777,4 +4777,133 @@ class ScreenShotsTest {
         }
     }
 
+    // ---------- 「问一问」截图（FAMILY_AFFAIRS §25 方案 C） ----------
+
+    /**
+     * 「问一问」对话框截图：AlertDialog 弹层无法被截图，渲染同款卡片内容
+     * （同 blessingDialogShot 的做法）：标题 + [AskDialogBody] + 按钮行。
+     */
+    private fun askDialogShot(
+        name: String,
+        text: String,
+        large: Boolean = false
+    ) {
+        val content: @Composable () -> Unit = {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        io.github.xiaohaoz1.jiarenxia.ui.designsystem
+                            .DialogTitle("问一问")
+                        Spacer(Modifier.height(16.dp))
+                        io.github.xiaohaoz1.jiarenxia.ui.common.AskDialogBody(
+                            text = text, onTextChange = {})
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("复制") }
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(onClick = {}) { Text("分享…") }
+                        }
+                    }
+                }
+            }
+        }
+        if (large) shotLarge(name, content = content)
+        else shot(name, content = content)
+        assertTexts("问一问", "问题", "拼好的问题可以发给 AI 应用",
+            "分享…", "复制", "取消")
+    }
+
+    /** 用药「问一问」示例文本：短期 + 疗程待确认（规格例句）。 */
+    private fun askMedText(): String {
+        val med = io.github.xiaohaoz1.jiarenxia.core.model.Medication(
+            id = "m-ask", personId = "dad",
+            name = "头孢克肟分散片", dose = "1 片", spec = null,
+            meal = null,
+            usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                .SHORT_COURSE,
+            courseDays = null,
+            startEpochDay = LocalDate.of(2026, 10, 20).toEpochDay(),
+            purpose = "支气管炎", note = null, refillEpochDay = null,
+            stoppedEpochDay = null, times = emptyList(),
+            createdAt = 0L, updatedAt = 0L
+        )
+        return io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+            .forMedication("我父亲", "70 多岁", med, Demo.today)
+    }
+
+    @Test
+    fun askDialogMed() {
+        askDialogShot("ask_dialog_med", askMedText()).also {
+            assertTexts("我父亲，70 多岁", "记录的药是头孢克肟分散片",
+                "疗程还没问清楚", "这个药一般吃多久？能不能长期吃？")
+        }
+    }
+
+    @Test
+    fun askDialogPregnancy() {
+        // 与 pregnancyCard 同一孕周：预产期 = 今天 + 53 天 → 32 周
+        val due = Demo.today.plusDays(53)
+        askDialogShot(
+            "ask_dialog_pregnancy",
+            io.github.xiaohaoz1.jiarenxia.domain.ask.AskText.forPregnancy(
+                "我妻子", due, Demo.today)
+        ).also {
+            assertTexts("我妻子怀孕 32 周。这个阶段要注意什么？")
+        }
+    }
+
+    @Test
+    fun askDialogNewborn() {
+        // 出生第 19 天（出生当天算第 1 天；与 newborn_card 同一出生日）
+        askDialogShot(
+            "ask_dialog_newborn",
+            io.github.xiaohaoz1.jiarenxia.domain.ask.AskText.forNewborn(
+                Demo.today.minusDays(18), Demo.today)
+        ).also {
+            assertTexts("我家宝宝出生 19 天。",
+                "妈妈坐月子要注意什么？")
+        }
+    }
+
+    @Test
+    fun askDialogMedLg() {
+        askDialogShot("ask_dialog_med", askMedText(), large = true).also {
+            assertTexts("我父亲，70 多岁", "疗程还没问清楚")
+        }
+    }
+
+    @Test
+    fun pregnancyCardMenu() {
+        // 孕期卡 ⋮ 菜单展开：「问一问」在首位（真实 DropdownMenu）
+        val due = Demo.today.plusDays(53)
+        setShotContent {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null,
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("孕期操作")
+            .performClick()
+        composeRule.waitForIdle()
+        capture("pregnancy_card_menu")
+        assertTexts("问一问", "改预产期", "结束这条孕期记录", "删除这条记录")
+    }
+
 }

@@ -1,5 +1,6 @@
 package io.github.xiaohaoz1.jiarenxia.ui.med
 
+import android.content.Intent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -49,16 +50,22 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.core.model.MedMeal
 import io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+import io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
 import io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+import io.github.xiaohaoz1.jiarenxia.ui.common.AskDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.FormActionBar
 import io.github.xiaohaoz1.jiarenxia.ui.common.JrxDatePickerDialog
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
@@ -66,6 +73,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.person.cnFullDate
 import io.github.xiaohaoz1.jiarenxia.ui.person.mdDate
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 /** 编辑页回调集合（截图测试可传全空）。 */
 data class MedEditCallbacks(
@@ -167,6 +175,11 @@ fun MedEditContent(
     var timeDialog by remember { mutableStateOf(false) }
     var deleteConfirm by remember { mutableStateOf(false) }
     var menuOpen by remember { mutableStateOf(false) }
+    // 「问一问」对话框：非空时展示，值为预填问题（AskText 拼好，可再改）
+    var askQuestion by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     // 「拿药时问清楚」：新建默认展开，编辑默认收起
     var askOpen by remember(st.medId) { mutableStateOf(st.medId == null) }
 
@@ -200,6 +213,20 @@ fun MedEditContent(
                             expanded = menuOpen,
                             onDismissRequest = { menuOpen = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("问一问") },
+                                onClick = {
+                                    menuOpen = false
+                                    // 只问已保存的记录（不用表单里未保存的改动）
+                                    askQuestion = st.existing?.let { med ->
+                                        AskText.forMedication(
+                                            st.askPerson?.label
+                                                ?: AskText.label(false, null),
+                                            st.askPerson?.age,
+                                            med, today)
+                                    }
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("删除") },
                                 onClick = {
@@ -522,6 +549,26 @@ fun MedEditContent(
             dismissButton = {
                 TextButton(onClick = cb.onDismissLongTerm) { Text("再想想") }
             }
+        )
+    }
+    // 「问一问」对话框：分享走系统分享面板（不预设目标应用），复制写剪贴板
+    askQuestion?.let { initial ->
+        AskDialog(
+            initialText = initial,
+            onShare = { text ->
+                val send = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, text)
+                runCatching {
+                    context.startActivity(
+                        Intent.createChooser(send, null))
+                }
+            },
+            onCopy = { text ->
+                clipboard.setText(AnnotatedString(text))
+                scope.launch { snack.showSnackbar("已复制") }
+            },
+            onDismiss = { askQuestion = null }
         )
     }
 }

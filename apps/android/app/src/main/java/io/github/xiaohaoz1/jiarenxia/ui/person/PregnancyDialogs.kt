@@ -79,7 +79,9 @@ fun PregnancyCard(
     birthBag: ChecklistProgress? = null,
     onOpenBirthBag: () -> Unit = {},
     /** 「宝宝出生了」入口（BORN 后卡片不显示，按钮自然隐藏）。 */
-    onBirth: () -> Unit = {}
+    onBirth: () -> Unit = {},
+    /** 「问一问」入口（§25 方案 C）：菜单首项。 */
+    onAsk: () -> Unit = {}
 ) {
     JrxCard(Modifier.fillMaxWidth()) {
         Row(
@@ -100,6 +102,10 @@ fun PregnancyCard(
                     expanded = menuOpen,
                     onDismissRequest = { menuOpen = false }
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("问一问") },
+                        onClick = { menuOpen = false; onAsk() }
+                    )
                     DropdownMenuItem(
                         text = { Text("改预产期") },
                         onClick = { menuOpen = false; onEditDates() }

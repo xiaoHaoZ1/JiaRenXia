@@ -70,6 +70,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,7 +81,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -94,6 +97,8 @@ import io.github.xiaohaoz1.jiarenxia.core.model.PhoneStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
 import io.github.xiaohaoz1.jiarenxia.core.model.RelativeAgeOrder
 import io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat
+import io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+import io.github.xiaohaoz1.jiarenxia.ui.common.AskDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.CommonChildrenDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.ConfirmDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.PostCallPromptEffect
@@ -101,6 +106,7 @@ import io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarFormat
 import io.github.xiaohaoz1.jiarenxia.ui.common.rememberNotificationPermissionRequester
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
+import kotlinx.coroutines.launch
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DateTile
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
@@ -342,6 +348,8 @@ fun PersonDetailContent(
     onRemoveRelation: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     val permissionRequester = rememberNotificationPermissionRequester()
     var showPhoneSheet by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
@@ -361,6 +369,11 @@ fun PersonDetailContent(
     var historyPregnancyFor by remember {
         mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
     }
+    // 「问一问」对话框：非空时展示，值为预填问题（AskText 拼好，可再改）
+    var askQuestion by remember { mutableStateOf<String?>(null) }
+    // 「问一问」称呼：总览缺失时的保守回退（本人→“我”，否则“我的一位家人”）
+    val askLabel = st.askPerson?.label
+        ?: AskText.label(st.detail?.person?.isSelf == true, null)
 
     val dial = onDial
 
@@ -588,7 +601,10 @@ fun PersonDetailContent(
                         card = card,
                         today = today,
                         onSetCelebration = onSetCelebration,
-                        onOpenChecklist = onOpenChecklist
+                        onOpenChecklist = onOpenChecklist,
+                        onAsk = {
+                            askQuestion = AskText.forNewborn(card.birthDate, today)
+                        }
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -621,7 +637,11 @@ fun PersonDetailContent(
                             if (bag != null) onOpenChecklist(bag.checklist.id)
                             else onEnsureBirthBag(preg.id)
                         },
-                        onBirth = { onOpenBirth(preg.id, false) }
+                        onBirth = { onOpenBirth(preg.id, false) },
+                        onAsk = {
+                            askQuestion = AskText.forPregnancy(
+                                askLabel, preg.dueDate, today)
+                        }
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -1459,6 +1479,27 @@ fun PersonDetailContent(
                 historyPregnancyFor = null
             },
             onDismiss = { historyPregnancyFor = null }
+        )
+    }
+
+    // 「问一问」对话框：分享走系统分享面板（不预设目标应用），复制写剪贴板
+    askQuestion?.let { initial ->
+        AskDialog(
+            initialText = initial,
+            onShare = { text ->
+                val send = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, text)
+                runCatching {
+                    context.startActivity(
+                        Intent.createChooser(send, null))
+                }
+            },
+            onCopy = { text ->
+                clipboard.setText(AnnotatedString(text))
+                scope.launch { snackbar.showSnackbar("已复制") }
+            },
+            onDismiss = { askQuestion = null }
         )
     }
 }

@@ -40,11 +40,20 @@ fun NewbornCard(
     card: NewbornCardState,
     today: LocalDate,
     onSetCelebration: (BabyCelebrationKind, LocalDate?) -> Unit,
-    onOpenChecklist: (String) -> Unit
+    onOpenChecklist: (String) -> Unit,
+    /** 「问一问」入口（§25 方案 C）：标题行右侧。 */
+    onAsk: () -> Unit = {}
 ) {
     var pickKind by remember { mutableStateOf<BabyCelebrationKind?>(null) }
     JrxCard(Modifier.fillMaxWidth()) {
-        SectionTitle("新生宝宝")
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            SectionTitle("新生宝宝")
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = onAsk) { Text("问一问") }
+        }
         CelebrationRow(
             label = "满月",
             event = card.fullMonth,
