@@ -58,6 +58,10 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
     val celebrations get() = values[10] as Map<
         io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
         java.time.LocalDate>
+    val medications get() = values[11] as List<
+        io.github.xiaohaoz1.jiarenxia.core.model.Medication>
+    val medPrefs get() = values[12] as List<
+        io.github.xiaohaoz1.jiarenxia.core.model.MedicationPersonPrefs>
 }
 
 data class PersonDetailUiState(
@@ -92,6 +96,11 @@ data class PersonDetailUiState(
         .ChecklistProgress> = emptyMap(),
     /** 新生宝宝卡（未满一岁窗口内或产后清单未办完；否则 null）。 */
     val newbornCard: NewbornCardState? = null,
+    /** 这个人的用药记录（含已停用；在世人物才有值）。 */
+    val medications: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication> =
+        emptyList(),
+    /** 「疗程到期与续药提醒」按人开关（无记录按默认开）。 */
+    val medCourseRefillEnabled: Boolean = true,
     /** 待产包按模板建好后的待跳转清单 id（页面消费后清空）。 */
     val pendingChecklistId: String? = null,
     /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
@@ -156,7 +165,9 @@ class PersonDetailViewModel @Inject constructor(
     private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
         .ChecklistRepository,
     private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
-        .BabyCelebrationRepository
+        .BabyCelebrationRepository,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -180,7 +191,9 @@ class PersonDetailViewModel @Inject constructor(
                     personId,
                     io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.POSTNATAL
                 ),
-                celebrationRepository.observeOverrides(personId)
+                celebrationRepository.observeOverrides(personId),
+                medicationRepository.observeForPerson(personId),
+                medicationRepository.observePrefs()
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -245,6 +258,10 @@ class PersonDetailViewModel @Inject constructor(
                                 }
                                 .associateBy { it.checklist.pregnancyId!! },
                             newbornCard = newbornCardOf(detail, comb),
+                            medications = comb.medications,
+                            medCourseRefillEnabled = comb.medPrefs
+                                .firstOrNull { it.personId == personId }
+                                ?.courseRefillEnabled ?: true,
                             canRecordPregnancy = run {
                                 val p = detail?.person ?: return@run false
                                 if (p.gender != io.github.xiaohaoz1.jiarenxia
@@ -302,6 +319,13 @@ class PersonDetailViewModel @Inject constructor(
     }
 
     fun onErrorShown() = _ui.update { it.copy(error = null) }
+
+    /** 「疗程到期与续药提醒」按人开关（用药卡底部）。 */
+    fun setMedCourseRefillEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            medicationRepository.setCourseRefillEnabled(personId, enabled)
+        }
+    }
 
     fun onNoticeShown() = _ui.update { it.copy(notice = null) }
 

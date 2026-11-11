@@ -429,3 +429,56 @@ interface BabyCelebrationDao {
     suspend fun delete(personId: String, kind: String)
     @Query("DELETE FROM baby_celebrations") suspend fun deleteAll()
 }
+
+/** medications DAO：用药记录（FAMILY_AFFAIRS 23）。时刻在 medication_times 表。 */
+@Dao
+interface MedicationDao {
+    @Upsert suspend fun upsert(entity: MedicationEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<MedicationEntity>)
+    @Query("SELECT * FROM medications WHERE id = :id")
+    suspend fun get(id: String): MedicationEntity?
+    @Query("SELECT * FROM medications WHERE person_id = :personId ORDER BY created_at DESC")
+    fun observeForPerson(personId: String): Flow<List<MedicationEntity>>
+    @Query("SELECT * FROM medications WHERE person_id = :personId ORDER BY created_at DESC")
+    suspend fun getForPerson(personId: String): List<MedicationEntity>
+    @Query("SELECT * FROM medications") fun observeAll(): Flow<List<MedicationEntity>>
+    @Query("SELECT * FROM medications") suspend fun getAll(): List<MedicationEntity>
+    @Query("UPDATE medications SET stopped_epoch_day = :stoppedDay, updated_at = :now WHERE id = :id")
+    suspend fun markStopped(id: String, stoppedDay: Long, now: Long): Int
+    @Query("UPDATE medications SET stopped_epoch_day = NULL, updated_at = :now WHERE id = :id")
+    suspend fun clearStopped(id: String, now: Long): Int
+    @Query("DELETE FROM medications WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM medications") suspend fun deleteAll()
+}
+
+/** medication_times DAO：每药每天服用时刻（主键 medication_id+minute_of_day）。 */
+@Dao
+interface MedicationTimeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<MedicationTimeEntity>)
+    @Query("SELECT * FROM medication_times WHERE medication_id = :medicationId ORDER BY minute_of_day")
+    suspend fun getForMedication(medicationId: String): List<MedicationTimeEntity>
+    @Query("SELECT * FROM medication_times WHERE medication_id = :medicationId ORDER BY minute_of_day")
+    fun observeForMedication(medicationId: String): Flow<List<MedicationTimeEntity>>
+    @Query("SELECT * FROM medication_times") suspend fun getAll(): List<MedicationTimeEntity>
+    @Query("SELECT * FROM medication_times") fun observeAll(): Flow<List<MedicationTimeEntity>>
+    @Query("DELETE FROM medication_times WHERE medication_id = :medicationId")
+    suspend fun deleteForMedication(medicationId: String)
+    @Query("DELETE FROM medication_times") suspend fun deleteAll()
+}
+
+/** medication_person_prefs DAO：用药区按人开关（每人一行）。 */
+@Dao
+interface MedicationPersonPrefsDao {
+    @Upsert suspend fun upsert(entity: MedicationPersonPrefsEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<MedicationPersonPrefsEntity>)
+    @Query("SELECT * FROM medication_person_prefs WHERE person_id = :personId")
+    suspend fun get(personId: String): MedicationPersonPrefsEntity?
+    @Query("SELECT * FROM medication_person_prefs WHERE person_id = :personId")
+    fun observeForPerson(personId: String): Flow<MedicationPersonPrefsEntity?>
+    @Query("SELECT * FROM medication_person_prefs") fun observeAll(): Flow<List<MedicationPersonPrefsEntity>>
+    @Query("SELECT * FROM medication_person_prefs") suspend fun getAll(): List<MedicationPersonPrefsEntity>
+    @Query("DELETE FROM medication_person_prefs") suspend fun deleteAll()
+}

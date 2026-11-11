@@ -71,6 +71,10 @@ data class BackupSettings(
     val tombIncludedPersonIds: Set<String>? = null,
     /** 回家看看·节前提醒开关（可选；缺失 → 保留当前设置）。 */
     val homeVisitHolidayNudge: Boolean? = null,
+    /** 用药提醒开关（可选；缺失 → 保留当前设置）。 */
+    val medRemindersEnabled: Boolean? = null,
+    /** 用药提醒时刻（可选；缺失/越界 → 保留当前设置）。 */
+    val medReminderMinuteOfDay: Int? = null,
     /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
      *  仅为兼容旧备份保留字段，恢复时忽略。 */
     val licenseCode: String? = null
@@ -134,6 +138,16 @@ data class RestorePlan(
      */
     val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
         .BabyCelebrationEntity> = emptyList(),
+    /**
+     * 用药记录（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * 每条 = 用药实体 + 其服用时刻。
+     */
+    val medications: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+        .MedicationEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+        .MedicationTimeEntity>>> = emptyList(),
+    /** 用药按人开关（可选键；personId 不在备份人物中的丢弃）。 */
+    val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .MedicationPersonPrefsEntity> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -192,6 +206,13 @@ object BackupJson {
         /** 宝宝满月/百天另设日期（可选键；分享/碰一碰不传）。 */
         babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
             .BabyCelebrationEntity> = emptyList(),
+        /** 用药记录（可选键；分享/碰一碰不传）。 */
+        medications: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationTimeEntity>>> = emptyList(),
+        /** 用药按人开关（可选键；分享/碰一碰不传）。 */
+        medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationPersonPrefsEntity> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -410,6 +431,42 @@ object BackupJson {
                 }
             })
         }
+        // 用药记录（可选键）：非空才写——分享/碰一碰文件不携带
+        if (medications.isNotEmpty()) {
+            json.put("medications", JSONArray().apply {
+                medications.forEach { (m, times) ->
+                    put(JSONObject().apply {
+                        put("id", m.id); put("personId", m.personId)
+                        put("name", m.name)
+                        m.dose?.let { put("dose", it) }
+                        m.spec?.let { put("spec", it) }
+                        m.meal?.let { put("meal", it) }
+                        put("usage", m.usage)
+                        m.courseDays?.let { put("courseDays", it) }
+                        put("startEpochDay", m.startEpochDay)
+                        m.purpose?.let { put("purpose", it) }
+                        m.note?.let { put("note", it) }
+                        m.refillEpochDay?.let { put("refillEpochDay", it) }
+                        m.stoppedEpochDay?.let { put("stoppedEpochDay", it) }
+                        put("times", JSONArray().apply {
+                            times.map { it.minuteOfDay }.sorted().forEach { put(it) }
+                        })
+                        put("createdAt", m.createdAt); put("updatedAt", m.updatedAt)
+                    })
+                }
+            })
+        }
+        if (medicationPrefs.isNotEmpty()) {
+            json.put("medicationPrefs", JSONArray().apply {
+                medicationPrefs.forEach { p ->
+                    put(JSONObject().apply {
+                        put("personId", p.personId)
+                        put("courseRefillEnabled", p.courseRefillEnabled)
+                        p.onTimeEnabled?.let { put("onTimeEnabled", it) }
+                    })
+                }
+            })
+        }
         settings?.let {
             json.put("settings", JSONObject()
                 .put("themeMode", it.themeMode.name)
@@ -434,6 +491,9 @@ object BackupJson {
                     JSONArray().apply { ids.sorted().forEach { put(it) } }
                 } ?: JSONObject.NULL)
                 .put("homeVisitHolidayNudge", it.homeVisitHolidayNudge ?: JSONObject.NULL)
+                .put("medRemindersEnabled", it.medRemindersEnabled ?: JSONObject.NULL)
+                .put("medReminderMinuteOfDay",
+                    it.medReminderMinuteOfDay ?: JSONObject.NULL)
                 .put("licenseCode", it.licenseCode ?: JSONObject.NULL))
         }
 
@@ -977,6 +1037,93 @@ object BackupJson {
             }
         } ?: emptyList()
 
+        // 用药记录（可选键，不升 schemaVersion）：
+        // usage / meal 不认识的跳过该条（连同时刻）；personId 不在备份
+        // 人物中的丢弃（不 fail）；文本长度越界 fail；
+        // 时刻去重排序、至多 4 个、0..1439；usage 与字段不匹配的按
+        // 写入口径归一化（非 SHORT 清 course_days、非 LONG 清 refill、
+        // AS_NEEDED 清时刻）。
+        val medications = root.optJSONArray("medications")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val usage = runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .valueOf(o.optString("usage", ""))
+                }.getOrNull() ?: return@mapNotNull null
+                val meal = if (o.isNull("meal") || !o.has("meal")) null
+                else runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model.MedMeal
+                        .valueOf(o.getString("meal"))
+                }.getOrNull() ?: return@mapNotNull null
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                val name = o.getString("name")
+                if (name.trim().isEmpty() || name.length > 30) fail("med name")
+                val dose = if (o.has("dose")) o.getString("dose") else null
+                if (dose != null && dose.length > 20) fail("med dose")
+                val spec = if (o.has("spec")) o.getString("spec") else null
+                if (spec != null && spec.length > 20) fail("med spec")
+                val purpose = if (o.has("purpose")) o.getString("purpose") else null
+                if (purpose != null && purpose.length > 30) fail("med purpose")
+                val note = if (o.has("note")) o.getString("note") else null
+                if (note != null && note.length > 200) fail("med note")
+                val courseDays = if (o.has("courseDays")) o.getInt("courseDays") else null
+                if (courseDays != null && courseDays !in 1..365) fail("med courseDays")
+                val times = o.optJSONArray("times")?.let { t ->
+                    (0 until t.length()).map { t.getInt(it) }
+                }?.distinct()?.sorted() ?: emptyList()
+                if (times.size > 4 || times.any { it !in 0..1439 }) fail("med times")
+                val refill = if (o.has("refillEpochDay"))
+                    o.getLong("refillEpochDay") else null
+                val stopped = if (o.has("stoppedEpochDay"))
+                    o.getLong("stoppedEpochDay") else null
+                io.github.xiaohaoz1.jiarenxia.data.db.MedicationEntity(
+                    id = o.getString("id"),
+                    personId = pid,
+                    name = name,
+                    dose = dose, spec = spec, meal = meal?.name,
+                    usage = usage.name,
+                    courseDays = if (usage ==
+                        io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE)
+                        courseDays else null,
+                    startEpochDay = o.getLong("startEpochDay"),
+                    purpose = purpose, note = note,
+                    refillEpochDay = if (usage ==
+                        io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.LONG_TERM)
+                        refill else null,
+                    stoppedEpochDay = stopped,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to if (usage ==
+                    io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.AS_NEEDED)
+                    emptyList()
+                else times.map {
+                    io.github.xiaohaoz1.jiarenxia.data.db.MedicationTimeEntity(
+                        medicationId = "", minuteOfDay = it)
+                }
+            }
+        }?.map { (m, times) ->
+            m to times.map { it.copy(medicationId = m.id) }
+        } ?: emptyList()
+        uniqueIds(medications.map { it.first.id }, "medications")
+
+        // 用药按人开关（可选键）：personId 不在备份人物中的丢弃；
+        // on_time_enabled 缺失为 null（第 5 批默认口径）。
+        val medicationPrefs = root.optJSONArray("medicationPrefs")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                io.github.xiaohaoz1.jiarenxia.data.db.MedicationPersonPrefsEntity(
+                    personId = pid,
+                    courseRefillEnabled = o.optBoolean("courseRefillEnabled", true),
+                    onTimeEnabled = if (o.isNull("onTimeEnabled") ||
+                        !o.has("onTimeEnabled")) null
+                    else o.getBoolean("onTimeEnabled")
+                )
+            }
+        } ?: emptyList()
+
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
             p.avatarPath?.removePrefix("avatars/")
@@ -1025,6 +1172,11 @@ object BackupJson {
                 },
                 homeVisitHolidayNudge = if (o.isNull("homeVisitHolidayNudge")) null
                 else o.optBoolean("homeVisitHolidayNudge", true),
+                // 用药提醒（可选键，不升 schemaVersion）：缺失/非法保留当前设置
+                medRemindersEnabled = if (o.isNull("medRemindersEnabled")) null
+                else o.optBoolean("medRemindersEnabled", true),
+                medReminderMinuteOfDay = if (o.isNull("medReminderMinuteOfDay")) null
+                else o.optInt("medReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
                 // A6 后忽略：旧备份里的 giftModuleEnabled / insuranceModuleEnabled
                 licenseCode = if (o.isNull("licenseCode")) null
                 else o.optString("licenseCode", "").ifEmpty { null }
@@ -1059,6 +1211,8 @@ object BackupJson {
             pregnancies = pregnancies,
             checklists = checklists,
             babyCelebrations = babyCelebrations,
+            medications = medications,
+            medicationPrefs = medicationPrefs,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

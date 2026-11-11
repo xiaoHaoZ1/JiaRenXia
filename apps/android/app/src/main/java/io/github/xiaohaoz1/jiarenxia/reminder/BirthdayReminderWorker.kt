@@ -56,6 +56,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
         .ChecklistRepository,
     private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
         .BabyCelebrationRepository,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository,
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
@@ -81,6 +83,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 postHomeVisitNotifications(today, posted)
             }
             if (settings.tombRemindersEnabled.first()) postTombNotifications(today, posted)
+            if (settings.medRemindersEnabled.first())
+                postMedicationNotifications(today, posted)
             return Result.success()
         }
         // 当天已通知过的提醒键：补跑（数据在时刻过后被改成今天到期等）只发新的
@@ -107,6 +111,11 @@ class BirthdayReminderWorker @AssistedInject constructor(
             !nowTime.isBefore(ReminderTiming.timeOf(settings.tombReminderMinuteOfDay.first()))
         ) {
             postTombNotifications(today, posted)
+        }
+        if (settings.medRemindersEnabled.first() &&
+            !nowTime.isBefore(ReminderTiming.timeOf(settings.medReminderMinuteOfDay.first()))
+        ) {
+            postMedicationNotifications(today, posted)
         }
         settings.setReminderRunState(today.toEpochDay(), posted)
         enqueueNext(now)
@@ -671,6 +680,113 @@ class BirthdayReminderWorker @AssistedInject constructor(
             .build()
     }
 
+    /**
+     * 用药提醒（FAMILY_AFFAIRS 23）：疗程到期（记录的最后一天当天）与
+     * 续药（下次拿药日前 3 天与当天）。独立渠道 medication；
+     * 仅当该人物「疗程到期与续药提醒」开关为真（无记录按默认开）才发；
+     * 点开该人物详情页。锁屏公开文案不带药名。
+     */
+    private suspend fun postMedicationNotifications(
+        today: LocalDate,
+        posted: MutableSet<String>
+    ) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val meds = medicationRepository.getAll()
+        if (meds.isEmpty()) return
+        val overview = observeOverview().first() ?: return
+        // 按人开关：无记录的行按默认开
+        val prefs = medicationRepository.observePrefs().first()
+            .associate { it.personId to it.courseRefillEnabled }
+        ensureMedChannel()
+        val nm = NotificationManagerCompat.from(context)
+        meds.forEach { med ->
+            val entry = overview.byId[med.personId] ?: return@forEach
+            val person = entry.person
+            if (person.livingStatus !=
+                io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            ) return@forEach
+            if (prefs[med.personId] == false) return@forEach
+            val isSelf = person.isSelf
+            // 称谓无（SELF/UNRELATED/空）则用姓名
+            val label = entry.displayTitle.ifBlank { person.name }
+            io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule.duesOn(med, today)
+                .forEach { due ->
+                    val key = when (due.kind) {
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.COURSE_END ->
+                            "medcourse:" + med.id + ":" + due.epochDay
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.REFILL ->
+                            "medrefill:" + med.id + ":" + due.epochDay +
+                                ":" + due.daysBefore
+                    }
+                    if (key in posted) return@forEach
+                    val text = when (due.kind) {
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.COURSE_END ->
+                            if (isSelf)
+                                "今天是" + med.name +
+                                    "记录疗程的最后一天，之后怎么吃请按医嘱确认"
+                            else
+                                "今天是" + label + "的" + med.name +
+                                    "记录疗程的最后一天，之后怎么吃请按医嘱确认"
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.REFILL -> {
+                            val day = LocalDate.ofEpochDay(due.epochDay)
+                            val date = day.monthValue.toString() + "月" +
+                                day.dayOfMonth + "日"
+                            if (due.daysBefore == 3) {
+                                if (isSelf) "3 天后（" + date + "）该去拿" +
+                                    med.name + "了"
+                                else "3 天后（" + date + "）该给" + label +
+                                    "拿" + med.name + "了"
+                            } else {
+                                if (isSelf) "今天该去拿" + med.name + "了"
+                                else "今天该给" + label + "拿" + med.name + "了"
+                            }
+                        }
+                    }
+                    runCatching {
+                        nm.notify(key.hashCode(), buildMed(key, text, med.personId))
+                    }.onSuccess { posted += key }
+                }
+        }
+    }
+
+    /** 用药提醒通知：独立渠道，点开人物详情页；锁屏公开版不带药名。 */
+    private fun buildMed(
+        key: String, text: String, personId: String
+    ): android.app.Notification {
+        val intent = PendingIntent.getActivity(
+            context, key.hashCode(),
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, MED_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有用药提醒")
+            .build()
+        return NotificationCompat.Builder(context, MED_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
+    }
+
+    private fun ensureMedChannel() {
+        val channel = NotificationChannel(
+            MED_CHANNEL_ID, "用药提醒", NotificationManager.IMPORTANCE_DEFAULT
+        )
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(channel)
+    }
+
     private fun ensureHomeChannel() {
         val channel = NotificationChannel(
             HOME_CHANNEL_ID, "回家看看", NotificationManager.IMPORTANCE_DEFAULT
@@ -724,6 +840,7 @@ class BirthdayReminderWorker @AssistedInject constructor(
         const val CONTACT_CHANNEL_ID = "contact"
         const val TOMB_CHANNEL_ID = "tomb"
         const val HOME_CHANNEL_ID = "home_visit"
+        const val MED_CHANNEL_ID = "medication"
         const val KEY_FORCE = "force"
     }
 }

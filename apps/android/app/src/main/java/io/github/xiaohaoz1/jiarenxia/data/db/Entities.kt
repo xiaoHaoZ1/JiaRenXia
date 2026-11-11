@@ -626,6 +626,98 @@ data class ChecklistItemEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )
 
+/**
+ * medications：用药记录（FAMILY_AFFAIRS 23，v23）。
+ * App 只知道「记录」不知道「实际服用」；各日期列均为 epochDay。
+ * usage / meal 存 TEXT（与 checklist.kind 一致），仓库负责枚举转换。
+ */
+@Entity(
+    tableName = "medications",
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("person_id")]
+)
+data class MedicationEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    /** 药名（≤30）。 */
+    val name: String,
+    /** 每次用量（≤20）；null = 未填。 */
+    val dose: String?,
+    /** 药品规格（≤20）；null = 未填。 */
+    val spec: String?,
+    /** BEFORE / AFTER / WITH；null = 不填。 */
+    val meal: String?,
+    /** SHORT_COURSE / LONG_TERM / AS_NEEDED。 */
+    val usage: String,
+    /** 仅 SHORT_COURSE（1..365）；null = 疗程待确认。 */
+    @ColumnInfo(name = "course_days") val courseDays: Int?,
+    @ColumnInfo(name = "start_epoch_day") val startEpochDay: Long,
+    /** 治什么（≤30）；null = 未填。 */
+    val purpose: String?,
+    /** 医嘱备注（≤200）；null = 未填。 */
+    val note: String?,
+    /** 仅 LONG_TERM：下次拿药日；其他用法恒 null。 */
+    @ColumnInfo(name = "refill_epoch_day") val refillEpochDay: Long?,
+    /** 记录停用日期；null = 未停用。 */
+    @ColumnInfo(name = "stopped_epoch_day") val stoppedEpochDay: Long?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * medication_times：每药每天服用时刻（FAMILY_AFFAIRS 23，v23）。
+ * 主键 (medication_id, minute_of_day)；medication 级联删除。
+ * AS_NEEDED 不存时刻；每药至多 4 个。
+ */
+@Entity(
+    tableName = "medication_times",
+    primaryKeys = ["medication_id", "minute_of_day"],
+    foreignKeys = [
+        ForeignKey(
+            entity = MedicationEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["medication_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("medication_id")]
+)
+data class MedicationTimeEntity(
+    @ColumnInfo(name = "medication_id") val medicationId: String,
+    /** 一天内分钟数（0..1439）。 */
+    @ColumnInfo(name = "minute_of_day") val minuteOfDay: Int
+)
+
+/**
+ * medication_person_prefs：用药区按人开关（FAMILY_AFFAIRS 23，v23）。
+ * 每人一行；person_id 级联。on_time_enabled 为第 5 批「按时吃」预留，
+ * null = 按默认（“我”开、他人关）。
+ */
+@Entity(
+    tableName = "medication_person_prefs",
+    primaryKeys = ["person_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class MedicationPersonPrefsEntity(
+    @ColumnInfo(name = "person_id") val personId: String,
+    @ColumnInfo(name = "course_refill_enabled") val courseRefillEnabled: Boolean,
+    @ColumnInfo(name = "on_time_enabled") val onTimeEnabled: Boolean?
+)
+
 /** 清单 + 其条目（一致快照查询用）。 */
 data class ChecklistWithItems(
     @Embedded val checklist: ChecklistEntity,

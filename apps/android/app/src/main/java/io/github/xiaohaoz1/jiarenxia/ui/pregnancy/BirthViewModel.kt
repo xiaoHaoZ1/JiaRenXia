@@ -10,6 +10,7 @@ import io.github.xiaohaoz1.jiarenxia.core.kinship.KinshipKind
 import io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue
 import io.github.xiaohaoz1.jiarenxia.core.model.CalendarType
 import io.github.xiaohaoz1.jiarenxia.core.model.Gender
+import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
 import io.github.xiaohaoz1.jiarenxia.data.BirthBaby
@@ -344,7 +345,7 @@ class BirthViewModel @Inject constructor(
  * 完成态「从宝宝的角度看」行：以 [observerId]（第一个宝宝）为观察者，
  * 至多 [limit] 位家人“称谓 · 姓名”。
  * 顺序复用 [FamilyOrdering]：核心家人（宝宝视角的父母、祖辈等）在前，
- * 其余已关联者按路径长度、未关联者最后；不含宝宝本人，
+ * 其余已关联者按路径长度、未关联者最后；不含宝宝本人与已故家人，
  * UNRELATED / SELF / 算不出称谓的跳过。
  */
 internal fun babyKinLines(
@@ -357,7 +358,10 @@ internal fun babyKinLines(
     val byId = graph.persons.associate { p ->
         p.id to PersonOverview(p, results.getValue(p.id))
     }
-    val rest = byId.values.filter { it.person.id != observerId }
+    val rest = byId.values.filter {
+        it.person.id != observerId &&
+            it.person.livingStatus != LivingStatus.DECEASED
+    }
     val ordered = FamilyOrdering.core(
         rest.filter { it.result.coreGroup != null }, byId
     ) + FamilyOrdering.others(

@@ -80,6 +80,14 @@ class MineViewModelBackupTest : RepoTestBase() {
         override suspend fun setContactReminderMinuteOfDay(minute: Int) {
             contactReminderMinuteOfDay.value = minute
         }
+        override val medRemindersEnabled = MutableStateFlow(true)
+        override suspend fun setMedRemindersEnabled(enabled: Boolean) {
+            medRemindersEnabled.value = enabled
+        }
+        override val medReminderMinuteOfDay = kotlinx.coroutines.flow.MutableStateFlow(540)
+        override suspend fun setMedReminderMinuteOfDay(minute: Int) {
+            medReminderMinuteOfDay.value = minute
+        }
         override val tombRemindersEnabled = MutableStateFlow(true)
         override suspend fun setTombRemindersEnabled(enabled: Boolean) {
             tombRemindersEnabled.value = enabled

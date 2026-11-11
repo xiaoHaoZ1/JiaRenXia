@@ -108,6 +108,15 @@ object Routes {
     fun birth(pregnancyId: String, append: Boolean = false) =
         "pregnancy/" + pregnancyId + "/birth?append=" + append
 
+    /** 用药编辑页（FAMILY_AFFAIRS 23）：medId 空 = 新建；personId 必填。 */
+    const val MED_EDIT = "med/edit?medId={medId}&personId={personId}"
+    fun medEdit(medId: String = "", personId: String) =
+        "med/edit?medId=" + medId + "&personId=" + personId
+
+    /** 「给医生看」页：只读用药摘要。 */
+    const val MED_DOCTOR = "med/doctor/{personId}"
+    fun medDoctor(personId: String) = "med/doctor/" + personId
+
     /** 事项编辑页：taskId 空 = 新建；kind/personId/shared/pregnancyId 为新建预填参数。 */
         fun shareImport(uri: String?): String =
         if (uri == null) "share/import" else "share/import?uri=" + uri
@@ -414,6 +423,7 @@ fun AppNavHost(
             Routes.PERSON,
             arguments = listOf(navArgument("personId") { type = NavType.StringType })
         ) {
+            val personId = it.arguments?.getString("personId").orEmpty()
             PersonDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(Routes.personEdit(it)) },
@@ -434,7 +444,36 @@ fun AppNavHost(
                 onOpenChecklist = { navController.navigate(Routes.checklist(it)) },
                 onOpenBirth = { pregId, append ->
                     navController.navigate(Routes.birth(pregId, append))
+                },
+                onOpenMedEdit = { medId ->
+                    navController.navigate(Routes.medEdit(medId ?: "", personId))
+                },
+                onOpenMedDoctor = {
+                    navController.navigate(Routes.medDoctor(personId))
                 }
+            )
+        }
+
+        composable(
+            Routes.MED_EDIT,
+            arguments = listOf(
+                navArgument("medId") {
+                    type = NavType.StringType; defaultValue = ""
+                },
+                navArgument("personId") { type = NavType.StringType }
+            )
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditScreen(
+                onDone = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.MED_DOCTOR,
+            arguments = listOf(navArgument("personId") { type = NavType.StringType })
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorScreen(
+                onBack = { navController.popBackStack() }
             )
         }
 

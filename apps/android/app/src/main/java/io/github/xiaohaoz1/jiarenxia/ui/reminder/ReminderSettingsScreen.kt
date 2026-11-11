@@ -10,6 +10,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.EventAvailable
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LocalFlorist
+import androidx.compose.material.icons.rounded.Medication
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,16 +56,18 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** 四类提醒的开关与每日时刻。 */
+/** 五类提醒的开关与每日时刻。 */
 data class ReminderSettingsUi(
     val birthdayEnabled: Boolean = true,
     val taskEnabled: Boolean = true,
     val contactEnabled: Boolean = true,
     val tombEnabled: Boolean = true,
+    val medEnabled: Boolean = true,
     val birthdayMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val taskMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val contactMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val tombMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
+    val medMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     /** 「上坟的日子与家人」行副标题摘要（已开启日子 + 家人数）。 */
     val tombSummary: String = "未选择日子",
     /** 「回家看看」行副标题摘要（每个家 “家名 周期”，“；”连接；无家 “未设置”）。 */
@@ -104,6 +107,8 @@ class ReminderSettingsViewModel @Inject constructor(
         .combine(settings.contactReminderMinuteOfDay) { st, cm -> st.copy(contactMinute = cm) }
         .combine(settings.tombRemindersEnabled) { st, te -> st.copy(tombEnabled = te) }
         .combine(settings.tombReminderMinuteOfDay) { st, tm -> st.copy(tombMinute = tm) }
+        .combine(settings.medRemindersEnabled) { st, me -> st.copy(medEnabled = me) }
+        .combine(settings.medReminderMinuteOfDay) { st, mm -> st.copy(medMinute = mm) }
         .combine(
             combine(settings.tombDays, observeOverview()) { days, ov ->
                 days to TombCalendar.mourners(ov).size
@@ -156,6 +161,14 @@ class ReminderSettingsViewModel @Inject constructor(
     fun setTombMinute(m: Int) {
         viewModelScope.launch { settings.setTombReminderMinuteOfDay(m) }
     }
+
+    fun setMedEnabled(on: Boolean) {
+        viewModelScope.launch { settings.setMedRemindersEnabled(on) }
+    }
+
+    fun setMedMinute(m: Int) {
+        viewModelScope.launch { settings.setMedReminderMinuteOfDay(m) }
+    }
 }
 
 @Composable
@@ -180,10 +193,15 @@ fun ReminderSettingsScreen(
             viewModel.setTombEnabled(on)
             if (on) requester.request()
         },
+        onMedEnabled = { on ->
+            viewModel.setMedEnabled(on)
+            if (on) requester.request()
+        },
         onBirthdayMinute = viewModel::setBirthdayMinute,
         onTaskMinute = viewModel::setTaskMinute,
         onContactMinute = viewModel::setContactMinute,
         onTombMinute = viewModel::setTombMinute,
+        onMedMinute = viewModel::setMedMinute,
         onOpenTombSettings = onOpenTombSettings,
         onOpenHomeSettings = onOpenHomeSettings
     )
@@ -197,10 +215,12 @@ fun ReminderSettingsContent(
     onTaskEnabled: (Boolean) -> Unit = {},
     onContactEnabled: (Boolean) -> Unit = {},
     onTombEnabled: (Boolean) -> Unit = {},
+    onMedEnabled: (Boolean) -> Unit = {},
     onBirthdayMinute: (Int) -> Unit = {},
     onTaskMinute: (Int) -> Unit = {},
     onContactMinute: (Int) -> Unit = {},
     onTombMinute: (Int) -> Unit = {},
+    onMedMinute: (Int) -> Unit = {},
     onOpenTombSettings: () -> Unit = {},
     onOpenHomeSettings: () -> Unit = {}
 ) {
@@ -255,8 +275,21 @@ fun ReminderSettingsContent(
                     }
                 }
             )
+            RowDivider()
+            SettingsSwitchRow(
+                title = "用药提醒",
+                subtitle = "疗程到期与续药",
+                icon = Icons.Rounded.Medication,
+                checked = state.medEnabled,
+                onCheckedChange = onMedEnabled,
+                trailing = {
+                    ReminderTimeText(state.medEnabled, state.medMinute) {
+                        timeTarget = ReminderTimeTarget.MED
+                    }
+                }
+            )
         }
-        SettingsHint("四类各管各的：关掉一类不影响其他三类。逾期的事项只置顶标红，不再反复发通知。")
+        SettingsHint("五类各管各的：关掉一类不影响其他四类。逾期的事项只置顶标红，不再反复发通知。")
         SettingsGroup("上坟提醒") {
             SettingsNavRow(
                 icon = Icons.Rounded.LocalFlorist,
@@ -282,12 +315,14 @@ fun ReminderSettingsContent(
             ReminderTimeTarget.TASK -> "家庭事项提醒"
             ReminderTimeTarget.CONTACT -> "联系提醒"
             ReminderTimeTarget.TOMB -> "上坟提醒"
+            ReminderTimeTarget.MED -> "用药提醒"
         }
         val minute = when (target) {
             ReminderTimeTarget.BIRTHDAY -> state.birthdayMinute
             ReminderTimeTarget.TASK -> state.taskMinute
             ReminderTimeTarget.CONTACT -> state.contactMinute
             ReminderTimeTarget.TOMB -> state.tombMinute
+            ReminderTimeTarget.MED -> state.medMinute
         }
         ReminderTimeDialog(
             title = title,
@@ -298,6 +333,7 @@ fun ReminderSettingsContent(
                     ReminderTimeTarget.TASK -> onTaskMinute(it)
                     ReminderTimeTarget.CONTACT -> onContactMinute(it)
                     ReminderTimeTarget.TOMB -> onTombMinute(it)
+                    ReminderTimeTarget.MED -> onMedMinute(it)
                 }
                 timeTarget = null
             },
@@ -307,7 +343,7 @@ fun ReminderSettingsContent(
 }
 
 /** 正在改时间的那一类提醒。 */
-private enum class ReminderTimeTarget { BIRTHDAY, TASK, CONTACT, TOMB }
+private enum class ReminderTimeTarget { BIRTHDAY, TASK, CONTACT, TOMB, MED }
 
 /** 「上坟的日子与家人」行副标题：已开启日子短名（固定顺序）+ “ · N 位家人”。 */
 internal fun tombDaysSummary(days: Set<TombDay>, personCount: Int): String {

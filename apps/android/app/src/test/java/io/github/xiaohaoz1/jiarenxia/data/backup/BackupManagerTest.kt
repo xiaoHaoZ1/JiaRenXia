@@ -100,6 +100,14 @@ class BackupManagerTest : RepoTestBase() {
         override suspend fun setContactReminderMinuteOfDay(minute: Int) {
             contactReminderMinuteOfDay.value = minute
         }
+        override val medRemindersEnabled = kotlinx.coroutines.flow.MutableStateFlow(true)
+        override suspend fun setMedRemindersEnabled(enabled: Boolean) {
+            medRemindersEnabled.value = enabled
+        }
+        override val medReminderMinuteOfDay = kotlinx.coroutines.flow.MutableStateFlow(540)
+        override suspend fun setMedReminderMinuteOfDay(minute: Int) {
+            medReminderMinuteOfDay.value = minute
+        }
         override val tombRemindersEnabled = kotlinx.coroutines.flow.MutableStateFlow(true)
         override suspend fun setTombRemindersEnabled(enabled: Boolean) {
             tombRemindersEnabled.value = enabled
@@ -1961,6 +1969,233 @@ class BackupManagerTest : RepoTestBase() {
             ByteArrayInputStream(priv.toByteArray()), pw).getOrThrow()
         assertEquals(1, privPlan.checklists.size)
         assertEquals(1, privPlan.babyCelebrations.size)
+    }
+
+    // ---------- 用药记录（FAMILY_AFFAIRS 23） ----------
+
+    private fun medEntity(
+        id: String, personId: String, name: String = "阿莫西林",
+        usage: String = "SHORT_COURSE", courseDays: Int? = 7,
+        meal: String? = "AFTER", refill: Long? = null,
+        stopped: Long? = null
+    ) = io.github.xiaohaoz1.jiarenxia.data.db.MedicationEntity(
+        id = id, personId = personId, name = name, dose = "1 片",
+        spec = "250mg/粒", meal = meal, usage = usage,
+        courseDays = courseDays, startEpochDay = 20000,
+        purpose = "扁桃体炎", note = "饭后吃",
+        refillEpochDay = refill, stoppedEpochDay = stopped,
+        createdAt = 1, updatedAt = 2
+    )
+
+    private fun medTime(medId: String, minute: Int) =
+        io.github.xiaohaoz1.jiarenxia.data.db.MedicationTimeEntity(
+            medicationId = medId, minuteOfDay = minute)
+
+    /** 在 [base] plan 基础上重写 zip，附加用药数据（可含非法值）。 */
+    private fun zipWithMeds(
+        base: RestorePlan,
+        medications: List<Pair<
+            io.github.xiaohaoz1.jiarenxia.data.db.MedicationEntity,
+            List<io.github.xiaohaoz1.jiarenxia.data.db.MedicationTimeEntity>>>,
+        medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationPersonPrefsEntity> = emptyList()
+    ): ByteArray = BackupCrypto.encrypt(
+        BackupJson.writeZip(
+            persons = base.persons, phones = base.phones,
+            relationships = base.relationships, dates = base.importantDates,
+            prefs = base.prefs, customTitles = base.customTitles,
+            tasks = base.tasks, contactLogs = base.contactLogs,
+            contactPlans = base.contactPlans, personFacts = base.personFacts,
+            settings = base.settings, avatars = base.avatars,
+            createdAt = 1, appVersion = "test",
+            purpose = base.purpose, sharedBy = base.sharedBy,
+            personOrigins = base.personOrigins,
+            medications = medications, medicationPrefs = medicationPrefs
+        ),
+        pw
+    )
+
+    @Test
+    fun 用药记录随备份往返() = runTest {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        db.medicationDao().upsertAll(listOf(
+            medEntity("med1", me, name = "阿莫西林"),
+            medEntity("med2", me, name = "氯雷他定",
+                usage = "LONG_TERM", courseDays = null, meal = null,
+                refill = 20300)
+        ))
+        db.medicationTimeDao().insertAll(listOf(
+            medTime("med1", 1200), medTime("med1", 480), medTime("med2", 600)
+        ))
+        db.medicationPersonPrefsDao().upsertAll(listOf(
+            io.github.xiaohaoz1.jiarenxia.data.db.MedicationPersonPrefsEntity(
+                personId = me, courseRefillEnabled = false,
+                onTimeEnabled = null)
+        ))
+        // 用药提醒设置随备份
+        fakeSettings.setMedRemindersEnabled(false)
+        fakeSettings.setMedReminderMinuteOfDay(600)
+
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        repo.clearAllData()
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        assertEquals(2, plan.medications.size)
+        assertEquals(3, plan.medications.sumOf { it.second.size })
+        assertEquals(1, plan.medicationPrefs.size)
+        assertEquals(false, plan.settings?.medRemindersEnabled)
+        assertEquals(600, plan.settings?.medReminderMinuteOfDay)
+
+        backup.restore(plan)
+        val meds = db.medicationDao().getAll().sortedBy { it.id }
+        assertEquals(listOf("med1", "med2"), meds.map { it.id })
+        assertEquals("SHORT_COURSE", meds[0].usage)
+        assertEquals(7, meds[0].courseDays)
+        assertEquals("LONG_TERM", meds[1].usage)
+        assertNull(meds[1].courseDays)
+        assertEquals(20300L, meds[1].refillEpochDay)
+        // 时刻整组带回（排序在模型层，这里按原始行核对）
+        assertEquals(
+            listOf(480, 1200),
+            db.medicationTimeDao().getForMedication("med1").map { it.minuteOfDay })
+        val prefs = db.medicationPersonPrefsDao().getAll().single()
+        assertEquals(me, prefs.personId)
+        assertEquals(false, prefs.courseRefillEnabled)
+        // 设置落库
+        assertEquals(false, fakeSettings.medRemindersEnabled.first())
+        assertEquals(600, fakeSettings.medReminderMinuteOfDay.first())
+    }
+
+    @Test
+    fun 旧备份没有用药键() = runTest {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        // 手工 zip：与 v22 及更早备份同形（无 medications/medicationPrefs 键）
+        val persons = db.personDao().getAll()
+        val zip = BackupCrypto.encrypt(
+            BackupJson.writeZip(
+                persons = persons, phones = emptyList(),
+                relationships = emptyList(), dates = emptyList(),
+                prefs = emptyList(), customTitles = emptyList(),
+                tasks = emptyList(), contactLogs = emptyList(),
+                contactPlans = emptyList(), personFacts = emptyList(),
+                settings = null, avatars = emptyMap(),
+                createdAt = 1, appVersion = "test",
+                purpose = "backup", sharedBy = null
+            ),
+            pw
+        )
+        val plan = backup.inspect(ByteArrayInputStream(zip), pw).getOrThrow()
+        assertTrue(plan.medications.isEmpty())
+        assertTrue(plan.medicationPrefs.isEmpty())
+        assertNull(plan.settings)
+        // 恢复不炸、人物在
+        backup.restore(plan)
+        assertEquals(1, db.personDao().count())
+        assertTrue(db.medicationDao().getAll().isEmpty())
+    }
+
+    @Test
+    fun 未知usage与不存在人物的药被跳过() = runTest {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        val base = backup.inspect(
+            ByteArrayInputStream(run {
+                val out = ByteArrayOutputStream()
+                backup.export(out, pw); out.toByteArray()
+            }), pw).getOrThrow()
+        val zip = zipWithMeds(
+            base,
+            listOf(
+                // usage 不认识 → 跳过
+                medEntity("bad-usage", me, usage = "WEEKLY") to
+                    listOf(medTime("bad-usage", 480)),
+                // personId 不在备份人物中 → 丢弃
+                medEntity("ghost-person", "no-such") to emptyList(),
+                // meal 不认识 → 跳过
+                medEntity("bad-meal", me, meal = "BRUNCH") to emptyList(),
+                // 正常的保留
+                medEntity("ok-med", me) to listOf(medTime("ok-med", 720))
+            )
+        )
+        val plan = backup.inspect(ByteArrayInputStream(zip), pw).getOrThrow()
+        assertEquals(listOf("ok-med"), plan.medications.map { it.first.id })
+        assertEquals(listOf(720),
+            plan.medications.single().second.map { it.minuteOfDay })
+    }
+
+    @Test
+    fun 用药字段越界整份失败() = runTest {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        val base = backup.inspect(
+            ByteArrayInputStream(run {
+                val out = ByteArrayOutputStream()
+                backup.export(out, pw); out.toByteArray()
+            }), pw).getOrThrow()
+        // 药名 31 字 → fail
+        val zip = zipWithMeds(
+            base,
+            listOf(medEntity("bad", me, name = "x".repeat(31)) to emptyList())
+        )
+        assertTrue(backup.inspect(ByteArrayInputStream(zip), pw).isFailure)
+        // 时刻越界 → fail
+        val zip2 = zipWithMeds(
+            base,
+            listOf(medEntity("bad2", me) to listOf(medTime("bad2", 1500)))
+        )
+        assertTrue(backup.inspect(ByteArrayInputStream(zip2), pw).isFailure)
+        // 天数越界 → fail
+        val zip3 = zipWithMeds(
+            base,
+            listOf(medEntity("bad3", me, courseDays = 400) to emptyList())
+        )
+        assertTrue(backup.inspect(ByteArrayInputStream(zip3), pw).isFailure)
+    }
+
+    @Test
+    fun 家人共享导出不含用药() = runTest {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        db.medicationDao().upsertAll(listOf(medEntity("med1", me)))
+        db.medicationTimeDao().insertAll(listOf(medTime("med1", 480)))
+        db.medicationPersonPrefsDao().upsertAll(listOf(
+            io.github.xiaohaoz1.jiarenxia.data.db.MedicationPersonPrefsEntity(
+                personId = me, courseRefillEnabled = true,
+                onTimeEnabled = null)
+        ))
+        val out = ByteArrayOutputStream()
+        backup.exportShare(out, pw, sharedBy = me)
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        assertTrue(plan.medications.isEmpty())
+        assertTrue(plan.medicationPrefs.isEmpty())
+        // 私密备份仍带
+        val priv = ByteArrayOutputStream()
+        backup.export(priv, pw)
+        val privPlan = backup.inspect(
+            ByteArrayInputStream(priv.toByteArray()), pw).getOrThrow()
+        assertEquals(1, privPlan.medications.size)
+        assertEquals(1, privPlan.medicationPrefs.size)
+    }
+
+    @Test
+    fun 我不是X_用药被剥离() = runTest {
+        val me = repo.createSelf(PersonDraft("我", Gender.MALE)).ok()
+        db.medicationDao().upsertAll(listOf(medEntity("med1", me)))
+        db.medicationTimeDao().insertAll(listOf(medTime("med1", 480)))
+        db.medicationPersonPrefsDao().upsertAll(listOf(
+            io.github.xiaohaoz1.jiarenxia.data.db.MedicationPersonPrefsEntity(
+                personId = me, courseRefillEnabled = true,
+                onTimeEnabled = null)
+        ))
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        val full = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        assertEquals(1, full.medications.size)
+        // ShareImport.fromBackup：用药与按人开关一并剥掉
+        val stripped = io.github.xiaohaoz1.jiarenxia.domain.ShareImport
+            .fromBackup(full)
+        assertTrue(stripped.medications.isEmpty())
+        assertTrue(stripped.medicationPrefs.isEmpty())
     }
 
     private fun encryptedPlan(

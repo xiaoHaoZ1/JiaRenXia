@@ -64,6 +64,14 @@ interface SettingsRepository {
     val contactReminderMinuteOfDay: Flow<Int>
     suspend fun setContactReminderMinuteOfDay(minute: Int)
 
+    /** 用药提醒总开关（疗程到期与续药），默认开启（FAMILY_AFFAIRS 23）。 */
+    val medRemindersEnabled: Flow<Boolean>
+    suspend fun setMedRemindersEnabled(enabled: Boolean)
+
+    /** 用药提醒的检查时间（一天内的分钟数），默认 540（09:00）。 */
+    val medReminderMinuteOfDay: Flow<Int>
+    suspend fun setMedReminderMinuteOfDay(minute: Int)
+
     /** 上坟提醒总开关，默认开启（FAMILY_AFFAIRS 19）。 */
     val tombRemindersEnabled: Flow<Boolean>
     suspend fun setTombRemindersEnabled(enabled: Boolean)
@@ -247,6 +255,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyReminderMinute = intPreferencesKey("reminder_minute_of_day")
     private val keyTaskReminderMinute = intPreferencesKey("task_reminder_minute_of_day")
     private val keyContactReminderMinute = intPreferencesKey("contact_reminder_minute_of_day")
+    private val keyMedReminders = booleanPreferencesKey("med_reminders_enabled")
+    private val keyMedReminderMinute = intPreferencesKey("med_reminder_minute_of_day")
     private val keyTombReminders = booleanPreferencesKey("tomb_reminders_enabled")
     private val keyTombReminderMinute = intPreferencesKey("tomb_reminder_minute_of_day")
     private val keyTombDays = stringSetPreferencesKey("tomb_days")
@@ -341,6 +351,21 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         dataStore.edit { it[keyContactReminderMinute] = minute.coerceIn(0, 1439) }
+    }
+
+    override val medRemindersEnabled: Flow<Boolean> =
+        dataStore.data.map { it[keyMedReminders] ?: true }
+
+    override suspend fun setMedRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { it[keyMedReminders] = enabled }
+    }
+
+    override val medReminderMinuteOfDay: Flow<Int> =
+        dataStore.data.map { (it[keyMedReminderMinute] ?: 9 * 60).coerceIn(0, 1439) }
+            .distinctUntilChanged()
+
+    override suspend fun setMedReminderMinuteOfDay(minute: Int) {
+        dataStore.edit { it[keyMedReminderMinute] = minute.coerceIn(0, 1439) }
     }
 
     override val tombRemindersEnabled: Flow<Boolean> =

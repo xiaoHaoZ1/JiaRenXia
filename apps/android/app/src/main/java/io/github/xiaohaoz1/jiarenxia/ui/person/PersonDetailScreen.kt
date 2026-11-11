@@ -143,6 +143,10 @@ fun PersonDetailScreen(
     onOpenChecklist: (String) -> Unit = {},
     /** 「宝宝出生了」/「补记一个宝宝」：append=false 正常记录，true 补记。 */
     onOpenBirth: (String, Boolean) -> Unit = { _, _ -> },
+    /** 用药卡：null = 新建，id = 编辑。 */
+    onOpenMedEdit: (String?) -> Unit = {},
+    /** 「给医生看」页。 */
+    onOpenMedDoctor: () -> Unit = {},
     viewModel: PersonDetailViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -178,6 +182,9 @@ fun PersonDetailScreen(
         onOpenTaskDetail = onOpenTaskDetail,
         onOpenChecklist = onOpenChecklist,
         onOpenBirth = onOpenBirth,
+        onOpenMedEdit = onOpenMedEdit,
+        onOpenMedDoctor = onOpenMedDoctor,
+        onSetMedCourseRefill = viewModel::setMedCourseRefillEnabled,
         onSetCelebration = viewModel::setCelebration,
         onEnsureBirthBag = viewModel::openBirthBag,
         observePregnancyTasks = viewModel::tasksForPregnancy,
@@ -248,6 +255,10 @@ fun PersonDetailContent(
     onOpenChecklist: (String) -> Unit = {},
     /** 「宝宝出生了」/「补记一个宝宝」。 */
     onOpenBirth: (String, Boolean) -> Unit = { _, _ -> },
+    /** 用药卡：null = 新建，id = 编辑。 */
+    onOpenMedEdit: (String?) -> Unit = {},
+    onOpenMedDoctor: () -> Unit = {},
+    onSetMedCourseRefill: (Boolean) -> Unit = {},
     /** 满月/百天庆祝日期另设（null = 按出生日算）。 */
     onSetCelebration: (
         io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
@@ -877,6 +888,19 @@ fun PersonDetailContent(
                         onAdd = onAddFact,
                         onUpdate = onUpdateFact,
                         onDelete = onDeleteFact
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                // 用药卡（在世人物；「关于TA」之后、「TA 的事」之前；
+                // “我”无「关于TA」，自然落在「重要日期」之后）
+                if (!deceased) {
+                    MedicationCard(
+                        medications = st.medications,
+                        today = today,
+                        courseRefillEnabled = st.medCourseRefillEnabled,
+                        onSetCourseRefill = onSetMedCourseRefill,
+                        onOpenEdit = onOpenMedEdit,
+                        onOpenDoctor = onOpenMedDoctor
                     )
                     Spacer(Modifier.height(12.dp))
                 }

@@ -50,9 +50,12 @@ import androidx.room.RoomDatabase
         PregnancyBabyEntity::class,
         ChecklistEntity::class,
         ChecklistItemEntity::class,
-        BabyCelebrationEntity::class
+        BabyCelebrationEntity::class,
+        MedicationEntity::class,
+        MedicationTimeEntity::class,
+        MedicationPersonPrefsEntity::class
     ],
-    version = 22,
+    version = 23,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -77,6 +80,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun checklistDao(): ChecklistDao
     abstract fun checklistItemDao(): ChecklistItemDao
     abstract fun babyCelebrationDao(): BabyCelebrationDao
+    abstract fun medicationDao(): MedicationDao
+    abstract fun medicationTimeDao(): MedicationTimeDao
+    abstract fun medicationPersonPrefsDao(): MedicationPersonPrefsDao
 }
 
 /**
@@ -97,6 +103,10 @@ internal suspend fun AppDatabase.clearTables() {
     checklistDao().deleteAll()
     // 宝宝满月/百天另设日期：persons 之前清
     babyCelebrationDao().deleteAll()
+    // 用药：时刻表先清（medication 级联也会连带），再清用药与按人开关
+    medicationTimeDao().deleteAll()
+    medicationDao().deleteAll()
+    medicationPersonPrefsDao().deleteAll()
     // 孕期：关联表先清，再清孕期（均在 persons 之前）
     pregnancyBabyDao().deleteAll()
     pregnancyDao().deleteAll()

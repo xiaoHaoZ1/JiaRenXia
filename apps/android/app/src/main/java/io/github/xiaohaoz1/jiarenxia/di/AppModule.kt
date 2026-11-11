@@ -43,6 +43,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_18_19
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_19_20
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_20_21
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_21_22
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_22_23
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepositoryImpl
 import io.github.xiaohaoz1.jiarenxia.reminder.ReminderScheduler
@@ -61,7 +62,7 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "jiarenxia.db")
-            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22)
+            .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
             .build()
 
     @Provides fun providePersonDao(db: AppDatabase) = db.personDao()
@@ -179,6 +180,12 @@ abstract class AppBindsModule {
     abstract fun bindBabyCelebrationRepository(
         impl: io.github.xiaohaoz1.jiarenxia.data.BabyCelebrationRepositoryImpl
     ): io.github.xiaohaoz1.jiarenxia.data.BabyCelebrationRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMedicationRepository(
+        impl: io.github.xiaohaoz1.jiarenxia.data.MedicationRepositoryImpl
+    ): io.github.xiaohaoz1.jiarenxia.data.MedicationRepository
 
     /** 碰一碰配对存储：Room（v9）实现；旧 JSON 文件记录首次访问时迁入。 */
     @Binds

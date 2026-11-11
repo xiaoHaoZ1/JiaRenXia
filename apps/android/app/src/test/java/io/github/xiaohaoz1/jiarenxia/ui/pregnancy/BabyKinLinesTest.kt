@@ -78,6 +78,21 @@ class BabyKinLinesTest {
     }
 
     @Test
+    fun 已故家人不出现在列表() {
+        // 杨福生（爷爷）已故 → 整行不出现，其余顺序不变
+        val g = graph()
+        val lines = babyKinLines(
+            g.copy(persons = g.persons.map {
+                if (it.id == "gfd") it.copy(livingStatus = LivingStatus.DECEASED)
+                else it
+            }), "baby", KinshipEngine())
+        assertFalse(lines.any { it.endsWith("杨福生") })
+        assertEquals("父亲 · 杨明", lines[0])
+        assertEquals("母亲 · 李雪", lines[1])
+        assertEquals("奶奶 · 李桂英", lines[2])
+    }
+
+    @Test
     fun 至多八行() {
         val lines = babyKinLines(graph(), "baby", KinshipEngine())
         assertTrue(lines.size <= 8)

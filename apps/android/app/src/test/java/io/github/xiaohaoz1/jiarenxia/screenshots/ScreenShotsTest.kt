@@ -4361,4 +4361,313 @@ class ScreenShotsTest {
         }
     }
 
+    // ---------- 用药记录（FAMILY_AFFAIRS 23） ----------
+
+    private fun demoMed(
+        id: String, name: String,
+        usage: io.github.xiaohaoz1.jiarenxia.core.model.MedUsage,
+        courseDays: Int? = null,
+        start: LocalDate = Demo.today.minusDays(30),
+        refill: LocalDate? = null,
+        meal: io.github.xiaohaoz1.jiarenxia.core.model.MedMeal? = null,
+        dose: String? = null, spec: String? = null,
+        purpose: String? = null, note: String? = null,
+        times: List<Int> = emptyList(),
+        stopped: LocalDate? = null
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.Medication(
+        id = id, personId = "me", name = name, dose = dose, spec = spec,
+        meal = meal, usage = usage, courseDays = courseDays,
+        startEpochDay = start.toEpochDay(), purpose = purpose, note = note,
+        refillEpochDay = refill?.toEpochDay(),
+        stoppedEpochDay = stopped?.toEpochDay(), times = times)
+
+    /** med_card 演示数据：五种在用状态各一 + 两条已停用（收起）。 */
+    private fun demoMeds() = listOf(
+        // 短期第 3 天（9-30 开始，7 天疗程）
+        demoMed("m1", "阿莫西林胶囊",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 7, start = Demo.today.minusDays(2),
+            dose = "1 粒", spec = "0.25g/粒",
+            meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.AFTER,
+            times = listOf(480, 1200)),
+        // 短期待确认
+        demoMed("m2", "氯雷他定片",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = null, start = Demo.today.minusDays(1),
+            dose = "1 片"),
+        // 记录疗程已到期（9-25 开始 7 天，最后一天 10-1 < 今天）
+        demoMed("m3", "布洛芬缓释胶囊",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 7, start = Demo.today.minusDays(7)),
+        // 长期吃 + 下次拿药日 11-4
+        demoMed("m4", "二甲双胍片",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.LONG_TERM,
+            start = Demo.today.minusDays(60),
+            refill = Demo.today.plusDays(33),
+            dose = "1 片",
+            meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.WITH,
+            times = listOf(480, 1200)),
+        // 需要时吃
+        demoMed("m5", "蒙脱石散",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.AS_NEEDED,
+            purpose = "腹泻"),
+        // 以前吃过 ×2
+        demoMed("m6", "感冒灵颗粒",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 3, start = Demo.today.minusDays(40),
+            stopped = Demo.today.minusDays(30)),
+        demoMed("m7", "硫酸亚铁片",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.LONG_TERM,
+            start = Demo.today.minusDays(200),
+            stopped = Demo.today.minusDays(100))
+    )
+
+    @androidx.compose.runtime.Composable
+    private fun medCardContent(meds: List<
+        io.github.xiaohaoz1.jiarenxia.core.model.Medication>) =
+        Column(Modifier.padding(16.dp)) {
+            io.github.xiaohaoz1.jiarenxia.ui.person.MedicationCard(
+                medications = meds, today = Demo.today,
+                courseRefillEnabled = true,
+                onSetCourseRefill = {}, onOpenEdit = {}, onOpenDoctor = {}
+            )
+        }
+
+    @Test
+    fun medCard() {
+        shot("med_card") { medCardContent(demoMeds()) }.also {
+            assertTexts("用药", "阿莫西林胶囊",
+                "短期疗程 · 记录疗程 7 天，按开始日期计算今天是第 3 天",
+                "氯雷他定片", "疗程待确认，请向医生或药师核对",
+                "布洛芬缓释胶囊", "记录疗程已到期（7 天），实际停用待确认",
+                "二甲双胍片", "长期吃 · 下次拿药 11月4日",
+                "蒙脱石散", "需要时吃",
+                "以前吃过（2）", "记一种药", "给医生看",
+                "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardEmpty() {
+        shot("med_card_empty") { medCardContent(emptyList()) }.also {
+            assertTexts("用药", "还没有记录在用的药", "记一种药")
+            assertNoTexts("给医生看", "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardHistoryOpen() {
+        // 点开「以前吃过」：两条停用记录展开
+        setShotContent { medCardContent(demoMeds()) }
+        composeRule.onNodeWithText("以前吃过（2）").performClick()
+        composeRule.waitForIdle()
+        capture("med_card_history_open")
+        assertTexts("收起", "感冒灵颗粒", "8月23日开始", "9月2日记录停用")
+    }
+
+    @Test
+    fun medEditNew() {
+        shot("med_edit_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("记一种药", "拿药时问清楚",
+                "吃多久？能不能长期吃？", "药名", "治什么（可不填）",
+                "每次用量（可不填，如 1 片）", "药品规格（可不填，如 500mg/片）",
+                "怎么吃", "短期疗程", "长期吃", "需要时吃",
+                "开始日期", "饭前饭后", "不填", "饭前", "饭后", "随餐",
+                "医嘱备注（可不填）", "保存")
+        }
+    }
+
+    @Test
+    fun medEditShortPending() {
+        // 短期疗程 + 疗程待确认：天数禁用 + warning 文案；时刻卡出现
+        shot("med_edit_short_pending") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today,
+                    name = "阿莫西林胶囊",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .SHORT_COURSE,
+                    coursePending = true,
+                    times = listOf(480, 1200),
+                    meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.AFTER
+                ),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("记一种药", "记录的疗程天数",
+                "疗程待确认（还没问清楚吃几天）",
+                "疗程待确认，请向医生或药师核对",
+                "每天几点吃（可不填）", "08:00", "20:00", "添加时刻")
+        }
+    }
+
+    @Test
+    fun medEditLong() {
+        // 长期吃：下次拿药日 + 时刻 chips + 饭后
+        shot("med_edit_long") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today,
+                    name = "二甲双胍片",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .LONG_TERM,
+                    refillDate = Demo.today.plusDays(33),
+                    times = listOf(480, 1200),
+                    meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.WITH
+                ),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("下次拿药日（可不填）", "11月4日",
+                "每天几点吃（可不填）", "08:00", "20:00",
+                "添加时刻", "保存")
+        }
+    }
+
+    @Test
+    fun medLongConfirmDialog() {
+        // 长期确认弹窗（新建选长期吃时保存前先弹）
+        shot("med_long_confirm_dialog") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today,
+                    name = "二甲双胍片",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .LONG_TERM,
+                    confirmLongTerm = true),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("请确认这是医生交代的长期用药",
+                "长期吃的药会按“下次拿药日”提醒拿药。",
+                "是医生交代的", "再想想")
+        }
+    }
+
+    @Test
+    fun medEditCourseEnded() {
+        // 编辑已到期记录：状态卡 + 「记录已停用」「医生让继续吃」
+        val ended = demoMed("m3", "布洛芬缓释胶囊",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 7, start = Demo.today.minusDays(7),
+            dose = "1 粒", meal = io.github.xiaohaoz1.jiarenxia.core.model
+                .MedMeal.AFTER)
+        shot("med_edit_course_ended") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    medId = "m3", personId = "me", existing = ended,
+                    loaded = true,
+                    name = ended.name, dose = ended.dose ?: "",
+                    usage = ended.usage, courseDaysText = "7",
+                    startDate = LocalDate.ofEpochDay(ended.startEpochDay),
+                    meal = ended.meal),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("编辑用药", "记录疗程已到期，实际停用待确认",
+                "记录已停用", "医生让继续吃", "拿药时问清楚",
+                "记录的疗程天数")
+        }
+    }
+
+    private fun medDoctorState(
+        meds: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>
+    ) = io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorUiState(
+        loading = false, personName = "杨明", ageText = "62 岁",
+        medications = meds)
+
+    @Test
+    fun medDoctorView() {
+        // 给医生看：未停用（含到期）逐卡；药名 headlineSmall + 逐行 bodyLarge
+        val meds = demoMeds().filter { it.stoppedEpochDay == null }.map {
+            it.copy(purpose = it.purpose ?: when (it.id) {
+                "m1" -> "扁桃体发炎"; "m4" -> "二型糖尿病"; else -> null
+            }, note = when (it.id) {
+                "m1" -> "饭后半小时吃，整粒吞"; else -> null
+            })
+        }
+        shot("med_doctor_view") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorContent(
+                st = medDoctorState(meds), today = Demo.today, onBack = {}
+            )
+        }.also {
+            assertTexts("给医生看", "杨明（62 岁）",
+                "以下为家人记录，不是服药记录",
+                "阿莫西林胶囊", "怎么吃：短期疗程 · 记录疗程 7 天",
+                "治什么：扁桃体发炎", "记录的开始日期：2026年9月30日",
+                "医嘱：饭后半小时吃，整粒吞",
+                "记录疗程已到期（7 天），实际停用待确认",
+                "长期吃 · 下次拿药 11月4日")
+        }
+    }
+
+    @Test
+    fun reminderSettingsMed() {
+        // 提醒设置页第五类「用药提醒」（副标题「疗程到期与续药」，时刻 20:30）
+        shot("reminder_settings_med") {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
+                state = io.github.xiaohaoz1.jiarenxia.ui.reminder
+                    .ReminderSettingsUi(medMinute = 20 * 60 + 30),
+                onBack = {}
+            )
+        }.also {
+            assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
+                "用药提醒", "疗程到期与续药", "20:30")
+        }
+    }
+
+    // ---------- 用药截图·大字号 ----------
+
+    @Test
+    fun medCardLg() {
+        shotLarge("med_card") { medCardContent(demoMeds()) }.also {
+            assertTexts("用药", "阿莫西林胶囊", "以前吃过（2）",
+                "记一种药", "给医生看")
+        }
+    }
+
+    @Test
+    fun medDoctorViewLg() {
+        val meds = demoMeds().filter { it.stoppedEpochDay == null }
+        shotLarge("med_doctor_view") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorContent(
+                st = medDoctorState(meds), today = Demo.today, onBack = {}
+            )
+        }.also {
+            assertTexts("给医生看", "杨明（62 岁）",
+                "以下为家人记录，不是服药记录", "阿莫西林胶囊")
+        }
+    }
+
+    @Test
+    fun medEditNewLg() {
+        shotLarge("med_edit_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("记一种药", "拿药时问清楚", "药名", "怎么吃", "保存")
+        }
+    }
+
 }

@@ -160,6 +160,14 @@ private class FakeSettings : SettingsRepository {
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         contactReminderMinuteOfDay.value = minute
     }
+    override val medRemindersEnabled = MutableStateFlow(true)
+    override suspend fun setMedRemindersEnabled(enabled: Boolean) {
+        medRemindersEnabled.value = enabled
+    }
+    override val medReminderMinuteOfDay = MutableStateFlow(540)
+    override suspend fun setMedReminderMinuteOfDay(minute: Int) {
+        medReminderMinuteOfDay.value = minute
+    }
     override val tombRemindersEnabled = MutableStateFlow(true)
     override suspend fun setTombRemindersEnabled(enabled: Boolean) {
         tombRemindersEnabled.value = enabled
@@ -241,7 +249,9 @@ class WorkerTest {
         rels: List<io.github.xiaohaoz1.jiarenxia.core.model.Relationship> = emptyList(),
         celebrations: List<io.github.xiaohaoz1.jiarenxia.core.model
             .BabyCelebration> = emptyList(),
-        birthdays: Map<String, PartialDate> = emptyMap()
+        birthdays: Map<String, PartialDate> = emptyMap(),
+        medRepo: io.github.xiaohaoz1.jiarenxia.data.MedicationRepository =
+            FakeMedicationRepo()
     ): BirthdayReminderWorker {
         val self = Person(id = "me", name = "我", gender = Gender.MALE, isSelf = true)
         val entries = listOf(
@@ -263,7 +273,7 @@ class WorkerTest {
                         appContext, params, repo, taskRepo,
                         io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository(),
                         homeRepo, pregRepo, bagRepo,
-                        FakeCelebrationRepo(celebrations), settings, overview,
+                        FakeCelebrationRepo(celebrations), medRepo, settings, overview,
                         io.github.xiaohaoz1.jiarenxia.domain.lunar.TableLunarCalendar(),
                         clock
                     )
@@ -884,6 +894,224 @@ class WorkerTest {
         ).doWork()
         assertTrue(postedTexts().none { it.contains("满月") })
     }
+
+    // ---------- 用药提醒（FAMILY_AFFAIRS 23） ----------
+
+    private fun med(
+        id: String,
+        personId: String = "me",
+        usage: io.github.xiaohaoz1.jiarenxia.core.model.MedUsage,
+        courseDays: Int? = null,
+        start: LocalDate,
+        refill: LocalDate? = null,
+        stopped: LocalDate? = null,
+        name: String = "阿莫西林"
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.Medication(
+        id = id, personId = personId, name = name, dose = null, spec = null,
+        meal = null, usage = usage, courseDays = courseDays,
+        startEpochDay = start.toEpochDay(), purpose = null, note = null,
+        refillEpochDay = refill?.toEpochDay(),
+        stoppedEpochDay = stopped?.toEpochDay())
+
+    private fun medRepoOf(
+        vararg meds: io.github.xiaohaoz1.jiarenxia.core.model.Medication,
+        prefs: List<io.github.xiaohaoz1.jiarenxia.core.model
+            .MedicationPersonPrefs> = emptyList()
+    ) = FakeMedicationRepo(meds.toList(), prefs)
+
+    @Test
+    fun 用药_疗程最后一天_本人文案() = runTest {
+        val today = LocalDate.now()
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.SHORT_COURSE, courseDays = 7,
+                start = today.minusDays(6)))   // 最后一天 = 今天
+        ).doWork()
+        assertTrue(postedTexts().any {
+            it == "今天是阿莫西林记录疗程的最后一天，之后怎么吃请按医嘱确认" })
+    }
+
+    @Test
+    fun 用药_疗程非最后一天不发() = runTest {
+        val today = LocalDate.now()
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.SHORT_COURSE, courseDays = 7,
+                start = today.minusDays(2)))   // 还剩 4 天
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("阿莫西林") })
+    }
+
+    @Test
+    fun 用药_续药提前三天与当天_本人文案() = runTest {
+        val today = LocalDate.now()
+        val refill = today.plusDays(3)
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.LONG_TERM, start = today.minusDays(30),
+                refill = refill))
+        ).doWork()
+        val date = refill.monthValue.toString() + "月" +
+            refill.dayOfMonth + "日"
+        assertTrue(postedTexts().any {
+            it == "3 天后（" + date + "）该去拿阿莫西林了" })
+        // 当天（daysBefore=0）另一条
+        val refill0 = today
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(med(
+                "m2", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.LONG_TERM, start = today.minusDays(30),
+                refill = refill0))
+        ).doWork()
+        assertTrue(postedTexts().any { it == "今天该去拿阿莫西林了" })
+    }
+
+    @Test
+    fun 用药_续药其他日子不发() = runTest {
+        val today = LocalDate.now()
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.LONG_TERM, start = today.minusDays(30),
+                refill = today.plusDays(5)))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("阿莫西林") })
+    }
+
+    @Test
+    fun 用药_他人文案带称谓() = runTest {
+        val today = LocalDate.now()
+        val mom = Person(id = "mom", name = "王秀兰", gender = Gender.FEMALE)
+        val rel = io.github.xiaohaoz1.jiarenxia.core.model.Relationship(
+            id = "r-mom", sourcePersonId = "mom", targetPersonId = "me",
+            type = io.github.xiaohaoz1.jiarenxia.core.model
+                .RelationshipType.PARENT)
+        buildWorker(
+            FakeSettings(),
+            extraPersons = listOf(mom), rels = listOf(rel),
+            medRepo = medRepoOf(
+                med("m1", personId = "mom",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedUsage.SHORT_COURSE, courseDays = 7,
+                    start = today.minusDays(6)))
+        ).doWork()
+        // 他人格式：“今天是{称谓}的{药名}记录疗程的最后一天…”
+        assertTrue(postedTexts().any {
+            it.contains("的阿莫西林记录疗程的最后一天") })
+    }
+
+    @Test
+    fun 用药_总开关关不发() = runTest {
+        val today = LocalDate.now()
+        val settings = FakeSettings()
+        settings.medRemindersEnabled.value = false
+        buildWorker(
+            settings,
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.SHORT_COURSE, courseDays = 7,
+                start = today.minusDays(6)))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("阿莫西林") })
+    }
+
+    @Test
+    fun 用药_时刻未到不发() = runTest {
+        val today = LocalDate.now()
+        val settings = FakeSettings()
+        settings.medReminderMinuteOfDay.value = 21 * 60   // 21:00，当前中午
+        buildWorker(
+            settings,
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.SHORT_COURSE, courseDays = 7,
+                start = today.minusDays(6)))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("阿莫西林") })
+    }
+
+    @Test
+    fun 用药_个人开关关不发() = runTest {
+        val today = LocalDate.now()
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(
+                med("m1",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedUsage.SHORT_COURSE, courseDays = 7,
+                    start = today.minusDays(6)),
+                prefs = listOf(
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedicationPersonPrefs("me", courseRefillEnabled = false)
+                ))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("阿莫西林") })
+    }
+
+    @Test
+    fun 用药_已故与已停用不发() = runTest {
+        val today = LocalDate.now()
+        val dead = Person(
+            id = "dead", name = "爷爷", gender = Gender.MALE,
+            livingStatus = io.github.xiaohaoz1.jiarenxia.core.model
+                .LivingStatus.DECEASED)
+        buildWorker(
+            FakeSettings(),
+            extraPersons = listOf(dead),
+            medRepo = medRepoOf(
+                med("m-dead", personId = "dead",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedUsage.SHORT_COURSE, courseDays = 7,
+                    start = today.minusDays(6), name = "降压药"),
+                med("m-stop",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedUsage.SHORT_COURSE, courseDays = 7,
+                    start = today.minusDays(6), stopped = today,
+                    name = "止痛药"))
+        ).doWork()
+        val texts = postedTexts()
+        assertTrue(texts.none { it.contains("降压药") })
+        assertTrue(texts.none { it.contains("止痛药") })
+    }
+
+    @Test
+    fun 用药_短期不产生续药() = runTest {
+        val today = LocalDate.now()
+        // SHORT_COURSE 即使带拿药日字段也不发续药（duesOn 只看 LONG_TERM）
+        buildWorker(
+            FakeSettings(),
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.SHORT_COURSE, courseDays = null,
+                start = today.minusDays(2), refill = today.plusDays(3)))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("拿阿莫西林") })
+    }
+
+    @Test
+    fun 用药_当日已通知不重复发() = runTest {
+        val today = LocalDate.now()
+        val last = today  // courseDays=7, start=today-6 → 最后一天=今天
+        val settings = FakeSettings()
+        settings.runState = today.toEpochDay() to
+            setOf("medcourse:m1:" + last.toEpochDay())
+        buildWorker(
+            settings,
+            medRepo = medRepoOf(med(
+                "m1", usage = io.github.xiaohaoz1.jiarenxia.core.model
+                    .MedUsage.SHORT_COURSE, courseDays = 7,
+                start = today.minusDays(6)))
+        ).doWork()
+        assertTrue(postedTexts().none { it.contains("阿莫西林") })
+    }
 }
 
 /** 事项仓储 fake：字段即全部数据。 */
@@ -997,4 +1225,27 @@ private class FakeCelebrationRepo(
         kind: io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
         date: java.time.LocalDate?
     ) {}
+}
+
+/** 用药仓储 fake：getAll/observeAll 回传入列表；prefs 可传。 */
+private class FakeMedicationRepo(
+    private val all: List<io.github.xiaohaoz1.jiarenxia.core.model
+        .Medication> = emptyList(),
+    private val prefs: List<io.github.xiaohaoz1.jiarenxia.core.model
+        .MedicationPersonPrefs> = emptyList()
+) : io.github.xiaohaoz1.jiarenxia.data.MedicationRepository {
+    override fun observeForPerson(personId: String) =
+        kotlinx.coroutines.flow.flowOf(all.filter { it.personId == personId })
+    override fun observeAll() = kotlinx.coroutines.flow.flowOf(all)
+    override suspend fun getAll() = all
+    override suspend fun get(id: String) = all.firstOrNull { it.id == id }
+    override suspend fun save(draft: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationDraft) = FamilyResult.Success(draft.id ?: "new-med")
+    override suspend fun markStopped(id: String, today: LocalDate) =
+        FamilyResult.Success(Unit)
+    override suspend fun clearStopped(id: String) = FamilyResult.Success(Unit)
+    override suspend fun delete(id: String) = FamilyResult.Success(Unit)
+    override fun observePrefs() = kotlinx.coroutines.flow.flowOf(prefs)
+    override suspend fun setCourseRefillEnabled(personId: String, enabled: Boolean) =
+        FamilyResult.Success(Unit)
 }

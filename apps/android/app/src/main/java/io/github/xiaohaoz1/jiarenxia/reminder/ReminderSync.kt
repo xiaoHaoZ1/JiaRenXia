@@ -14,8 +14,9 @@ import kotlinx.coroutines.launch
 
 /**
  * 提醒同步器（DEVELOPMENT_PLAN 2.5）：应用启动时 reconcile 一次，
- * 随后每当生日/纪念日数据、事项数据、联系计划与记录、四类开关、
- * 各自的提醒时刻或上坟日子/名单设置变化（防抖 500ms）重新调度。
+ * 随后每当生日/纪念日数据、事项数据、联系计划与记录、用药记录与按人开关、
+ * 五类开关、各自的提醒时刻、用药开关与时刻或上坟日子/名单设置变化
+ * （防抖 500ms）重新调度。
  * WorkManager 会跨重启保持任务，无需 BOOT 广播。
  */
 @Singleton
@@ -28,6 +29,8 @@ class ReminderSync @Inject constructor(
         .HomeVisitRepository,
     private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
         .BabyCelebrationRepository,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository,
     private val settings: SettingsRepository,
     @ApplicationScope private val scope: CoroutineScope
 ) {
@@ -48,7 +51,9 @@ class ReminderSync @Inject constructor(
                 contactRepository.observePlanList(),
                 contactRepository.observeAllLogs(),
                 homeVisitRepository.observeHomes(),
-                celebrationRepository.observeAll()
+                celebrationRepository.observeAll(),
+                medicationRepository.observeAll(),
+                medicationRepository.observePrefs()
             ) { arr ->
                 @Suppress("UNCHECKED_CAST")
                 DataWatch(
@@ -59,7 +64,10 @@ class ReminderSync @Inject constructor(
                     arr[4] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
                     arr[5] as List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>,
                     arr[6] as List<io.github.xiaohaoz1.jiarenxia.core.model
-                        .BabyCelebration>
+                        .BabyCelebration>,
+                    arr[7] as List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>,
+                    arr[8] as List<io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedicationPersonPrefs>
                 )
             }
             // 设置侧：四个总开关、四个提醒时刻、上坟日子/名单与回家节前提醒开关
@@ -76,7 +84,9 @@ class ReminderSync @Inject constructor(
                 settings.tombZhongyuanDay,
                 settings.tombExcludedPersonIds,
                 settings.tombIncludedPersonIds,
-                settings.homeVisitHolidayNudge
+                settings.homeVisitHolidayNudge,
+                settings.medRemindersEnabled,
+                settings.medReminderMinuteOfDay
             ) { v ->
                 SettingsWatch(
                     v[0] as Boolean, v[1] as Boolean, v[2] as Boolean,
@@ -87,7 +97,8 @@ class ReminderSync @Inject constructor(
                     v[9] as Int,
                     (v[10] as Set<*>).filterIsInstance<String>().toSet(),
                     (v[11] as Set<*>).filterIsInstance<String>().toSet(),
-                    v[12] as Boolean
+                    v[12] as Boolean,
+                    v[13] as Boolean, v[14] as Int
                 )
             }
             combine(dataWatch, settingsWatch) { d, s -> ReminderWatch(d, s) }
@@ -105,7 +116,10 @@ class ReminderSync @Inject constructor(
         val contactLogs: List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
         val homeVisits: List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>,
         val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.core.model
-            .BabyCelebration>
+            .BabyCelebration>,
+        val medications: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>,
+        val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.core.model
+            .MedicationPersonPrefs>
     )
 
     private data class SettingsWatch(
@@ -121,7 +135,9 @@ class ReminderSync @Inject constructor(
         val tombZhongyuanDay: Int,
         val tombExcludedIds: Set<String>,
         val tombIncludedIds: Set<String>,
-        val homeVisitHolidayNudge: Boolean
+        val homeVisitHolidayNudge: Boolean,
+        val medRemindersEnabled: Boolean,
+        val medMinute: Int
     )
 
     private data class ReminderWatch(val data: DataWatch, val settings: SettingsWatch)

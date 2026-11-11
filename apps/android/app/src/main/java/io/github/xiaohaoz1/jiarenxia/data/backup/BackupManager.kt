@@ -58,7 +58,8 @@ class BackupManager @Inject constructor(
             val (persons2, phones, rels, dates, prefs, offsets, titles, tasks, taskOffsets,
                 contactLogs, contactPlans, personFacts, homeVisits,
                 pregnancies, pregnancyBabies, checklists, checklistItems,
-                babyCelebrations) = persons
+                babyCelebrations, medications, medicationTimes,
+                medicationPrefs) = persons
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -86,6 +87,10 @@ class BackupManager @Inject constructor(
                     cl to checklistItems.filter { it.checklistId == cl.id }
                 },
                 babyCelebrations = babyCelebrations,
+                medications = medications.map { m ->
+                    m to medicationTimes.filter { it.medicationId == m.id }
+                },
+                medicationPrefs = medicationPrefs,
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
                     remindersEnabled = settings.remindersEnabled.first(),
@@ -103,7 +108,9 @@ class BackupManager @Inject constructor(
                     tombZhongyuanDay = settings.tombZhongyuanDay.first(),
                     tombExcludedPersonIds = settings.tombExcludedPersonIds.first(),
                     tombIncludedPersonIds = settings.tombIncludedPersonIds.first(),
-                    homeVisitHolidayNudge = settings.homeVisitHolidayNudge.first()
+                    homeVisitHolidayNudge = settings.homeVisitHolidayNudge.first(),
+                    medRemindersEnabled = settings.medRemindersEnabled.first(),
+                    medReminderMinuteOfDay = settings.medReminderMinuteOfDay.first()
                 ),
                 avatars = avatarMap,
                 createdAt = System.currentTimeMillis(),
@@ -148,7 +155,7 @@ class BackupManager @Inject constructor(
         }
         val snap = db.withTransaction { snapshotTables() }
         val (allPersons, allPhones, allRels, allDates, allPrefs, allOffsets, _,
-            _, _, _, _, _, _, _, _, _, _) = snap
+            _, _, _, _, _, _, _, _, _, _, _, _, _) = snap
         val keep = personIds
             ?: allPersons.mapTo(HashSet()) { it.id }
         val persons = allPersons.filter { it.id in keep }
@@ -229,7 +236,10 @@ class BackupManager @Inject constructor(
         pregnancyBabies = db.pregnancyBabyDao().getAll(),
         checklists = db.checklistDao().getAll(),
         checklistItems = db.checklistItemDao().getAll(),
-        babyCelebrations = db.babyCelebrationDao().getAll()
+        babyCelebrations = db.babyCelebrationDao().getAll(),
+        medications = db.medicationDao().getAll(),
+        medicationTimes = db.medicationTimeDao().getAll(),
+        medicationPrefs = db.medicationPersonPrefsDao().getAll()
     )
 
     // ---------- 检查 ----------
@@ -324,6 +334,10 @@ class BackupManager @Inject constructor(
                 settings.setTombIncludedPersonIds(ids)
             }
             it.homeVisitHolidayNudge?.let { v -> settings.setHomeVisitHolidayNudge(v) }
+            // 用药提醒（可选键）：缺失保留当前设置
+            it.medRemindersEnabled?.let { v -> settings.setMedRemindersEnabled(v) }
+            it.medReminderMinuteOfDay?.takeIf { m -> m in 0..1439 }
+                ?.let { m -> settings.setMedReminderMinuteOfDay(m) }
             // 旧版激活码 licenseCode 字段：会员功能已下线，恢复时忽略
         }
         settings.clearReminderRunState()
@@ -452,6 +466,16 @@ class BackupManager @Inject constructor(
             if (plan.babyCelebrations.isNotEmpty()) {
                 db.babyCelebrationDao().upsertAll(plan.babyCelebrations)
             }
+            // 用药依赖 persons；时刻在用药之后、按人开关最后
+            if (plan.medications.isNotEmpty()) {
+                db.medicationDao().upsertAll(plan.medications.map { it.first })
+                plan.medications.forEach { (_, times) ->
+                    if (times.isNotEmpty()) db.medicationTimeDao().insertAll(times)
+                }
+            }
+            if (plan.medicationPrefs.isNotEmpty()) {
+                db.medicationPersonPrefsDao().upsertAll(plan.medicationPrefs)
+            }
         }
         plan.tasks.forEach { (task, offsets) ->
             db.familyTaskDao().insertAll(listOf(task))
@@ -499,7 +523,7 @@ class BackupManager @Inject constructor(
         personIds: Set<String>? = null
     ): ByteArray = withContext(Dispatchers.IO) {
         val snap = db.withTransaction { snapshotTables() }
-        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _, _, _, _, _) = snap
+        val (allPersons, allPhones, allRels, allDates, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) = snap
         val keep = personIds ?: allPersons.mapTo(HashSet()) { it.id }
         require(allPersons.firstOrNull { it.isSelf }?.id in keep) {
             "碰一碰资料包必须包含“我”"
@@ -712,6 +736,12 @@ class BackupManager @Inject constructor(
         val checklistItems: List<io.github.xiaohaoz1.jiarenxia.data.db
             .ChecklistItemEntity>,
         val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
-            .BabyCelebrationEntity>
+            .BabyCelebrationEntity>,
+        val medications: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationEntity>,
+        val medicationTimes: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationTimeEntity>,
+        val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationPersonPrefsEntity>
     )
 }
