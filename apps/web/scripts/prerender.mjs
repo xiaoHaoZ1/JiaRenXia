@@ -112,6 +112,15 @@ written.push(write("404.html", page("/404")));
 // App 端「联网检查更新」读的版本清单：与 site.ts 同源，随构建重新生成。
 // serve.mjs 对非 assets 一律 no-cache，无需额外处理缓存。
 if (SITE.apkVersion) {
+  // GitHub 备用链接与 apkVersion 必须一致：发版漏更新会让备用链接指向不存在的包
+  if (
+    SITE.apkGithubUrl &&
+    !SITE.apkGithubUrl.endsWith(`/v${SITE.apkVersion}/jiarenxia-${SITE.apkVersion}.apk`)
+  ) {
+    throw new Error(
+      "预渲染失败：GitHub 备用链接与 apkVersion 不一致，发版时更新或清空 apkGithubUrl"
+    );
+  }
   // 测试版/演示版渠道清单：App 按 applicationId 后缀选渠道块读；
   // 顶层字段始终是正式版（旧版客户端只认顶层，不受影响）。
   const channels = {};

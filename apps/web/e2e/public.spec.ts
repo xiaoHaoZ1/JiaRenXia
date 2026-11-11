@@ -133,6 +133,30 @@ test("下载地址与版本清单走 dl.jiarenxia.com", async ({ page, request }
   expect(existsSync(join(ROOT, "apps", "web", "dist", "_headers"))).toBeTruthy();
 });
 
+test("正式版另有 GitHub Release 备用下载链接", async ({ page }) => {
+  for (const path of ["/download", "/en/download"] as const) {
+    await page.goto(path);
+    // 主下载按钮仍走 dl.jiarenxia.com
+    const mainHref = await page
+      .locator("a[href*='dl.jiarenxia.com/jiarenxia-']")
+      .first()
+      .getAttribute("href");
+    const mainVersion = mainHref?.match(/jiarenxia-(\d+\.\d+\.\d+)\.apk/)?.[1];
+    expect(mainVersion).toBeTruthy();
+
+    // 备用链接恰好一个，版本号与主链接一致
+    const mirrors = page.locator(
+      "a[href*='github.com/xiaoHaoZ1/JiaRenXia/releases/download/']"
+    );
+    await expect(mirrors).toHaveCount(1);
+    const mirrorHref = await mirrors.first().getAttribute("href");
+    expect(mirrorHref).toMatch(
+      /^https:\/\/github\.com\/xiaoHaoZ1\/JiaRenXia\/releases\/download\/v(\d+\.\d+\.\d+)\/jiarenxia-\1\.apk$/
+    );
+    expect(mirrorHref).toContain(`/v${mainVersion}/jiarenxia-${mainVersion}.apk`);
+  }
+});
+
 test("宣传下载页把已知匿名来源带到安装包链接", async ({ page }) => {
   const sources = ["xhs-call", "xhs-kinship", "bili-story", "wx-video"];
   for (const source of sources) {
