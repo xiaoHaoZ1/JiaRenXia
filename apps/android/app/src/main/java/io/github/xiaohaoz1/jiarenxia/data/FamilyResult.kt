@@ -51,4 +51,9 @@ sealed class FamilyError(val message: String) {
     data object ChecklistItemNotFound : FamilyError("清单条目不存在")
     data object InvalidChecklistTitle : FamilyError("名称需要 1–30 个字")
     data object ChecklistGroupInvalid : FamilyError("分组不正确")
+    data object ChecklistItemLinked : FamilyError("这条已定日期，请在事项里办理")
+    data object BirthNoBabies : FamilyError("请至少记录一个宝宝")
+    data object BirthTooManyBabies : FamilyError("一次最多记录 3 个宝宝")
+    data object BirthBabyIneligible : FamilyError("这位家人不能记为这次出生的宝宝")
+    data object BirthOtherParentInvalid : FamilyError("另一位父母须是孕妈当前的配偶")
 }

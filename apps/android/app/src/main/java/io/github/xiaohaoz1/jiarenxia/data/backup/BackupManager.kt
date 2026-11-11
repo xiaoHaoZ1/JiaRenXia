@@ -57,7 +57,8 @@ class BackupManager @Inject constructor(
             }
             val (persons2, phones, rels, dates, prefs, offsets, titles, tasks, taskOffsets,
                 contactLogs, contactPlans, personFacts, homeVisits,
-                pregnancies, pregnancyBabies, checklists, checklistItems) = persons
+                pregnancies, pregnancyBabies, checklists, checklistItems,
+                babyCelebrations) = persons
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -84,6 +85,7 @@ class BackupManager @Inject constructor(
                 checklists = checklists.map { cl ->
                     cl to checklistItems.filter { it.checklistId == cl.id }
                 },
+                babyCelebrations = babyCelebrations,
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
                     remindersEnabled = settings.remindersEnabled.first(),
@@ -226,7 +228,8 @@ class BackupManager @Inject constructor(
         pregnancies = db.pregnancyDao().getAll(),
         pregnancyBabies = db.pregnancyBabyDao().getAll(),
         checklists = db.checklistDao().getAll(),
-        checklistItems = db.checklistItemDao().getAll()
+        checklistItems = db.checklistItemDao().getAll(),
+        babyCelebrations = db.babyCelebrationDao().getAll()
     )
 
     // ---------- 检查 ----------
@@ -444,6 +447,10 @@ class BackupManager @Inject constructor(
             plan.checklists.forEach { (cl, items) ->
                 db.checklistDao().insertAll(listOf(cl))
                 if (items.isNotEmpty()) db.checklistItemDao().insertAll(items)
+            }
+            // 满月/百天另设日期依赖 persons（person_id 外键）
+            if (plan.babyCelebrations.isNotEmpty()) {
+                db.babyCelebrationDao().upsertAll(plan.babyCelebrations)
             }
         }
         plan.tasks.forEach { (task, offsets) ->
@@ -703,6 +710,8 @@ class BackupManager @Inject constructor(
         val checklists: List<io.github.xiaohaoz1.jiarenxia.data.db
             .ChecklistEntity>,
         val checklistItems: List<io.github.xiaohaoz1.jiarenxia.data.db
-            .ChecklistItemEntity>
+            .ChecklistItemEntity>,
+        val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .BabyCelebrationEntity>
     )
 }

@@ -103,6 +103,11 @@ object Routes {
     const val CHECKLIST = "checklist/{checklistId}"
     fun checklist(id: String) = "checklist/" + id
 
+    /** 「宝宝出生了」页；append=true 为孕期历史里的补记。 */
+    const val BIRTH = "pregnancy/{pregnancyId}/birth?append={append}"
+    fun birth(pregnancyId: String, append: Boolean = false) =
+        "pregnancy/" + pregnancyId + "/birth?append=" + append
+
     /** 事项编辑页：taskId 空 = 新建；kind/personId/shared/pregnancyId 为新建预填参数。 */
         fun shareImport(uri: String?): String =
         if (uri == null) "share/import" else "share/import?uri=" + uri
@@ -152,6 +157,7 @@ fun AppNavHost(
     onShareTextPendingConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
+    val context = androidx.compose.ui.platform.LocalContext.current
     // 碰一碰备用入口尚无文件，先选择对方发来的共享文件；取消不改变页面。
     val tapSharePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -425,7 +431,10 @@ fun AppNavHost(
                     )
                 },
                 onOpenTaskDetail = { navController.navigate(Routes.taskEdit(taskId = it)) },
-                onOpenChecklist = { navController.navigate(Routes.checklist(it)) }
+                onOpenChecklist = { navController.navigate(Routes.checklist(it)) },
+                onOpenBirth = { pregId, append ->
+                    navController.navigate(Routes.birth(pregId, append))
+                }
             )
         }
 
@@ -434,7 +443,35 @@ fun AppNavHost(
             arguments = listOf(navArgument("checklistId") { type = NavType.StringType })
         ) {
             io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistScreen(
-                onDone = { navController.popBackStack() }
+                onDone = { navController.popBackStack() },
+                onOpenTask = { navController.navigate(Routes.taskEdit(taskId = it)) }
+            )
+        }
+
+        composable(
+            Routes.BIRTH,
+            arguments = listOf(
+                navArgument("pregnancyId") { type = NavType.StringType },
+                navArgument("append") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthScreen(
+                onBack = { navController.popBackStack() },
+                onOpenChecklist = { navController.navigate(Routes.checklist(it)) },
+                onShareFamily = { navController.navigate(Routes.shareScope()) },
+                onShareNews = { text ->
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, text)
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent.createChooser(send, null)
+                        )
+                    }
+                }
             )
         }
 

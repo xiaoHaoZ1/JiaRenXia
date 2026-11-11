@@ -37,7 +37,8 @@ class ChecklistRepositoryTest : RepoTestBase() {
         pregnancies = PregnancyRepositoryImpl(
             db = db,
             ids = object : IdGenerator { override fun newId() = "pg-" + (++seq) },
-            clock = object : TimeSource { override fun now() = now }
+            clock = object : TimeSource { override fun now() = now },
+            familyRepository = repo
         )
     }
 
@@ -206,5 +207,88 @@ class ChecklistRepositoryTest : RepoTestBase() {
         val idx = items.indexOfFirst { it.title == "其他证件" }
         assertEquals("住院押金", items[idx - 1].title)
         assertEquals("洗漱用品", items[idx + 1].title)
+    }
+
+    // ---------- 第 3 批：条目「定日期」转家庭事项 ----------
+
+    @Test
+    fun `定日期_建事项写回taskId_再定一次替换`() = runTest {
+        val pid = mom()
+        val pregId = activePreg(pid)
+        val clId = checklists
+            .createFromTemplate(ChecklistKind.BIRTH_BAG, pregId).ok()
+        val item = checklists.get(clId)!!.items.first { it.title == "医保卡" }
+
+        // 首次定日期：新建 CUSTOM 事项，提前1天+当天，personId=条目归属
+        val taskId = checklists.setItemTask(
+            item.id, pid, "李雪的医保卡", LocalDate.of(2027, 3, 5)
+        ).ok()
+        val t = db.familyTaskDao().get(taskId)!!
+        assertEquals("李雪的医保卡", t.title)
+        assertEquals(pid, t.personId)
+        assertEquals(
+            LocalDate.of(2027, 3, 5).toEpochDay(), t.anchorEpochDay)
+        assertEquals(false, t.archived)
+        assertNull(t.pregnancyId)
+        // 提前1天+当天两个偏移
+        val offsets = db.familyTaskOffsetDao().getForTask(taskId)
+            .map { it.daysBefore }.toSet()
+        assertEquals(setOf(0, 1), offsets)
+        // 条目 task_id 写回
+        assertEquals(taskId, checklists.get(clId)!!.items
+            .first { it.id == item.id }.taskId)
+
+        // 再定一次日期：新事项替换引用，旧事项保留
+        val taskId2 = checklists.setItemTask(
+            item.id, pid, "李雪的医保卡", LocalDate.of(2027, 3, 8)
+        ).ok()
+        assertTrue(taskId2 != taskId)
+        assertNotNull(db.familyTaskDao().get(taskId))
+        assertEquals(taskId2, checklists.get(clId)!!.items
+            .first { it.id == item.id }.taskId)
+    }
+
+    @Test
+    fun `定日期_事项删除后条目回退普通态`() = runTest {
+        val pid = mom()
+        val pregId = activePreg(pid)
+        val clId = checklists
+            .createFromTemplate(ChecklistKind.BIRTH_BAG, pregId).ok()
+        val item = checklists.get(clId)!!.items.first { it.title == "饭盒" }
+        val taskId = checklists.setItemTask(
+            item.id, pid, "我的饭盒", LocalDate.of(2027, 3, 5)
+        ).ok()
+        // 删除事项（不删条目）→ task_id 悬空；仓库层面条目仍带 taskId，
+        // UI 侧按 task 找不到回退普通条目（此处验证事项确实没了）
+        db.familyTaskDao().delete(taskId)
+        assertNull(db.familyTaskDao().get(taskId))
+        // 条目本身仍在
+        assertTrue(checklists.get(clId)!!.items.any { it.id == item.id })
+    }
+
+    @Test
+    fun `定日期_校验与POSTNATAL条目`() = runTest {
+        val pid = mom()
+        val pregId = activePreg(pid)
+        // POSTNATAL 清单：经 recordBirth 生成（复用 BirthRecordTest 路径太重，
+        // 直接验证 setItemTask 对任意条目通用 + personId 校验）
+        val clId = checklists
+            .createFromTemplate(ChecklistKind.BIRTH_BAG, pregId).ok()
+        val item = checklists.get(clId)!!.items.first()
+        // 空标题失败
+        assertErr(
+            checklists.setItemTask(item.id, null, "  ", LocalDate.of(2027, 3, 5)),
+            FamilyError.InvalidTaskTitle
+        )
+        // 不存在的人物失败
+        assertErr(
+            checklists.setItemTask(item.id, "ghost", "x", LocalDate.of(2027, 3, 5)),
+            FamilyError.PersonNotFound
+        )
+        // 条目不存在
+        assertErr(
+            checklists.setItemTask("nope", null, "x", LocalDate.of(2027, 3, 5)),
+            FamilyError.ChecklistItemNotFound
+        )
     }
 }

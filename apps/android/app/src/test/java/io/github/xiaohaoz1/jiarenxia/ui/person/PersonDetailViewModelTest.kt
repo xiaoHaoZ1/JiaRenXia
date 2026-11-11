@@ -87,13 +87,15 @@ class PersonDetailViewModelTest : RepoTestBase() {
             io.github.xiaohaoz1.jiarenxia.data.PregnancyRepositoryImpl(
                 db,
                 object : IdGenerator { override fun newId() = "g-" + (++seq) },
-                object : TimeSource { override fun now() = now }
+                object : TimeSource { override fun now() = now },
+                repo
             ),
             io.github.xiaohaoz1.jiarenxia.data.ChecklistRepositoryImpl(
                 db,
                 object : IdGenerator { override fun newId() = "c-" + (++seq) },
                 object : TimeSource { override fun now() = now }
-            )
+            ),
+            io.github.xiaohaoz1.jiarenxia.data.BabyCelebrationRepositoryImpl(db)
         ).also(viewModels::add)
     }
 
@@ -194,6 +196,75 @@ class PersonDetailViewModelTest : RepoTestBase() {
             .any { it.type == RelationshipType.SPOUSE })
         assertTrue(db.relationshipDao().getParentRecords(son)
             .none { it.sourcePersonId == yang })
+    }
+
+    /** 手工录入的宝宝：阳历生日 [daysAgo] 天前，无孕期、无产后清单。 */
+    private suspend fun babyFixture(daysAgo: Long): String {
+        // 新生宝宝卡按真实今天（LocalDate.now）判定，而生日年份校验用仓库时钟：
+        // 把测试时钟拨到真实当前日期，保证出生年份合法且年龄窗口一致。
+        now = java.time.LocalDate.now()
+            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .toInstant().toEpochMilli()
+        val me = createSelf()
+        val baby = repo.createRelative(
+            draft("小宝", Gender.MALE), me, RelationRole.SON).ok()
+        val b = java.time.LocalDate.now().minusDays(daysAgo)
+        repo.setBirthday(
+            baby, CalendarType.SOLAR,
+            BirthdayValue(
+                PartialDate(b.year, b.monthValue, b.dayOfMonth),
+                CalendarType.SOLAR)
+        ).ok()
+        return baby
+    }
+
+    /** 直接写一张 POSTNATAL 清单 + [count] 条未办的宝宝条目。 */
+    private suspend fun insertPostnatalItems(personId: String, count: Int) {
+        db.checklistDao().insertAll(listOf(
+            io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+                id = "cl-pn-" + personId, kind = "POSTNATAL",
+                title = "出生后要办的事", personId = personId,
+                pregnancyId = null, createdAt = 1, updatedAt = 1
+            )
+        ))
+        db.checklistItemDao().insertAll((0 until count).map { i ->
+            io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                id = "pi-" + personId + "-" + i,
+                checklistId = "cl-pn-" + personId,
+                groupName = "宝宝", title = "事项" + i, note = null,
+                checked = false, sortOrder = i, personId = personId,
+                taskId = null, createdAt = 1, updatedAt = 1
+            )
+        })
+    }
+
+    @Test
+    fun 新生宝宝卡_出生第18天无清单_卡片显示() = runTest {
+        val baby = babyFixture(17)   // 出生第 18 天
+        val model = vm(baby)
+        val st = model.ui.first { !it.loading }
+        assertTrue(st.newbornCard != null)
+    }
+
+    @Test
+    fun 新生宝宝卡_百天后31天无未办条目_卡片不显示() = runTest {
+        val baby = babyFixture(130)  // 百天日 = 今天 - 31 天，已出窗口
+        val model = vm(baby)
+        val st = model.ui.first { !it.loading }
+        assertNull(st.newbornCard)
+    }
+
+    @Test
+    fun 新生宝宝卡_百天后31天有未办条目_卡片仍显示() = runTest {
+        val baby = babyFixture(130)
+        insertPostnatalItems(baby, 2)
+        val model = vm(baby)
+        val st = model.ui.first {
+            !it.loading && it.newbornCard != null
+        }
+        assertEquals("cl-pn-" + baby, st.newbornCard!!.postnatalChecklistId)
+        assertEquals(0, st.newbornCard!!.postnatalDone)
+        assertEquals(2, st.newbornCard!!.postnatalTotal)
     }
 
     @Test

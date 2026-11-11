@@ -1,13 +1,29 @@
 package io.github.xiaohaoz1.jiarenxia.data
 
 import androidx.room.withTransaction
+import io.github.xiaohaoz1.jiarenxia.core.model.BirthdayValue
+import io.github.xiaohaoz1.jiarenxia.core.model.CalendarType
+import io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
 import io.github.xiaohaoz1.jiarenxia.core.model.Gender
+import io.github.xiaohaoz1.jiarenxia.core.model.ImportantDateType
 import io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus
+import io.github.xiaohaoz1.jiarenxia.core.model.PartialDate
+import io.github.xiaohaoz1.jiarenxia.core.model.PersonBirthdays
 import io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy
 import io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
+import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipSpec
+import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
+import io.github.xiaohaoz1.jiarenxia.core.model.ReminderPreference
 import io.github.xiaohaoz1.jiarenxia.data.db.AppDatabase
+import io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ImportantDateEntity
 import io.github.xiaohaoz1.jiarenxia.data.db.PregnancyBabyEntity
 import io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ReminderOffsetEntity
+import io.github.xiaohaoz1.jiarenxia.data.db.ReminderPreferenceEntity
+import io.github.xiaohaoz1.jiarenxia.domain.NEW_PERSON
+import io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
 import io.github.xiaohaoz1.jiarenxia.domain.pregnancy.PregnancyMath
 import java.time.LocalDate
 import javax.inject.Inject
@@ -48,19 +64,60 @@ interface PregnancyRepository {
     suspend fun end(id: String, today: LocalDate): FamilyResult<Unit>
     /** 删除孕期记录：同事务删除关联产检事项与孕期（babies 行级联）。 */
     suspend fun delete(id: String): FamilyResult<Unit>
+    /**
+     * 「宝宝出生了」（FAMILY_AFFAIRS 26 第 3 批）：一个事务内建人/补关系/
+     * 补阳历生日、写 pregnancy_babies、（非 append 时）孕期转 BORN 并归档
+     * 未完成产检、生成或补齐 POSTNATAL 清单。任一步失败整体回滚。
+     * [append] = true 为补记（孕期须已 BORN；不改状态与 ended）。
+     */
+    suspend fun recordBirth(
+        pregnancyId: String,
+        babies: List<BirthBaby>,
+        otherParentId: String?,
+        append: Boolean,
+        today: LocalDate
+    ): FamilyResult<BirthResult>
+    /** 已关联过任何孕期的宝宝人物 id（出生表单候选排除用）。 */
+    fun observeLinkedBabyIds(): Flow<Set<String>>
 }
+
+/** recordBirth 的一个宝宝：新建人物 或 已在家谱中的人物。 */
+sealed interface BirthBaby {
+    /** 新建宝宝：阳历生日 = 出生日期，生日提醒按手工录入默认开启。 */
+    data class New(
+        val name: String,
+        val gender: Gender,
+        val birthDate: LocalDate,
+        val birthMinute: Int? = null
+    ) : BirthBaby
+
+    /** 已在家谱中：缺的亲子关系补上；无阳历生日且传了 birthDate 时补写。 */
+    data class Existing(
+        val personId: String,
+        val birthDate: LocalDate? = null,
+        val birthMinute: Int? = null
+    ) : BirthBaby
+}
+
+/** recordBirth 结果：POSTNATAL 清单 id + 本次记录的宝宝人物 id（按表单顺序）。 */
+data class BirthResult(
+    val checklistId: String,
+    val babyIds: List<String>
+)
 
 @Singleton
 class PregnancyRepositoryImpl @Inject constructor(
     private val db: AppDatabase,
     private val ids: IdGenerator,
-    private val clock: TimeSource
+    private val clock: TimeSource,
+    private val familyRepository: FamilyRepository
 ) : PregnancyRepository {
 
     private val dao get() = db.pregnancyDao()
     private val babyDao get() = db.pregnancyBabyDao()
     private val taskDao get() = db.familyTaskDao()
     private val checklistDao get() = db.checklistDao()
+    private val checklistItemDao get() = db.checklistItemDao()
 
     override fun observeForPerson(personId: String): Flow<List<Pregnancy>> =
         combine(
@@ -76,6 +133,9 @@ class PregnancyRepositoryImpl @Inject constructor(
             val byPreg = babies.groupBy { it.pregnancyId }
             rows.map { it.toModelWithBabies(byPreg[it.id].orEmpty()) }
         }
+
+    override fun observeLinkedBabyIds(): Flow<Set<String>> =
+        babyDao.observeAll().map { rows -> rows.map { it.babyPersonId }.toSet() }
 
     override suspend fun get(id: String): Pregnancy? {
         val e = dao.get(id) ?: return null
@@ -199,6 +259,295 @@ class PregnancyRepositoryImpl @Inject constructor(
             FamilyResult.Success(Unit)
         }
 
+    /** recordBirth 内部中止：携带业务错误，整体回滚后由外层转回 Failure。 */
+    private class TxAbort(val error: FamilyError) : Exception()
+
+    override suspend fun recordBirth(
+        pregnancyId: String,
+        babies: List<BirthBaby>,
+        otherParentId: String?,
+        append: Boolean,
+        today: LocalDate
+    ): FamilyResult<BirthResult> {
+        if (babies.isEmpty()) {
+            return FamilyResult.Failure(FamilyError.BirthNoBabies)
+        }
+        if (babies.size > 3) {
+            return FamilyResult.Failure(FamilyError.BirthTooManyBabies)
+        }
+        // 出生时刻 0..1439（分钟）
+        val badMinute = babies.any {
+            val m = when (it) {
+                is BirthBaby.New -> it.birthMinute
+                is BirthBaby.Existing -> it.birthMinute
+            }
+            m != null && m !in 0..1439
+        }
+        if (badMinute) {
+            return FamilyResult.Failure(FamilyError.PregnancyInvalidDate)
+        }
+        val now = clock.now()
+        return try {
+            db.withTransaction {
+                val preg = dao.get(pregnancyId)
+                    ?: throw TxAbort(FamilyError.PregnancyNotFound)
+                val expect = if (append) PregnancyStatus.BORN
+                else PregnancyStatus.ACTIVE
+                if (preg.status != expect.name) {
+                    throw TxAbort(FamilyError.PregnancyNotFound)
+                }
+                // 另一位父母：只能是孕妈当前的配偶
+                if (otherParentId != null) {
+                    val isSpouse = db.relationshipDao()
+                        .getSpouseRecords(preg.personId).any {
+                            (it.sourcePersonId == preg.personId &&
+                                it.targetPersonId == otherParentId) ||
+                                (it.targetPersonId == preg.personId &&
+                                    it.sourcePersonId == otherParentId)
+                        }
+                    if (!isSpouse ||
+                        db.personDao().getById(otherParentId) == null
+                    ) {
+                        throw TxAbort(FamilyError.BirthOtherParentInvalid)
+                    }
+                }
+                // 出生日期范围：[today−365, today]
+                val minEpoch = today.minusDays(365).toEpochDay()
+                babies.forEach { b ->
+                    val d = when (b) {
+                        is BirthBaby.New -> b.birthDate
+                        is BirthBaby.Existing -> b.birthDate
+                    }
+                    if (d != null &&
+                        (d.toEpochDay() < minEpoch || d.isAfter(today))
+                    ) {
+                        throw TxAbort(FamilyError.PregnancyInvalidDate)
+                    }
+                }
+
+                // 逐个宝宝：建人/补关系/补阳历生日 → 收集 (personId, minute, 出生日期)
+                val resolved = mutableListOf<ResolvedBaby>()
+                val seenExisting = mutableSetOf<String>()
+                for (b in babies) {
+                    when (b) {
+                        is BirthBaby.New -> {
+                            val draft = PersonDraft(
+                                name = b.name.trim(),
+                                gender = b.gender,
+                                birthdays = PersonBirthdays(
+                                    solar = BirthdayValue(
+                                        PartialDate(
+                                            b.birthDate.year,
+                                            b.birthDate.monthValue,
+                                            b.birthDate.dayOfMonth
+                                        )
+                                    )
+                                )
+                            )
+                            val specs = mutableListOf(
+                                RelationshipSpec(
+                                    preg.personId, NEW_PERSON,
+                                    RelationshipType.PARENT, null
+                                )
+                            )
+                            if (otherParentId != null) {
+                                specs += RelationshipSpec(
+                                    otherParentId, NEW_PERSON,
+                                    RelationshipType.PARENT, null
+                                )
+                            }
+                            when (val r = familyRepository.createRelative(draft, specs)) {
+                                is FamilyResult.Success -> resolved += ResolvedBaby(
+                                    r.value, b.birthMinute, b.birthDate
+                                )
+                                is FamilyResult.Failure -> throw TxAbort(r.error)
+                            }
+                        }
+                        is BirthBaby.Existing -> {
+                            val p = db.personDao().getById(b.personId)
+                                ?: throw TxAbort(FamilyError.PersonNotFound)
+                            if (p.isSelf || b.personId == preg.personId ||
+                                !seenExisting.add(b.personId) ||
+                                db.pregnancyBabyDao()
+                                    .getForBaby(b.personId).isNotEmpty()
+                            ) {
+                                throw TxAbort(FamilyError.BirthBabyIneligible)
+                            }
+                            // 缺的亲子关系补上（已有的不动）
+                            val parents = db.relationshipDao()
+                                .getParentRecords(b.personId)
+                                .mapTo(HashSet()) { it.sourcePersonId }
+                            val specs = mutableListOf<RelationshipSpec>()
+                            if (preg.personId !in parents) {
+                                specs += RelationshipSpec(
+                                    preg.personId, b.personId,
+                                    RelationshipType.PARENT, null
+                                )
+                            }
+                            if (otherParentId != null && otherParentId !in parents) {
+                                specs += RelationshipSpec(
+                                    otherParentId, b.personId,
+                                    RelationshipType.PARENT, null
+                                )
+                            }
+                            if (specs.isNotEmpty()) {
+                                when (val r = familyRepository.addRelationships(specs)) {
+                                    is FamilyResult.Success -> Unit
+                                    is FamilyResult.Failure -> throw TxAbort(r.error)
+                                }
+                            }
+                            // 没有阳历生日且传了 birthDate → 补写（已有不改）；
+                            // 提醒按手工录入默认开启（首个生日）。
+                            val solar = db.importantDateDao()
+                                .getByPersonAndType(
+                                    b.personId, ImportantDateType.BIRTHDAY_SOLAR.name
+                                )
+                            var effectiveDate: LocalDate? = solar?.let { e ->
+                                e.year?.let { LocalDate.of(it, e.month, e.day) }
+                            }
+                            if (solar == null && b.birthDate != null) {
+                                val dateId = ids.newId()
+                                db.importantDateDao().insert(
+                                    ImportantDateEntity(
+                                        id = dateId,
+                                        personId = b.personId,
+                                        type = ImportantDateType.BIRTHDAY_SOLAR,
+                                        year = b.birthDate.year,
+                                        month = b.birthDate.monthValue,
+                                        day = b.birthDate.dayOfMonth,
+                                        calendarType = CalendarType.SOLAR,
+                                        isLeapMonth = false,
+                                        note = null,
+                                        createdAt = now,
+                                        updatedAt = now
+                                    )
+                                )
+                                val prefId = ids.newId()
+                                db.reminderPreferenceDao().insert(
+                                    ReminderPreferenceEntity(
+                                        id = prefId,
+                                        importantDateId = dateId,
+                                        enabled = true,
+                                        createdAt = now,
+                                        updatedAt = now
+                                    )
+                                )
+                                db.reminderOffsetDao().insertAll(
+                                    ReminderPreference.DEFAULT_OFFSETS.map {
+                                        ReminderOffsetEntity(
+                                            ids.newId(), prefId, it
+                                        )
+                                    }
+                                )
+                                effectiveDate = b.birthDate
+                            }
+                            resolved += ResolvedBaby(
+                                b.personId, b.birthMinute, effectiveDate
+                            )
+                        }
+                    }
+                }
+
+                // pregnancy_babies（含 birth_minute）
+                babyDao.insertAll(
+                    resolved.map {
+                        PregnancyBabyEntity(
+                            pregnancyId = pregnancyId,
+                            babyPersonId = it.personId,
+                            birthMinute = it.birthMinute
+                        )
+                    }
+                )
+
+                if (!append) {
+                    // 孕期转 BORN；ended = 宝宝中最早的出生日期（都没有取今天）
+                    val ended = resolved.mapNotNull { it.birthDate }
+                        .minOrNull() ?: today
+                    dao.upsert(
+                        preg.copy(
+                            status = PregnancyStatus.BORN.name,
+                            endedEpochDay = ended.toEpochDay(),
+                            updatedAt = now
+                        )
+                    )
+                    archiveUnfinishedTasks(pregnancyId, now)
+                }
+
+                // POSTNATAL 清单：没有就新建（孕妈条目只此一次）；
+                // 本次每个宝宝各追加一份宝宝条目。
+                val cl = checklistDao.getForPregnancy(
+                    pregnancyId, ChecklistKind.POSTNATAL.name
+                )
+                val clId: String
+                var seq = if (cl == null) 0 else
+                    (checklistItemDao.getForChecklist(cl.id)
+                        .maxOfOrNull { it.sortOrder } ?: -1) + 1
+                if (cl == null) {
+                    clId = ids.newId()
+                    checklistDao.upsert(
+                        ChecklistEntity(
+                            id = clId,
+                            kind = ChecklistKind.POSTNATAL.name,
+                            title = ChecklistTemplates.POSTNATAL_TITLE,
+                            personId = preg.personId,
+                            pregnancyId = pregnancyId,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    )
+                } else {
+                    clId = cl.id
+                }
+                val newItems = mutableListOf<ChecklistItemEntity>()
+                resolved.forEach { r ->
+                    ChecklistTemplates.POSTNATAL_BABY_ITEMS.forEach { t ->
+                        newItems += ChecklistItemEntity(
+                            id = ids.newId(),
+                            checklistId = clId,
+                            groupName = t.groupName,
+                            title = t.title,
+                            note = t.note,
+                            checked = false,
+                            sortOrder = seq++,
+                            personId = r.personId,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    }
+                }
+                // 孕妈条目只在新建清单时生成一次
+                if (cl == null) {
+                    ChecklistTemplates.POSTNATAL_MOM_ITEMS.forEach { t ->
+                        newItems += ChecklistItemEntity(
+                            id = ids.newId(),
+                            checklistId = clId,
+                            groupName = t.groupName,
+                            title = t.title,
+                            note = t.note,
+                            checked = false,
+                            sortOrder = seq++,
+                            personId = preg.personId,
+                            createdAt = now,
+                            updatedAt = now
+                        )
+                    }
+                }
+                if (newItems.isNotEmpty()) {
+                    checklistItemDao.insertAll(newItems)
+                }
+
+                FamilyResult.Success(
+                    BirthResult(
+                        checklistId = clId,
+                        babyIds = resolved.map { it.personId }
+                    )
+                )
+            }
+        } catch (e: TxAbort) {
+            FamilyResult.Failure(e.error)
+        }
+    }
+
     private fun PregnancyEntity.toModelWithBabies(
         babies: List<PregnancyBabyEntity>
     ) = toModel(babies.map { it.babyPersonId })
@@ -214,4 +563,12 @@ class PregnancyRepositoryImpl @Inject constructor(
         createdAt = createdAt,
         updatedAt = updatedAt
     )
+
+
+/** recordBirth 事务内解析出的宝宝（人物 id + 出生时刻 + 用于 ended 的日期）。 */
+private data class ResolvedBaby(
+    val personId: String,
+    val birthMinute: Int?,
+    val birthDate: LocalDate?
+)
 }

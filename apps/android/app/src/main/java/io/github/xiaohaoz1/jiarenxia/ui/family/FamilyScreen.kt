@@ -712,7 +712,16 @@ private fun CoreMemberCell(
     val nextBirthday = o.birthdays.mapNotNull { b ->
         BirthdayMath.nextOccurrence(b, today, lunar)?.let { b to it }
     }.minByOrNull { it.second }
-    val status: Pair<String, Color>? = when {
+    val status: Pair<String, Color>? = run {
+        // 未满一岁：最低优先级的“生日日期”换成宝宝月龄（同色 onSurfaceVariant）
+        val babyAge = if (!deceased)
+            BirthdayMath.resolveBirthDate(o.birthdays, lunar).date
+                ?.let {
+                    io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                        .ageText(it, today)
+                }
+        else null
+        when {
         deceased -> "已故" to jrx.deceased
         days == 0 -> "今天" to jrx.seal
         days != null -> (days.toString() + " 天后") to jrx.seal
@@ -723,12 +732,14 @@ private fun CoreMemberCell(
                 .familyShortText(pregnancy.dueDate, today) to
                 MaterialTheme.colorScheme.tertiary
         contactDays != null -> (contactDays.toString() + " 天未联系") to jrx.warning
+        babyAge != null -> babyAge to MaterialTheme.colorScheme.onSurfaceVariant
         nextBirthday != null -> nextBirthday.let { (b, d) ->
             (LunarFormat.lunarShort(b)
                 ?: (d.monthValue.toString() + "月" + d.dayOfMonth + "日")) to
                 MaterialTheme.colorScheme.onSurfaceVariant
         }
         else -> null
+        }
     }
     Row(
         modifier = modifier.heightIn(min = 56.dp)
@@ -1023,7 +1034,16 @@ private fun JiashuKinRow(
     val nextBirthday = o.birthdays.mapNotNull { b ->
         BirthdayMath.nextOccurrence(b, today, lunar)?.let { b to it }
     }.minByOrNull { it.second }
-    val status: Pair<String, Color>? = when {
+    val status: Pair<String, Color>? = run {
+        // 未满一岁：最低优先级的“生日日期”换成宝宝月龄（同色 onSurfaceVariant）
+        val babyAge = if (!deceased)
+            BirthdayMath.resolveBirthDate(o.birthdays, lunar).date
+                ?.let {
+                    io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                        .ageText(it, today)
+                }
+        else null
+        when {
         deceased -> "已故" to jrx.deceased
         days == 0 -> "今天" to jrx.seal
         days != null -> (days.toString() + " 天后") to jrx.seal
@@ -1034,12 +1054,14 @@ private fun JiashuKinRow(
                 MaterialTheme.colorScheme.primary
         contactDays != null -> (contactDays.toString() + " 天未联系") to
             MaterialTheme.colorScheme.primary
+        babyAge != null -> babyAge to MaterialTheme.colorScheme.onSurfaceVariant
         nextBirthday != null -> nextBirthday.let { (b, d) ->
             (LunarFormat.lunarShort(b)
                 ?: (d.monthValue.toString() + "月" + d.dayOfMonth + "日")) to
                 MaterialTheme.colorScheme.onSurfaceVariant
         }
         else -> null
+        }
     }
     Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
         Row(

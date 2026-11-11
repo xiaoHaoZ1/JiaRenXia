@@ -77,7 +77,9 @@ fun PregnancyCard(
     onOpenTask: (String) -> Unit,
     onAddCheckup: () -> Unit,
     birthBag: ChecklistProgress? = null,
-    onOpenBirthBag: () -> Unit = {}
+    onOpenBirthBag: () -> Unit = {},
+    /** 「宝宝出生了」入口（BORN 后卡片不显示，按钮自然隐藏）。 */
+    onBirth: () -> Unit = {}
 ) {
     JrxCard(Modifier.fillMaxWidth()) {
         Row(
@@ -213,6 +215,12 @@ fun PregnancyCard(
             )
         }
         TextButton(onClick = onAddCheckup) { Text("记下次产检") }
+        Spacer(Modifier.height(4.dp))
+        // 「宝宝出生了」：整宽 FilledTonalButton
+        androidx.compose.material3.FilledTonalButton(
+            onClick = onBirth,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("宝宝出生了") }
     }
 }
 
@@ -500,7 +508,14 @@ fun PregnancyHistoryDialog(
     onDelete: () -> Unit,
     onDismiss: () -> Unit,
     birthBag: ChecklistProgress? = null,
-    onOpenBirthBag: (ChecklistProgress) -> Unit = {}
+    onOpenBirthBag: (ChecklistProgress) -> Unit = {},
+    /** BORN 孕期的宝宝姓名（“宝宝：A、B”行）。 */
+    babyNames: List<String> = emptyList(),
+    /** 「补记一个宝宝」→ append=true 打开出生页。 */
+    onAppendBirth: () -> Unit = {},
+    /** 该孕期 POSTNATAL 清单进度（无清单为 null）。 */
+    postnatal: ChecklistProgress? = null,
+    onOpenPostnatal: (ChecklistProgress) -> Unit = {}
 ) {
     var showDelete by remember { mutableStateOf(false) }
     AlertDialog(
@@ -532,6 +547,19 @@ fun PregnancyHistoryDialog(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     PregnancyStatus.ACTIVE -> {}
+                }
+                // BORN 孕期：宝宝行 + 补记入口（产检小节之前）
+                if (pregnancy.status == PregnancyStatus.BORN) {
+                    if (babyNames.isNotEmpty()) {
+                        Text(
+                            "宝宝：" + babyNames.joinToString("、"),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                    TextButton(onClick = {
+                        onDismiss()
+                        onAppendBirth()
+                    }) { Text("补记一个宝宝") }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text("产检", style = MaterialTheme.typography.titleSmall)
@@ -567,6 +595,19 @@ fun PregnancyHistoryDialog(
                         Text(
                             "查看待产包（已备 " + bag.checkedCount +
                                 " / " + bag.totalCount + "）"
+                        )
+                    }
+                }
+                // 出生后要办的事（有 POSTNATAL 清单才显示）
+                postnatal?.let { pn ->
+                    Spacer(Modifier.height(8.dp))
+                    TextButton(onClick = {
+                        onDismiss()
+                        onOpenPostnatal(pn)
+                    }) {
+                        Text(
+                            "查看出生后要办的事（已办 " + pn.checkedCount +
+                                " / " + pn.totalCount + "）"
                         )
                     }
                 }

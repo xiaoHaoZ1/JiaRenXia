@@ -47,7 +47,19 @@ object AgeMath {
             else lifespan(b, death, lunar)?.let { (y, approx) ->
                 "享年" + (if (approx) "约 " else " ") + y + " 岁"
             }
-        } else ageAt(birthdays, today, lunar)?.let { it.toString() + " 岁" }
+        } else {
+            val age = ageAt(birthdays, today, lunar)
+            if (age == 0) {
+                // 不满一岁：显示宝宝月龄（出生第 N 天 / M 个月 D 天）
+                BirthdayMath.resolveBirthDate(birthdays, lunar).date
+                    ?.let {
+                        io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                            .ageText(it, today)
+                    } ?: "0 岁"
+            } else {
+                age?.let { it.toString() + " 岁" }
+            }
+        }
     }
 
     /**

@@ -217,7 +217,11 @@ class FamilyTaskRepositoryImpl @Inject constructor(
         }
 
     override suspend fun delete(id: String) {
-        taskDao.delete(id)
+        db.withTransaction {
+            taskDao.delete(id)
+            // 清单「定日期」条目的悬空 task_id 一并清掉（条目回到普通勾选）
+            db.checklistItemDao().clearTaskId(id, clock.now())
+        }
     }
 
     private fun FamilyTaskEntity.toModel(offsets: Set<Int>) = FamilyTask(

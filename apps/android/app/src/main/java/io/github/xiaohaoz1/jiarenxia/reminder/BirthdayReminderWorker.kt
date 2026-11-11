@@ -54,6 +54,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
         .PregnancyRepository,
     private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
         .ChecklistRepository,
+    private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .BabyCelebrationRepository,
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
@@ -130,13 +132,16 @@ class BirthdayReminderWorker @AssistedInject constructor(
             val k = o.result.kind
             if (k == KinshipKind.UNRELATED || k == KinshipKind.SELF) null else o.displayTitle
         }
-        val dues = ReminderPlanner.dueNotifications(repository.getBirthdayEntries(), titles, today, lunar) +
+        val birthdayEntries = repository.getBirthdayEntries()
+        val dues = ReminderPlanner.dueNotifications(birthdayEntries, titles, today, lunar) +
             // 纪念日与生日同一开关、独立渠道（V0.8）；忌日已挪入上坟提醒（FAMILY_AFFAIRS 19）
             ReminderPlanner.dueDateReminders(repository.getDateEntries(), titles, today, lunar, overview)
                 .filter { it.kind != ImportantDateType.DEATH_ANNIVERSARY }
-        if (dues.isEmpty()) return
         ensureChannel()
         ensureAnnivChannel()
+        // 满月/百天与生日 dues 相互独立：当天没有生日类事项也要照发
+        postBabyCelebrationNotifications(today, posted, overview, birthdayEntries)
+        if (dues.isEmpty()) return
         // 「发祝福」动作要默认号码：仅当存在生日当天提醒时才查
         val numbers = if (dues.any { it.kind.isBirthday && it.daysBefore == 0 })
             repository.observeDefaultNumbers().first() else emptyMap()
@@ -150,6 +155,97 @@ class BirthdayReminderWorker @AssistedInject constructor(
             runCatching { nm.notify(notificationId(d), build(d, isSelf, blessing = blessing)) }
                 .onSuccess { posted += key }
         }
+    }
+
+    /**
+     * 宝宝满月 / 百天提醒（FAMILY_AFFAIRS 26 第 3 批）：与生日同开关、
+     * 同 birthday 渠道、同补跑与去重机制；只在事件日 −7 天与当天各发一次。
+     * 事件日 = 另设庆祝日期（baby_celebrations），没有则按出生日算。
+     */
+    private suspend fun postBabyCelebrationNotifications(
+        today: LocalDate,
+        posted: MutableSet<String>,
+        overview: io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview,
+        birthdayEntries: List<io.github.xiaohaoz1.jiarenxia.data.BirthdayEntry>
+    ) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        // 至少一条生日提醒开着的人
+        val reminderOn = birthdayEntries
+            .filter { it.reminderEnabled }
+            .map { it.person.id }.toSet()
+        if (reminderOn.isEmpty()) return
+        // 另设庆祝日期覆盖：personId → kind → 事件日 epochDay
+        val overrides = celebrationRepository.getAll()
+            .groupBy { it.personId }
+            .mapValues { (_, l) -> l.associate { it.kind to it.epochDay } }
+        val nm = NotificationManagerCompat.from(context)
+        reminderOn.forEach { personId ->
+            val o = overview.byId[personId] ?: return@forEach
+            if (o.person.livingStatus !=
+                io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            ) return@forEach
+            val birth = o.solarBirthday?.takeIf { it.isComplete }
+                ?.toLocalDateOrNull() ?: return@forEach
+            val kinds = overrides[personId].orEmpty()
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .FULL_MONTH to "满月",
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .HUNDRED_DAYS to "百天"
+            ).forEach { (kind, label) ->
+                val computed = when (kind) {
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebrationKind.FULL_MONTH ->
+                        io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                            .fullMonthDate(birth)
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebrationKind.HUNDRED_DAYS ->
+                        io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                            .hundredDaysDate(birth)
+                }
+                // 事件日 = 另设庆祝日期，没有则按出生日算
+                val event = kinds[kind]?.let { LocalDate.ofEpochDay(it) } ?: computed
+                val daysBefore = when {
+                    today == event.minusDays(7) -> 7
+                    today == event -> 0
+                    else -> return@forEach
+                }
+                val key = "baby:" + personId + ":" + kind.name + ":" +
+                    event.toEpochDay() + ":" + daysBefore
+                if (key in posted) return@forEach
+                val text = if (daysBefore == 7)
+                    "7 天后（" + event.monthValue + "月" + event.dayOfMonth +
+                        "日）是" + o.person.name + "的" + label
+                else "今天是" + o.person.name + "的" + label
+                runCatching {
+                    nm.notify(key.hashCode(), buildBaby(personId, text))
+                }.onSuccess { posted += key }
+            }
+        }
+    }
+
+    /** 宝宝满月/百天通知：birthday 渠道 + 同款锁屏公开文案 + 人物页深链。 */
+    private fun buildBaby(personId: String, text: String): android.app.Notification {
+        val intent = PendingIntent.getActivity(
+            context, ("baby:" + personId + ":" + text).hashCode(),
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有家人的生日提醒")
+            .build()
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
     }
 
     /**

@@ -31,7 +31,8 @@ class PregnancyRepositoryTest : RepoTestBase() {
         pregnancies = PregnancyRepositoryImpl(
             db = db,
             ids = object : IdGenerator { override fun newId() = "pg-" + (++seq) },
-            clock = object : TimeSource { override fun now() = now }
+            clock = object : TimeSource { override fun now() = now },
+            familyRepository = repo
         )
         tasks = FamilyTaskRepositoryImpl(
             db = db,

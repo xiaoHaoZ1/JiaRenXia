@@ -128,6 +128,12 @@ data class RestorePlan(
     val checklists: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
         .ChecklistEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
         .ChecklistItemEntity>>> = emptyList(),
+    /**
+     * 宝宝满月/百天另设日期（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * kind 不认识的跳过；personId 不在备份人物中的丢弃。
+     */
+    val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .BabyCelebrationEntity> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -183,6 +189,9 @@ object BackupJson {
         checklists: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
             .ChecklistEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
             .ChecklistItemEntity>>> = emptyList(),
+        /** 宝宝满月/百天另设日期（可选键；分享/碰一碰不传）。 */
+        babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .BabyCelebrationEntity> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -345,6 +354,15 @@ object BackupJson {
                     put("status", preg.status)
                     preg.endedEpochDay?.let { put("endedEpochDay", it) }
                     put("createdAt", preg.createdAt); put("updatedAt", preg.updatedAt)
+                    // 出生时刻（第 3 批）：非空才写 {babyPersonId: 分钟}
+                    val minutes = babies.mapNotNull { b ->
+                        b.birthMinute?.let { b.babyPersonId to it }
+                    }.toMap()
+                    if (minutes.isNotEmpty()) {
+                        put("birthMinutes", JSONObject().apply {
+                            minutes.forEach { (pid, m) -> put(pid, m) }
+                        })
+                    }
                     put("babyIds", JSONArray().apply {
                         babies.forEach { put(it.babyPersonId) }
                     })
@@ -371,11 +389,23 @@ object BackupJson {
                                     put("checked", it.checked)
                                     put("sortOrder", it.sortOrder)
                                     it.personId?.let { p -> put("personId", p) }
+                                    it.taskId?.let { t -> put("taskId", t) }
                                     put("createdAt", it.createdAt)
                                     put("updatedAt", it.updatedAt)
                                 })
                             }
                         })
+                    })
+                }
+            })
+        }
+        // 宝宝满月/百天另设日期（可选键）：非空才写——分享/碰一碰文件不携带
+        if (babyCelebrations.isNotEmpty()) {
+            json.put("babyCelebrations", JSONArray().apply {
+                babyCelebrations.forEach { c ->
+                    put(JSONObject().apply {
+                        put("personId", c.personId); put("kind", c.kind)
+                        put("epochDay", c.epochDay)
                     })
                 }
             })
@@ -813,11 +843,19 @@ object BackupJson {
 
         // 孕期记录（可选键，不升 schemaVersion）：id 唯一、人物存在、
         // status 合法枚举（与 task kind 一致，非法即 fail）；
-        // babyIds 指向不存在人物的丢弃（不 fail）。
+        // babyIds 指向不存在人物的丢弃（不 fail）；
+        // birthMinutes 可选 {babyPersonId: 0..1439}，非法范围即 fail。
         val pregnancies = root.optJSONArray("pregnancies")?.let { arr ->
             (0 until arr.length()).map { i ->
                 val o = arr.getJSONObject(i)
                 val pregId = o.getString("id")
+                val birthMinutes = o.optJSONObject("birthMinutes")?.let { bm ->
+                    bm.keys().asSequence().associateWith { pid ->
+                        val m = bm.getInt(pid)
+                        if (m !in 0..1439) fail("birthMinutes range")
+                        m
+                    }
+                } ?: emptyMap()
                 val babyIds = o.optJSONArray("babyIds")?.let { b ->
                     (0 until b.length()).map { b.getString(it) }
                 }?.distinct() ?: emptyList()
@@ -838,7 +876,7 @@ object BackupJson {
                     updatedAt = o.getLong("updatedAt")
                 ) to babyIds.filter { it in personIds }
                     .map {
-                        PregnancyBabyLink(pregId, it)
+                        PregnancyBabyLink(pregId, it, birthMinutes[it])
                     }
             }
         } ?: emptyList()
@@ -854,13 +892,21 @@ object BackupJson {
             } else task to offsets
         }
 
-        // 清单（可选键，不升 schemaVersion）：kind 非法即 fail；
+        // 清单（可选键，不升 schemaVersion）：kind 不认识的整张跳过
+        // （连同条目）——旧版本恢复新备份时不丢整份；
         // personId/pregnancyId（含条目 personId）悬空引用置 null（不 fail）；
+        // taskId 指向不存在事项的置 null；
         // 标题 trim 后 1–30 字，超长/为空 fail。
+        val taskIds = tasks.mapTo(HashSet()) { it.first.id }
         val checklistsRaw = root.optJSONArray("checklists")?.let { arr ->
-            (0 until arr.length()).map { i ->
+            (0 until arr.length()).mapNotNull { i ->
                 val o = arr.getJSONObject(i)
                 val clId = o.getString("id")
+                // kind 不认识（含缺失/空）→ 跳过整张清单
+                val kindName = runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
+                        .valueOf(o.optString("kind", ""))
+                }.getOrNull()?.name ?: return@mapNotNull null
                 val items = o.optJSONArray("items")?.let { it2 ->
                     (0 until it2.length()).map { j ->
                         val io2 = it2.getJSONObject(j)
@@ -874,6 +920,8 @@ object BackupJson {
                             sortOrder = io2.optInt("sortOrder", 0),
                             personId = if (io2.isNull("personId")) null
                                 else io2.optString("personId", null),
+                            taskId = if (io2.isNull("taskId")) null
+                                else io2.optString("taskId", null),
                             createdAt = io2.getLong("createdAt"),
                             updatedAt = io2.getLong("updatedAt")
                         )
@@ -881,11 +929,7 @@ object BackupJson {
                 } ?: emptyList()
                 io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
                     id = clId,
-                    kind = enumOf(
-                        io.github.xiaohaoz1.jiarenxia.core.model
-                            .ChecklistKind::class.java,
-                        o.optString("kind", null), "checklist kind"
-                    ).name,
+                    kind = kindName,
                     title = o.getString("title"),
                     personId = if (o.isNull("personId")) null
                         else o.optString("personId", null),
@@ -908,9 +952,30 @@ object BackupJson {
                 personId = cl.personId?.takeIf { it in personIds },
                 pregnancyId = cl.pregnancyId?.takeIf { it in pregnancyIds }
             ) to items.map {
-                it.copy(personId = it.personId?.takeIf { p -> p in personIds })
+                it.copy(
+                    personId = it.personId?.takeIf { p -> p in personIds },
+                    taskId = it.taskId?.takeIf { t -> t in taskIds }
+                )
             }
         }
+
+        // 宝宝满月/百天另设日期（可选键，不升 schemaVersion）：
+        // kind 不认识的跳过；personId 不在备份人物中的丢弃（不 fail）。
+        val babyCelebrations = root.optJSONArray("babyCelebrations")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val kind = runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebrationKind.valueOf(o.optString("kind", ""))
+                }.getOrNull() ?: return@mapNotNull null
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                io.github.xiaohaoz1.jiarenxia.data.db.BabyCelebrationEntity(
+                    personId = pid, kind = kind.name,
+                    epochDay = o.getLong("epochDay")
+                )
+            }
+        } ?: emptyList()
 
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
@@ -993,6 +1058,7 @@ object BackupJson {
             homeVisits = homeVisits,
             pregnancies = pregnancies,
             checklists = checklists,
+            babyCelebrations = babyCelebrations,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

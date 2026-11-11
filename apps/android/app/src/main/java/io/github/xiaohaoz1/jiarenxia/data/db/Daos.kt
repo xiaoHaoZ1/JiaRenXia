@@ -2,6 +2,7 @@ package io.github.xiaohaoz1.jiarenxia.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Upsert
 import androidx.room.Query
 import androidx.room.Transaction
@@ -344,6 +345,9 @@ interface PregnancyBabyDao {
     @Insert suspend fun insertAll(entities: List<PregnancyBabyEntity>)
     @Query("SELECT * FROM pregnancy_babies WHERE pregnancy_id = :pregnancyId")
     suspend fun getForPregnancy(pregnancyId: String): List<PregnancyBabyEntity>
+    /** 该宝宝已关联的孕期行（「已关联过任何孕期的人不能再关联」校验用）。 */
+    @Query("SELECT * FROM pregnancy_babies WHERE baby_person_id = :babyPersonId")
+    suspend fun getForBaby(babyPersonId: String): List<PregnancyBabyEntity>
     @Query("SELECT * FROM pregnancy_babies") suspend fun getAll(): List<PregnancyBabyEntity>
     @Query("SELECT * FROM pregnancy_babies") fun observeAll(): Flow<List<PregnancyBabyEntity>>
     @Query("DELETE FROM pregnancy_babies WHERE pregnancy_id = :pregnancyId")
@@ -397,5 +401,31 @@ interface ChecklistItemDao {
     @Query("DELETE FROM checklist_items WHERE id = :id") suspend fun delete(id: String)
     @Query("DELETE FROM checklist_items WHERE checklist_id = :checklistId")
     suspend fun deleteForChecklist(checklistId: String)
+    /** 「定日期」写回条目关联的事项；「再定一次日期」替换旧值。 */
+    @Query(
+        "UPDATE checklist_items SET task_id = :taskId, updated_at = :now " +
+            "WHERE id = :id"
+    )
+    suspend fun updateTaskId(id: String, taskId: String?, now: Long)
+    /** 事项被删后清掉悬空引用（仓库在事项删除路径调用）。 */
+    @Query("UPDATE checklist_items SET task_id = NULL, updated_at = :now WHERE task_id = :taskId")
+    suspend fun clearTaskId(taskId: String, now: Long)
     @Query("DELETE FROM checklist_items") suspend fun deleteAll()
+}
+
+/** baby_celebrations DAO：宝宝满月/百天另设庆祝日期。 */
+@Dao
+interface BabyCelebrationDao {
+    @Upsert suspend fun upsert(entity: BabyCelebrationEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<BabyCelebrationEntity>)
+    @Query("SELECT * FROM baby_celebrations WHERE person_id = :personId")
+    suspend fun getForPerson(personId: String): List<BabyCelebrationEntity>
+    @Query("SELECT * FROM baby_celebrations WHERE person_id = :personId")
+    fun observeForPerson(personId: String): Flow<List<BabyCelebrationEntity>>
+    @Query("SELECT * FROM baby_celebrations") suspend fun getAll(): List<BabyCelebrationEntity>
+    @Query("SELECT * FROM baby_celebrations") fun observeAll(): Flow<List<BabyCelebrationEntity>>
+    @Query("DELETE FROM baby_celebrations WHERE person_id = :personId AND kind = :kind")
+    suspend fun delete(personId: String, kind: String)
+    @Query("DELETE FROM baby_celebrations") suspend fun deleteAll()
 }

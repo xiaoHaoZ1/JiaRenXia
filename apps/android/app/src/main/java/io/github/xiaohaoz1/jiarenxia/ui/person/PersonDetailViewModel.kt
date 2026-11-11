@@ -52,6 +52,12 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
     @Suppress("UNCHECKED_CAST")
     val checklists get() = values[8] as List<io.github.xiaohaoz1.jiarenxia.data
         .ChecklistProgress>
+    val postnatalItems get() = values[9] as io.github.xiaohaoz1.jiarenxia.data
+        .ItemsProgress?
+    @Suppress("UNCHECKED_CAST")
+    val celebrations get() = values[10] as Map<
+        io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
+        java.time.LocalDate>
 }
 
 data class PersonDetailUiState(
@@ -81,6 +87,11 @@ data class PersonDetailUiState(
     /** 各孕期的待产包进度（pregnancyId → ChecklistProgress；无清单不在表内）。 */
     val birthBagByPregnancy: Map<String, io.github.xiaohaoz1.jiarenxia.data
         .ChecklistProgress> = emptyMap(),
+    /** 各孕期的「出生后要办的事」进度（pregnancyId → ChecklistProgress）。 */
+    val postnatalByPregnancy: Map<String, io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress> = emptyMap(),
+    /** 新生宝宝卡（未满一岁窗口内或产后清单未办完；否则 null）。 */
+    val newbornCard: NewbornCardState? = null,
     /** 待产包按模板建好后的待跳转清单 id（页面消费后清空）。 */
     val pendingChecklistId: String? = null,
     /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
@@ -111,6 +122,23 @@ data class PersonDetailUiState(
             } else null
 }
 
+/** 新生宝宝卡数据（FAMILY_AFFAIRS 26 第 3 批）。 */
+data class NewbornCardState(
+    val birthDate: java.time.LocalDate,
+    /** 生效满月/百天日（另设覆盖优先，否则按出生日算）。 */
+    val fullMonth: java.time.LocalDate,
+    val hundredDays: java.time.LocalDate,
+    /** 按出生日算的满月/百天日（覆盖时小字对照用）。 */
+    val fullMonthByBirth: java.time.LocalDate,
+    val hundredByBirth: java.time.LocalDate,
+    val fullMonthOverride: Boolean,
+    val hundredOverride: Boolean,
+    /** 「出生后要办的事」行：清单 id + 该宝宝条目进度。 */
+    val postnatalChecklistId: String?,
+    val postnatalDone: Int,
+    val postnatalTotal: Int
+)
+
 @HiltViewModel
 class PersonDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -126,7 +154,9 @@ class PersonDetailViewModel @Inject constructor(
     private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
         .PregnancyRepository,
     private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
-        .ChecklistRepository
+        .ChecklistRepository,
+    private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .BabyCelebrationRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -145,7 +175,12 @@ class PersonDetailViewModel @Inject constructor(
                 contactRepository.observeLogs(personId),
                 factRepository.observeForPerson(personId),
                 pregnancyRepository.observeForPerson(personId),
-                checklistRepository.observeAll()
+                checklistRepository.observeAll(),
+                checklistRepository.observeItemsProgressForPerson(
+                    personId,
+                    io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.POSTNATAL
+                ),
+                celebrationRepository.observeOverrides(personId)
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -202,6 +237,14 @@ class PersonDetailViewModel @Inject constructor(
                                         it.checklist.pregnancyId != null
                                 }
                                 .associateBy { it.checklist.pregnancyId!! },
+                            postnatalByPregnancy = comb.checklists
+                                .filter {
+                                    it.checklist.kind == io.github.xiaohaoz1
+                                        .jiarenxia.core.model.ChecklistKind.POSTNATAL &&
+                                        it.checklist.pregnancyId != null
+                                }
+                                .associateBy { it.checklist.pregnancyId!! },
+                            newbornCard = newbornCardOf(detail, comb),
                             canRecordPregnancy = run {
                                 val p = detail?.person ?: return@run false
                                 if (p.gender != io.github.xiaohaoz1.jiarenxia
@@ -336,6 +379,65 @@ class PersonDetailViewModel @Inject constructor(
     }
 
     fun onPendingChecklistHandled() = _ui.update { it.copy(pendingChecklistId = null) }
+
+    /**
+     * 新生宝宝卡（FAMILY_AFFAIRS 26 第 3 批）：在世 + 出生日确切，且
+     * （未满一岁且今天 ≤ 生效百天日 + 30 天）或名下 POSTNATAL 条目未办完。
+     */
+    private fun newbornCardOf(
+        detail: io.github.xiaohaoz1.jiarenxia.data.PersonDetail?,
+        comb: PersonDetailCombine
+    ): NewbornCardState? {
+        val d = detail ?: return null
+        val p = d.person
+        if (p.livingStatus != io.github.xiaohaoz1.jiarenxia.core.model
+                .LivingStatus.ALIVE
+        ) return null
+        val birth = io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
+            .resolveBirthDate(
+                d.birthdays.values.map { it.value }, lunar
+            ).date ?: return null
+        val today = java.time.LocalDate.now()
+        val babyMath = io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+        val fmByBirth = babyMath.fullMonthDate(birth)
+        val hdByBirth = babyMath.hundredDaysDate(birth)
+        val ov = comb.celebrations
+        val fm = ov[io.github.xiaohaoz1.jiarenxia.core.model
+            .BabyCelebrationKind.FULL_MONTH] ?: fmByBirth
+        val hd = ov[io.github.xiaohaoz1.jiarenxia.core.model
+            .BabyCelebrationKind.HUNDRED_DAYS] ?: hdByBirth
+        val pn = comb.postnatalItems
+        val postnatalIncomplete = pn != null && pn.doneCount < pn.totalCount
+        val inWindow = today.isBefore(babyMath.firstBirthday(birth)) &&
+            !today.isAfter(hd.plusDays(30))
+        if (!inWindow && !postnatalIncomplete) return null
+        return NewbornCardState(
+            birthDate = birth,
+            fullMonth = fm,
+            hundredDays = hd,
+            fullMonthByBirth = fmByBirth,
+            hundredByBirth = hdByBirth,
+            fullMonthOverride =
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .FULL_MONTH in ov,
+            hundredOverride =
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .HUNDRED_DAYS in ov,
+            postnatalChecklistId = pn?.checklistId,
+            postnatalDone = pn?.doneCount ?: 0,
+            postnatalTotal = pn?.totalCount ?: 0
+        )
+    }
+
+    /** 满月 / 百天庆祝日期：date 为 null 表示「按出生日算」（清除覆盖）。 */
+    fun setCelebration(
+        kind: io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
+        date: java.time.LocalDate?
+    ) {
+        viewModelScope.launch {
+            celebrationRepository.set(personId, kind, date)
+        }
+    }
 
     fun setSiblingOrder(relId: String, subjectId: String, order: RelativeAgeOrder?) {
         viewModelScope.launch {

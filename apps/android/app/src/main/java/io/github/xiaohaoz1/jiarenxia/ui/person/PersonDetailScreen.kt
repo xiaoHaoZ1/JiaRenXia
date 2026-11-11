@@ -141,6 +141,8 @@ fun PersonDetailScreen(
     onOpenTaskDetail: (String) -> Unit = {},
     /** 打开清单页（待产包等）。 */
     onOpenChecklist: (String) -> Unit = {},
+    /** 「宝宝出生了」/「补记一个宝宝」：append=false 正常记录，true 补记。 */
+    onOpenBirth: (String, Boolean) -> Unit = { _, _ -> },
     viewModel: PersonDetailViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -175,6 +177,8 @@ fun PersonDetailScreen(
         onAddPrenatalCheckup = onAddPrenatalCheckup,
         onOpenTaskDetail = onOpenTaskDetail,
         onOpenChecklist = onOpenChecklist,
+        onOpenBirth = onOpenBirth,
+        onSetCelebration = viewModel::setCelebration,
         onEnsureBirthBag = viewModel::openBirthBag,
         observePregnancyTasks = viewModel::tasksForPregnancy,
         onCreatePregnancy = viewModel::createPregnancy,
@@ -242,6 +246,12 @@ fun PersonDetailContent(
     onOpenTaskDetail: (String) -> Unit = {},
     /** 打开清单页（待产包等）。 */
     onOpenChecklist: (String) -> Unit = {},
+    /** 「宝宝出生了」/「补记一个宝宝」。 */
+    onOpenBirth: (String, Boolean) -> Unit = { _, _ -> },
+    /** 满月/百天庆祝日期另设（null = 按出生日算）。 */
+    onSetCelebration: (
+        io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
+        java.time.LocalDate?) -> Unit = { _, _ -> },
     /** 无清单时先按模板创建待产包（成功后经 pendingChecklistId 跳转）。 */
     onEnsureBirthBag: (String) -> Unit = {},
     /** 某次孕期关联事项（含归档/已办），供历史对话框订阅。 */
@@ -540,6 +550,17 @@ fun PersonDetailContent(
                     )
                 }
 
+                // 新生宝宝卡（快捷操作之后、孕期卡/重要日期之前）
+                st.newbornCard?.let { card ->
+                    NewbornCard(
+                        card = card,
+                        today = today,
+                        onSetCelebration = onSetCelebration,
+                        onOpenChecklist = onOpenChecklist
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // 孕期卡片（进行中的孕期；快捷操作行之后、「重要日期」之前；
                 // 人物已故时 activePregnancy 为 null，不显示）
                 st.activePregnancy?.let { preg ->
@@ -567,7 +588,8 @@ fun PersonDetailContent(
                             val bag = st.birthBagByPregnancy[preg.id]
                             if (bag != null) onOpenChecklist(bag.checklist.id)
                             else onEnsureBirthBag(preg.id)
-                        }
+                        },
+                        onBirth = { onOpenBirth(preg.id, false) }
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -1370,6 +1392,18 @@ fun PersonDetailContent(
             onOpenBirthBag = { bag ->
                 historyPregnancyFor = null
                 onOpenChecklist(bag.checklist.id)
+            },
+            babyNames = p.babyIds.mapNotNull {
+                st.familyById[it]?.person?.name
+            },
+            onAppendBirth = {
+                historyPregnancyFor = null
+                onOpenBirth(p.id, true)
+            },
+            postnatal = st.postnatalByPregnancy[p.id],
+            onOpenPostnatal = { pn ->
+                historyPregnancyFor = null
+                onOpenChecklist(pn.checklist.id)
             },
             onDelete = {
                 deletePregnancyFor = p

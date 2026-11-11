@@ -10,6 +10,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity
 import io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity
 import io.github.xiaohaoz1.jiarenxia.data.db.ChecklistWithItems
 import io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
@@ -20,6 +21,13 @@ import kotlinx.coroutines.flow.map
 data class ChecklistProgress(
     val checklist: Checklist,
     val checkedCount: Int,
+    val totalCount: Int
+)
+
+/** 某人物名下清单条目的完成进度（observeItemsProgressForPerson 返回）。 */
+data class ItemsProgress(
+    val checklistId: String,
+    val doneCount: Int,
     val totalCount: Int
 )
 
@@ -37,6 +45,14 @@ interface ChecklistRepository {
     ): Flow<ChecklistProgress?>
     /** 全部清单及勾选进度（人物详情页孕期卡/历史入口用）。 */
     fun observeAll(): Flow<List<ChecklistProgress>>
+    /**
+     * 该人物名下某类清单条目的完成进度（POSTNATAL 宝宝卡「出生后要办的事」行；
+     * 该人物没有条目时返回 null）。有 task_id 的条目按事项已办计。
+     */
+    fun observeItemsProgressForPerson(
+        personId: String,
+        kind: ChecklistKind
+    ): Flow<ItemsProgress?>
     suspend fun get(id: String): ChecklistWithItemsModel?
     /**
      * 按模板生成清单：孕期须存在且 ACTIVE；幂等——已有同类清单直接返回其 id。
@@ -47,11 +63,26 @@ interface ChecklistRepository {
         pregnancyId: String
     ): FamilyResult<String>
     suspend fun setChecked(itemId: String, checked: Boolean): FamilyResult<Unit>
-    /** 在该组末尾追加一条；标题 trim 后 1–30 字。 */
+    /**
+     * 在该组末尾追加一条；标题 trim 后 1–30 字。
+     * [personId]：POSTNATAL 清单按卡（宝宝/妈妈）继承；待产包恒 null。
+     */
     suspend fun addItem(
         checklistId: String,
         groupName: String,
-        title: String
+        title: String,
+        personId: String? = null
+    ): FamilyResult<String>
+    /**
+     * 「定日期」/「再定一次日期」：同一事务新建一条 CUSTOM 事项
+     * （不重复、提前 1 天 + 当天、不挂孕期）并把 task_id 写回条目；
+     * 返回事项 id。旧事项保留（再定一次日期时替换引用）。
+     */
+    suspend fun setItemTask(
+        itemId: String,
+        personId: String?,
+        title: String,
+        anchorDate: LocalDate
     ): FamilyResult<String>
     suspend fun renameItem(itemId: String, title: String): FamilyResult<Unit>
     suspend fun deleteItem(itemId: String): FamilyResult<Unit>
@@ -73,6 +104,8 @@ class ChecklistRepositoryImpl @Inject constructor(
 
     private val checklistDao get() = db.checklistDao()
     private val itemDao get() = db.checklistItemDao()
+    private val taskDao get() = db.familyTaskDao()
+    private val taskOffsetDao get() = db.familyTaskOffsetDao()
 
     /** 模板组顺序索引：未知组排在模板组之后（按名称兜底）。 */
     private fun groupRank(kind: ChecklistKind, groupName: String): Int {
@@ -111,31 +144,73 @@ class ChecklistRepositoryImpl @Inject constructor(
             }
         }
 
+    /**
+     * 条目的有效完成态：有 task_id 且事项还在 → 以事项是否已办为准；
+     * 否则（无日期 / 事项被删）按条目自己的 checked。
+     */
+    private fun effectiveDone(
+        item: ChecklistItemEntity,
+        taskById: Map<String, io.github.xiaohaoz1.jiarenxia.data.db
+            .FamilyTaskEntity>
+    ): Boolean = item.taskId?.let { taskById[it]?.done } ?: item.checked
+
     override fun observeForPregnancy(
         pregnancyId: String,
         kind: ChecklistKind
     ): Flow<ChecklistProgress?> =
         combine(
             checklistDao.observeForPregnancy(pregnancyId, kind.name),
-            itemDao.observeAll()
-        ) { e, all ->
+            itemDao.observeAll(),
+            taskDao.observeAll()
+        ) { e, all, tasks ->
             e?.let { ce ->
+                val taskById = tasks.associateBy { it.id }
                 val items = all.filter { it.checklistId == ce.id }
                 ChecklistProgress(
                     checklist = ce.toModel(),
-                    checkedCount = items.count { it.checked },
+                    checkedCount = items.count { effectiveDone(it, taskById) },
                     totalCount = items.size
                 )
             }
         }
 
     override fun observeAll(): Flow<List<ChecklistProgress>> =
-        combine(checklistDao.observeAll(), itemDao.observeAll()) { rows, all ->
+        combine(
+            checklistDao.observeAll(),
+            itemDao.observeAll(),
+            taskDao.observeAll()
+        ) { rows, all, tasks ->
+            val taskById = tasks.associateBy { it.id }
             rows.map { ce ->
                 val items = all.filter { it.checklistId == ce.id }
                 ChecklistProgress(
                     checklist = ce.toModel(),
-                    checkedCount = items.count { it.checked },
+                    checkedCount = items.count { effectiveDone(it, taskById) },
+                    totalCount = items.size
+                )
+            }
+        }
+
+    override fun observeItemsProgressForPerson(
+        personId: String,
+        kind: ChecklistKind
+    ): Flow<ItemsProgress?> =
+        combine(
+            checklistDao.observeAll(),
+            itemDao.observeAll(),
+            taskDao.observeAll()
+        ) { rows, all, tasks ->
+            val taskById = tasks.associateBy { it.id }
+            // 取该人物第一张有条目的同类清单（正常只有一张 POSTNATAL）
+            rows.firstNotNullOfOrNull { ce ->
+                if (ce.kind != kind.name) return@firstNotNullOfOrNull null
+                val items = all.filter {
+                    it.checklistId == ce.id && it.personId == personId
+                }
+                if (items.isEmpty()) return@firstNotNullOfOrNull null
+                ItemsProgress(
+                    checklistId = ce.id,
+                    doneCount = items.count { effectiveDone(it, taskById) },
                     totalCount = items.size
                 )
             }
@@ -181,7 +256,7 @@ class ChecklistRepositoryImpl @Inject constructor(
                         note = t.note,
                         checked = false,
                         sortOrder = seq++,
-                        // 条目 person_id 本批不写（第 3 批按宝宝用）
+                        // 待产包条目不关联人物（person_id 恒 null）
                         personId = null,
                         createdAt = now,
                         updatedAt = now
@@ -214,6 +289,10 @@ class ChecklistRepositoryImpl @Inject constructor(
     ): FamilyResult<Unit> = db.withTransaction {
         val e = itemDao.get(itemId)
             ?: return@withTransaction FamilyResult.Failure(FamilyError.ChecklistItemNotFound)
+        // 有日期的条目以事项为准，不能直接勾选
+        if (e.taskId != null && db.familyTaskDao().get(e.taskId) != null) {
+            return@withTransaction FamilyResult.Failure(FamilyError.ChecklistItemLinked)
+        }
         itemDao.upsert(e.copy(checked = checked, updatedAt = clock.now()))
         FamilyResult.Success(Unit)
     }
@@ -221,7 +300,8 @@ class ChecklistRepositoryImpl @Inject constructor(
     override suspend fun addItem(
         checklistId: String,
         groupName: String,
-        title: String
+        title: String,
+        personId: String?
     ): FamilyResult<String> {
         val trimmed = title.trim()
         if (!validTitle(trimmed)) {
@@ -235,6 +315,12 @@ class ChecklistRepositoryImpl @Inject constructor(
             // 组名必须是该清单模板里的组（未知组不允许手加，防脏数据）
             if (groupName !in ChecklistTemplates.groupsOf(kind)) {
                 return@withTransaction FamilyResult.Failure(FamilyError.ChecklistGroupInvalid)
+            }
+            // personId 有外键：给了就必须是存在的人物（POSTNATAL 按卡继承）
+            if (personId != null &&
+                db.personDao().getById(personId) == null
+            ) {
+                return@withTransaction FamilyResult.Failure(FamilyError.PersonNotFound)
             }
             val now = clock.now()
             // 组内追加：sort_order 取全表当前最大 +1。
@@ -251,14 +337,66 @@ class ChecklistRepositoryImpl @Inject constructor(
                     note = null,
                     checked = false,
                     sortOrder = nextOrder,
-                    // 条目 person_id 本批不写（第 3 批按宝宝用）
-                    personId = null,
+                    personId = personId,
                     createdAt = now,
                     updatedAt = now
                 )
             )
             FamilyResult.Success(id)
         }
+    }
+
+    override suspend fun setItemTask(
+        itemId: String,
+        personId: String?,
+        title: String,
+        anchorDate: LocalDate
+    ): FamilyResult<String> = db.withTransaction {
+        val e = itemDao.get(itemId)
+            ?: return@withTransaction FamilyResult.Failure(FamilyError.ChecklistItemNotFound)
+        val trimmed = title.trim()
+        if (trimmed.isEmpty() || trimmed.length > 30) {
+            return@withTransaction FamilyResult.Failure(FamilyError.InvalidTaskTitle)
+        }
+        if (personId != null && db.personDao().getById(personId) == null) {
+            return@withTransaction FamilyResult.Failure(FamilyError.PersonNotFound)
+        }
+        val now = clock.now()
+        val taskId = ids.newId()
+        taskDao.insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
+                    id = taskId,
+                    personId = personId,
+                    kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CUSTOM.name,
+                    title = trimmed,
+                    anchorEpochDay = anchorDate.toEpochDay(),
+                    repeat = io.github.xiaohaoz1.jiarenxia.core.model
+                        .TaskRepeat.NONE.name,
+                    periodIndex = 0,
+                    lastDoneEpochDay = null,
+                    done = false,
+                    amountFen = null,
+                    note = null,
+                    enabled = true,
+                    remindMinutes = null,
+                    pregnancyId = null,
+                    archived = false,
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+        )
+        // 提前 1 天 + 当天
+        taskOffsetDao.insertAll(
+            setOf(0, 1).map {
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
+                    id = ids.newId(), taskId = taskId, daysBefore = it
+                )
+            }
+        )
+        itemDao.updateTaskId(itemId, taskId, now)
+        FamilyResult.Success(taskId)
     }
 
     override suspend fun renameItem(
@@ -309,6 +447,7 @@ class ChecklistRepositoryImpl @Inject constructor(
         checked = checked,
         sortOrder = sortOrder,
         personId = personId,
+        taskId = taskId,
         createdAt = createdAt,
         updatedAt = updatedAt
     )

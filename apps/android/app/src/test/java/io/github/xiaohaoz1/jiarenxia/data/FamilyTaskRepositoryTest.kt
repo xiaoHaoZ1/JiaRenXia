@@ -242,8 +242,9 @@ class FamilyTaskRepositoryTest : RepoTestBase() {
     private fun newPregRepo() = PregnancyRepositoryImpl(
         db = db,
         ids = object : IdGenerator { override fun newId() = "pg-x" },
-        clock = object : TimeSource { override fun now() = now }
-    )
+        clock = object : TimeSource { override fun now() = now },
+            familyRepository = repo
+        )
 
     /** “我” + 一位在世女性（妹妹）。 */
     private suspend fun femalePerson(): Pair<String, String> {

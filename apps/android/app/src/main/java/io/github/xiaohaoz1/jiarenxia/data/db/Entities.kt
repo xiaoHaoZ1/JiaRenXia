@@ -432,7 +432,33 @@ data class PregnancyEntity(
 )
 data class PregnancyBabyEntity(
     @ColumnInfo(name = "pregnancy_id") val pregnancyId: String,
-    @ColumnInfo(name = "baby_person_id") val babyPersonId: String
+    @ColumnInfo(name = "baby_person_id") val babyPersonId: String,
+    /** 出生时刻（0..1439 分钟数）；未填为 null。 */
+    @ColumnInfo(name = "birth_minute") val birthMinute: Int? = null
+)
+
+/**
+ * baby_celebrations：宝宝满月 / 百天的另设庆祝日期（FAMILY_AFFAIRS 26 第 3 批）。
+ * 每人每种庆祝至多一条（主键 person_id+kind）；person_id 级联。
+ */
+@Entity(
+    tableName = "baby_celebrations",
+    primaryKeys = ["person_id", "kind"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("person_id")]
+)
+data class BabyCelebrationEntity(
+    @ColumnInfo(name = "person_id") val personId: String,
+    /** FULL_MONTH 满月 / HUNDRED_DAYS 百天。 */
+    val kind: String,
+    @ColumnInfo(name = "epoch_day") val epochDay: Long
 )
 
 /**
@@ -565,7 +591,7 @@ data class ChecklistEntity(
 
 /**
  * checklist_items：清单条目（checklist 级联）。
- * person_id 本批不写（第 3 批按宝宝用），外键照常建好。
+ * person_id：出生后要办的事按宝宝/孕妈写；待产包条目恒 null。
  */
 @Entity(
     tableName = "checklist_items",
@@ -583,7 +609,7 @@ data class ChecklistEntity(
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("checklist_id"), Index("person_id")]
+    indices = [Index("checklist_id"), Index("person_id"), Index("task_id")]
 )
 data class ChecklistItemEntity(
     @PrimaryKey val id: String,
@@ -594,6 +620,8 @@ data class ChecklistItemEntity(
     val checked: Boolean,
     @ColumnInfo(name = "sort_order") val sortOrder: Int,
     @ColumnInfo(name = "person_id") val personId: String?,
+    /** 条目「定日期」转成的家庭事项；不加外键（事项删除时置 null 由仓库处理）。 */
+    @ColumnInfo(name = "task_id") val taskId: String? = null,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )

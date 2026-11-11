@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
@@ -50,28 +51,45 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.core.model.ChecklistItem
 import io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
+import io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask
 import io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel
 import io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+import io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
+import io.github.xiaohaoz1.jiarenxia.ui.common.JrxDatePickerDialog
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.person.SectionTitle
+import java.time.LocalDate
 import kotlinx.coroutines.launch
 
 /** 清单页回调集合（截图测试可传全空）。 */
 data class ChecklistCallbacks(
     val onToggle: (ChecklistItem, Boolean) -> Unit = { _, _ -> },
-    val onAddItem: (groupName: String, title: String) -> Unit = { _, _ -> },
+    val onAddItem: (groupName: String, title: String, personId: String?) -> Unit =
+        { _, _, _ -> },
     val onRenameItem: (item: ChecklistItem, title: String) -> Unit = { _, _ -> },
     val onDeleteItem: (ChecklistItem) -> Unit = {},
+    /** 「打开事项」：跳事项编辑页。 */
+    val onOpenTask: (taskId: String) -> Unit = {},
+    /** 「定日期」/「再定一次日期」选定日期后回调。 */
+    val onSetTaskDate: (item: ChecklistItem, date: LocalDate) -> Unit = { _, _ -> },
     val onDeleteChecklist: () -> Unit = {},
     val onNoticeShown: () -> Unit = {},
     val onErrorShown: () -> Unit = {}
 )
 
-/** 清单页（FAMILY_AFFAIRS 26）：待产包等清单的查看与勾选。 */
+/** 「添加」目标：组名 + 标题 + 归属人物（POSTNATAL 按卡继承）。 */
+private data class AddTarget(
+    val groupName: String,
+    val cardTitle: String,
+    val personId: String?
+)
+
+/** 清单页（FAMILY_AFFAIRS 26）：待产包 / 出生后要办的事的查看与办理。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChecklistScreen(
     onDone: () -> Unit,
+    onOpenTask: (String) -> Unit,
     viewModel: ChecklistViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
@@ -79,9 +97,11 @@ fun ChecklistScreen(
         st = st,
         cb = ChecklistCallbacks(
             onToggle = { item, checked -> viewModel.setChecked(item.id, checked) },
-            onAddItem = viewModel::addItem,
+            onAddItem = { g, t, p -> viewModel.addItem(g, t, p) },
             onRenameItem = { item, title -> viewModel.renameItem(item.id, title) },
             onDeleteItem = viewModel::deleteItem,
+            onOpenTask = onOpenTask,
+            onSetTaskDate = viewModel::setTaskDate,
             onDeleteChecklist = viewModel::deleteChecklist,
             onNoticeShown = viewModel::onNoticeShown,
             onErrorShown = viewModel::onErrorShown
@@ -110,8 +130,9 @@ fun ChecklistContent(
     }
 
     var showDeleteChecklist by remember { mutableStateOf(false) }
-    var addGroup by remember { mutableStateOf<String?>(null) }
+    var addTarget by remember { mutableStateOf<AddTarget?>(null) }
     var renameTarget by remember { mutableStateOf<ChecklistItem?>(null) }
+    var dateTarget by remember { mutableStateOf<ChecklistItem?>(null) }
 
     val model = st.model
     Scaffold(
@@ -179,12 +200,14 @@ fun ChecklistContent(
             }
         } else {
             ChecklistBody(
-                model = model,
+                st = st,
                 padding = padding,
                 onToggle = cb.onToggle,
-                onAddClick = { addGroup = it },
+                onAddClick = { addTarget = it },
                 onRename = { renameTarget = it },
-                onDeleteItem = cb.onDeleteItem
+                onDeleteItem = cb.onDeleteItem,
+                onOpenTask = cb.onOpenTask,
+                onSetTaskDate = { dateTarget = it }
             )
         }
     }
@@ -200,17 +223,17 @@ fun ChecklistContent(
             onDismiss = { showDeleteChecklist = false }
         )
     }
-    // 添加条目
-    addGroup?.let { group ->
+    // 添加条目（POSTNATAL 按卡继承 group/person）
+    addTarget?.let { target ->
         ChecklistItemEditDialog(
-            title = "添加到「" + group + "」",
+            title = "添加到「" + target.cardTitle + "」",
             initial = "",
             confirmText = "保存",
             onConfirm = { title ->
-                addGroup = null
-                cb.onAddItem(group, title)
+                addTarget = null
+                cb.onAddItem(target.groupName, title, target.personId)
             },
-            onDismiss = { addGroup = null }
+            onDismiss = { addTarget = null }
         )
     }
     // 改名
@@ -226,27 +249,39 @@ fun ChecklistContent(
             onDismiss = { renameTarget = null }
         )
     }
+    // 「定日期」/「再定一次日期」
+    dateTarget?.let { item ->
+        JrxDatePickerDialog(
+            current = st.tasks[item.taskId]?.let {
+                io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule.dueDate(it)
+            } ?: st.today,
+            onPick = { date ->
+                dateTarget = null
+                cb.onSetTaskDate(item, date)
+            },
+            onDismiss = { dateTarget = null }
+        )
+    }
 }
 
-/** 清单正文：出处说明、进度、分组卡片。 */
+/** 清单正文：出处说明、进度、分组卡片（待产包）或人物卡（出生后要办的事）。 */
 @Composable
 private fun ChecklistBody(
-    model: ChecklistWithItemsModel,
+    st: ChecklistUiState,
     padding: androidx.compose.foundation.layout.PaddingValues,
     onToggle: (ChecklistItem, Boolean) -> Unit,
-    onAddClick: (String) -> Unit,
+    onAddClick: (AddTarget) -> Unit,
     onRename: (ChecklistItem) -> Unit,
-    onDeleteItem: (ChecklistItem) -> Unit
+    onDeleteItem: (ChecklistItem) -> Unit,
+    onOpenTask: (String) -> Unit,
+    onSetTaskDate: (ChecklistItem) -> Unit
 ) {
+    val model = st.model ?: return
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snack = remember { SnackbarHostState() }
-
-    // 组顺序：模板组序在前，未知组按出现顺序殿后
     val kind = model.checklist.kind
-    val templateGroups = ChecklistTemplates.groupsOf(kind)
-    val byGroup = model.items.groupBy { it.groupName }
-    val groups = templateGroups + byGroup.keys.filter { it !in templateGroups }
+    val postnatal = kind == ChecklistKind.POSTNATAL
 
     Box(Modifier.fillMaxSize().padding(padding)) {
     Column(
@@ -254,7 +289,7 @@ private fun ChecklistBody(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
     ) {
-        // 出处说明（待产包）
+        // 出处说明
         if (kind == ChecklistKind.BIRTH_BAG) {
             Text(
                 "条目参考" + ChecklistTemplates.BIRTH_BAG_PUBLISHER +
@@ -276,47 +311,110 @@ private fun ChecklistBody(
                     }
                 }
             }) { Text("查看出处") }
+        } else {
+            Text(
+                "很多地方可以在「新生儿出生一件事」里一次办好出生医学证明、" +
+                    "预防接种证、户口登记、社保卡和医保参保，具体以当地为准。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            TextButton(onClick = {
+                try {
+                    context.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse(ChecklistTemplates.POSTNATAL_PLATFORM_URL)
+                        )
+                    )
+                } catch (e: ActivityNotFoundException) {
+                    scope.launch {
+                        snack.showSnackbar("没有可以打开链接的应用")
+                    }
+                }
+            }) { Text("打开国家政务服务平台") }
         }
-        // 进度
+        // 进度：待产包「已备 N / M / 都备齐了」，出生后「已办 N / M / 都办好了」
         val total = model.items.size
-        val checked = model.items.count { it.checked }
+        val done = model.items.count { item ->
+            item.taskId?.let { st.tasks[it]?.done } ?: item.checked
+        }
         Text(
             when {
                 total == 0 -> "还没有条目"
-                checked == total -> "都备齐了"
-                else -> "已备 " + checked + " / " + total
+                done == total -> if (postnatal) "都办好了" else "都备齐了"
+                else -> (if (postnatal) "已办 " else "已备 ") + done + " / " + total
             },
             style = MaterialTheme.typography.titleMedium,
-            color = if (total > 0 && checked == total)
+            color = if (total > 0 && done == total)
                 MaterialTheme.colorScheme.primary
             else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(vertical = 4.dp)
         )
-        groups.forEach { group ->
-            val items = byGroup[group].orEmpty()
-            JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                SectionTitle(group)
-                if (items.isEmpty()) {
-                    Text(
-                        "这一组还没有东西",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                } else {
-                    items.forEach { item ->
+
+        if (postnatal) {
+            val cards = buildPostnatalCards(
+                model,
+                personName = { st.personNames[it] },
+                birthDate = { st.birthDates[it] }
+            )
+            cards.forEach { card ->
+                JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    SectionTitle(card.title)
+                    card.items.forEach { item ->
                         ChecklistItemRow(
                             item = item,
+                            task = item.taskId?.let { st.tasks[it] },
+                            today = st.today,
                             onToggle = onToggle,
                             onRename = onRename,
-                            onDelete = onDeleteItem
+                            onDelete = onDeleteItem,
+                            onOpenTask = onOpenTask,
+                            onSetTaskDate = onSetTaskDate
                         )
                     }
+                    TextButton(onClick = {
+                        onAddClick(
+                            AddTarget(card.groupName, card.title, card.personId)
+                        )
+                    }) { Text("添加") }
                 }
-                TextButton(onClick = { onAddClick(group) }) { Text("添加") }
+            }
+        } else {
+            // 组顺序：模板组序在前，未知组按出现顺序殿后
+            val templateGroups = ChecklistTemplates.groupsOf(kind)
+            val byGroup = model.items.groupBy { it.groupName }
+            val groups = templateGroups + byGroup.keys.filter { it !in templateGroups }
+            groups.forEach { group ->
+                val items = byGroup[group].orEmpty()
+                JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    SectionTitle(group)
+                    if (items.isEmpty()) {
+                        Text(
+                            "这一组还没有东西",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    } else {
+                        items.forEach { item ->
+                            ChecklistItemRow(
+                                item = item,
+                                task = item.taskId?.let { st.tasks[it] },
+                                today = st.today,
+                                onToggle = onToggle,
+                                onRename = onRename,
+                                onDelete = onDeleteItem,
+                                onOpenTask = onOpenTask,
+                                onSetTaskDate = onSetTaskDate
+                            )
+                        }
+                    }
+                    TextButton(onClick = {
+                        onAddClick(AddTarget(group, group, null))
+                    }) { Text("添加") }
+                }
             }
         }
-        // 模板里没有、但库里存在的组也要能加（防御）
         Spacer(Modifier.height(24.dp))
     }
     // 「查看出处」失败提示（挂在正文层，避免与页级 snackbar 冲突）
@@ -324,32 +422,44 @@ private fun ChecklistBody(
     }
 }
 
-/** 单条清单行：勾选框 + 标题/备注 + ⋮（改名/删除）。 */
+/**
+ * 单条清单行：勾选框 + 标题/备注 + ⋮。
+ * 有日期的条目（task 非空）以事项为准：勾选框显示事项已办且不可点，
+ * 行点击打开事项编辑页，菜单为「打开事项/改名/删除」（已办加「再定一次日期」）。
+ */
 @Composable
 private fun ChecklistItemRow(
     item: ChecklistItem,
+    task: FamilyTask?,
+    today: LocalDate,
     onToggle: (ChecklistItem, Boolean) -> Unit,
     onRename: (ChecklistItem) -> Unit,
-    onDelete: (ChecklistItem) -> Unit
+    onDelete: (ChecklistItem) -> Unit,
+    onOpenTask: (String) -> Unit,
+    onSetTaskDate: (ChecklistItem) -> Unit
 ) {
+    val dated = task != null
+    val done = task?.done ?: item.checked
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
             .heightIn(min = 48.dp)
             .semantics(mergeDescendants = true) {}
             .toggleable(
-                value = item.checked,
+                value = done,
+                enabled = !dated,
                 role = Role.Checkbox,
                 onValueChange = { onToggle(item, it) }
             )
             .padding(vertical = 4.dp)
     ) {
-        Checkbox(checked = item.checked, onCheckedChange = null)
+        Checkbox(checked = done, onCheckedChange = null, enabled = !dated)
+        Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f)) {
             Text(
                 item.title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (done) MaterialTheme.colorScheme.onSurfaceVariant
                 else MaterialTheme.colorScheme.onSurface
             )
             item.note?.let {
@@ -357,6 +467,21 @@ private fun ChecklistItemRow(
                     it,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (dated) {
+                val due = TaskSchedule.dueDate(task)
+                val days = TaskSchedule.daysUntil(due, today)
+                val rel = when {
+                    days == 0 -> "今天"
+                    days > 0 -> days.toString() + " 天后"
+                    else -> "已逾期 " + (-days) + " 天"
+                }
+                Text(
+                    due.monthValue.toString() + "月" + due.dayOfMonth + "日 · " + rel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (days < 0) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -372,6 +497,23 @@ private fun ChecklistItemRow(
                 expanded = menuOpen,
                 onDismissRequest = { menuOpen = false }
             ) {
+                if (dated) {
+                    DropdownMenuItem(
+                        text = { Text("打开事项") },
+                        onClick = { menuOpen = false; onOpenTask(task.id) }
+                    )
+                } else {
+                    DropdownMenuItem(
+                        text = { Text("定日期") },
+                        onClick = { menuOpen = false; onSetTaskDate(item) }
+                    )
+                }
+                if (dated && task.done) {
+                    DropdownMenuItem(
+                        text = { Text("再定一次日期") },
+                        onClick = { menuOpen = false; onSetTaskDate(item) }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("改名") },
                     onClick = { menuOpen = false; onRename(item) }
@@ -426,6 +568,7 @@ internal fun ChecklistItemEditDialog(
             OutlinedTextField(
                 value = text,
                 onValueChange = { if (it.length <= 30) text = it },
+                label = { Text("名称") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )

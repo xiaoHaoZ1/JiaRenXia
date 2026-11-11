@@ -26,6 +26,8 @@ class ReminderSync @Inject constructor(
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data.ContactRepository,
     private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
         .HomeVisitRepository,
+    private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .BabyCelebrationRepository,
     private val settings: SettingsRepository,
     @ApplicationScope private val scope: CoroutineScope
 ) {
@@ -45,7 +47,8 @@ class ReminderSync @Inject constructor(
                 taskRepository.observeTasks(),
                 contactRepository.observePlanList(),
                 contactRepository.observeAllLogs(),
-                homeVisitRepository.observeHomes()
+                homeVisitRepository.observeHomes(),
+                celebrationRepository.observeAll()
             ) { arr ->
                 @Suppress("UNCHECKED_CAST")
                 DataWatch(
@@ -54,7 +57,9 @@ class ReminderSync @Inject constructor(
                     arr[2] as List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>,
                     arr[3] as List<io.github.xiaohaoz1.jiarenxia.data.ContactPlan>,
                     arr[4] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
-                    arr[5] as List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>
+                    arr[5] as List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>,
+                    arr[6] as List<io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebration>
                 )
             }
             // 设置侧：四个总开关、四个提醒时刻、上坟日子/名单与回家节前提醒开关
@@ -98,7 +103,9 @@ class ReminderSync @Inject constructor(
         val tasks: List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>,
         val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.ContactPlan>,
         val contactLogs: List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
-        val homeVisits: List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>
+        val homeVisits: List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>,
+        val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.core.model
+            .BabyCelebration>
     )
 
     private data class SettingsWatch(

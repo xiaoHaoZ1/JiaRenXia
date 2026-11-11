@@ -3538,6 +3538,7 @@ class ScreenShotsTest {
                         androidx.compose.material3.OutlinedTextField(
                             value = "",
                             onValueChange = {},
+                            label = { Text("名称") },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -3674,6 +3675,689 @@ class ScreenShotsTest {
         }.also {
             assertTexts("孕期记录", "产检", "待产包",
                 "查看待产包（已备 12 / 28）")
+        }
+    }
+
+    // ---------- 第 3 批：宝宝出生了 / 新生宝宝 / 出生后要办的事 ----------
+
+    /** 演示宝宝人物：杨明与李雪的儿子，小宝，2026-09-15 出生（今天“出生第 18 天”）。 */
+    private fun babyGraph(): FamilyGraph {
+        val base = Demo.demoGraph()
+        val baby = Demo.p("baby", "小宝", Gender.MALE)
+        return FamilyGraph(
+            base.persons + baby,
+            base.relationships +
+                Demo.rel("me", "baby", RelationshipType.PARENT) +
+                Demo.rel("wife", "baby", RelationshipType.PARENT),
+            base.birthdays + ("baby" to PartialDate(2026, 9, 15)),
+            base.birthdayValues + ("baby" to listOf(
+                BirthdayValue(PartialDate(2026, 9, 15))))
+        )
+    }
+
+    /** 与 [Demo.demoOverview] 同一组装方式，数据换成含宝宝的图。 */
+    private fun babyOverview(): FamilyOverview {
+        val graph = babyGraph()
+        val engine = KinshipEngine()
+        val self = graph.persons.first { it.isSelf }
+        val results = engine.resolveAll(graph, self.id)
+        val byId = graph.persons.associate { person ->
+            person.id to PersonOverview(
+                person, results.getValue(person.id),
+                graph.birthdayValues[person.id] ?: emptyList(),
+                solarBirthday = graph.birthdays[person.id]
+            )
+        }
+        val rest = byId.values.filter { it.person.id != self.id }
+        return FamilyOverview(
+            self = byId.getValue(self.id),
+            graph = graph,
+            byId = byId,
+            core = FamilyOrdering.core(
+                rest.filter { it.result.coreGroup != null }, byId),
+            others = FamilyOrdering.others(
+                rest.filter { it.result.coreGroup == null })
+        )
+    }
+
+    /** 宝宝“我”的儿子”的详情态：页头年龄经 AgeMath → BabyMath 得出。 */
+    private fun babyDetail(): PersonDetailUiState {
+        val ov = babyOverview()
+        val o = ov.byId.getValue("baby")
+        val birthdays = (ov.graph.birthdayValues["baby"] ?: emptyList())
+            .associate { v ->
+                val dateId = "d-baby-" + v.calendar.name
+                v.calendar to io.github.xiaohaoz1.jiarenxia.data
+                    .BirthdayDetail(
+                        dateId = dateId, value = v,
+                        reminder = ReminderPreference(
+                            "rp-$dateId", dateId, enabled = true)
+                    )
+            }
+        val rels = ov.graph.relationships.filter {
+            it.sourcePersonId == "baby" || it.targetPersonId == "baby"
+        }
+        val engine = KinshipEngine()
+        val rows = rels.map { r ->
+            val otherId = if (r.sourcePersonId == "baby") r.targetPersonId
+            else r.sourcePersonId
+            RelationRow(
+                r, ov.graph.persons.first { it.id == otherId },
+                engine.directRelationLabel(ov.graph, "baby", r)
+            )
+        }
+        val ageText = io.github.xiaohaoz1.jiarenxia.domain.AgeMath.ageText(
+            o.birthdays, o.person.livingStatus, null, Demo.today, Demo.lunar)
+        // 新生宝宝卡：与 newbornCardOf 同一口径（出生第 18 天，在窗口内、
+        // 无产后清单 → 不显示「出生后要办的事」行）
+        val birth = java.time.LocalDate.of(2026, 9, 15)
+        val babyMath = io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+        return PersonDetailUiState(
+            loading = false,
+            detail = PersonDetail(
+                person = o.person, phones = emptyList(),
+                birthdays = birthdays, relationships = rels
+            ),
+            overview = o,
+            familyById = ov.byId,
+            relationRows = rows,
+            relatedIds = rels.flatMap {
+                listOf(it.sourcePersonId, it.targetPersonId)
+            }.toSet(),
+            ageText = ageText,
+            newbornCard = io.github.xiaohaoz1.jiarenxia.ui.person
+                .NewbornCardState(
+                    birthDate = birth,
+                    fullMonth = babyMath.fullMonthDate(birth),
+                    hundredDays = babyMath.hundredDaysDate(birth),
+                    fullMonthByBirth = babyMath.fullMonthDate(birth),
+                    hundredByBirth = babyMath.hundredDaysDate(birth),
+                    fullMonthOverride = false,
+                    hundredOverride = false,
+                    postnatalChecklistId = null,
+                    postnatalDone = 0, postnatalTotal = 0
+                )
+        )
+    }
+
+    private fun birthUiState(
+        babies: List<io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+            .BirthBabyDraft>,
+        spouseChecked: Boolean = false,
+        pickingKey: Int? = null,
+        pickerItems: List<io.github.xiaohaoz1.jiarenxia.domain
+            .PersonPickItem> = emptyList(),
+        done: List<io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby>? =
+            null,
+        checklistId: String? = null,
+        kinLines: List<String> = emptyList()
+    ) = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthUiState(
+        loading = false,
+        babies = babies,
+        momId = "wife", momName = "李雪",
+        spouseId = "me", spouseLabel = "杨明（丈夫）",
+        spouseIsFather = true, spouseChecked = spouseChecked,
+        pickingKey = pickingKey, pickerItems = pickerItems,
+        done = done, checklistId = checklistId, kinLines = kinLines
+    )
+
+    private fun newBabyDraft(
+        key: Int, name: String, gender: Gender,
+        date: LocalDate = Demo.today, minute: Int? = null
+    ) = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthBabyDraft(
+        key = key, isNew = true, name = name, gender = gender,
+        birthDate = date, birthMinute = minute
+    )
+
+    @Test
+    fun pregnancyCardBirthButton() {
+        shot("pregnancy_card_birth_button") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(Demo.today.plusDays(53),
+                        Demo.today.plusDays(53).minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 32 周 3 天", "记下次产检", "宝宝出生了")
+        }
+    }
+
+    @Test
+    fun birthFormNew() {
+        // 一个新建宝宝已填全（含时刻 08:30），勾选另一位父母
+        shot("birth_form_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(newBabyDraft(
+                        0, "小宝", Gender.MALE, minute = 8 * 60 + 30)),
+                    spouseChecked = true
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("宝宝出生了", "新建", "已经在家谱中",
+                "名字（可以先写小名）", "出生日期", "出生时刻",
+                "也是宝宝的父亲", "完成")
+        }
+    }
+
+    @Test
+    fun birthFormTwins() {
+        // 新建 + 已在家谱中各一个（第二个宝宝卡带“去掉”）
+        shot("birth_form_twins") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(
+                        newBabyDraft(0, "小宝", Gender.MALE,
+                            minute = 8 * 60 + 30),
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                            .BirthBabyDraft(
+                                key = 1, isNew = false,
+                                existingId = "baby2",
+                                existingLabel = "小贝（女儿）",
+                                birthDate = Demo.today.minusDays(1),
+                                existingHasSolar = false
+                            )
+                    )
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("宝宝", "第 2 个宝宝", "去掉", "小贝（女儿）",
+                "选择家人")
+        }
+    }
+
+    @Test
+    fun birthFormPickDialog() {
+        // 「已经在家谱中」选人对话框（候选 ≤10 时不出搜索框，可正常渲染）
+        shot("birth_form_pick_dialog") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(
+                        newBabyDraft(0, "小宝", Gender.MALE),
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                            .BirthBabyDraft(
+                                key = 1, isNew = false,
+                                birthDate = Demo.today
+                            )
+                    ),
+                    pickingKey = 1,
+                    pickerItems = listOf(
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "baby2", "小贝", "小贝（女儿）"),
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "dau", "杨小雨", "杨小雨（女儿）"),
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "bro", "杨帆", "杨帆（弟弟）"),
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "cousin", "杨磊", "杨磊（堂哥）")
+                    )
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("选择家人", "小贝（女儿）", "杨小雨（女儿）",
+                "杨帆（弟弟）", "杨磊（堂哥）", "取消")
+        }
+    }
+
+    @Test
+    fun birthDone() {
+        shot("birth_done") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = emptyList(),
+                    done = listOf(
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                            "小宝", "儿子", Demo.today, 8 * 60 + 30)
+                    ),
+                    checklistId = "cl-post",
+                    // 与 ViewModel 同一函数：以宝宝为观察者的真实称谓行
+                    kinLines = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                        .babyKinLines(babyGraph(), "baby")
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("欢迎宝宝来到我们家！", "小宝（儿子）",
+                "从宝宝的角度看", "父亲 · 杨明", "母亲 · 李雪",
+                "爷爷 · 杨建国", "姥爷 · 李国强", "报喜",
+                "看看出生后要办的事", "分享给家人", "完成")
+        }
+    }
+
+    @Test
+    fun birthDoneLg() {
+        shotLarge("birth_done") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = emptyList(),
+                    done = listOf(
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                            "小宝", "儿子", Demo.today, 8 * 60 + 30)
+                    ),
+                    checklistId = "cl-post",
+                    kinLines = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                        .babyKinLines(babyGraph(), "baby")
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }
+    }
+
+    @Test
+    fun birthFormNewLg() {
+        shotLarge("birth_form_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(newBabyDraft(
+                        0, "小宝", Gender.MALE, minute = 8 * 60 + 30)),
+                    spouseChecked = true
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }
+    }
+
+    /** 报喜对话框同款卡片（AlertDialog + 输入框在 Robolectric 下不 idle）。 */
+    private fun birthNewsShot(
+        name: String,
+        text: String,
+        weight: String,
+        showWeight: Boolean
+    ) {
+        shot(name) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text("报喜", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(16.dp))
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                            .BirthNewsFields(
+                                text = text, onText = {},
+                                weight = weight, onWeight = {},
+                                showWeight = showWeight
+                            )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("复制") }
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(onClick = {}) { Text("分享…") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun birthNewsDialogSingle() {
+        // 单宝宝 + 出生时刻 + 体重：正文预填含“08:30 出生，体重 6斤8两”
+        val baby = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+            "小宝", "儿子", Demo.today, 8 * 60 + 30)
+        birthNewsShot(
+            "birth_news_dialog_single",
+            text = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthNewsText
+                .body(listOf(baby), "6斤8两"),
+            weight = "6斤8两", showWeight = true
+        ).also {
+            assertTexts("报喜", "08:30", "体重", "6斤8两", "分享…")
+        }
+    }
+
+    @Test
+    fun birthNewsDialogTwinsNoTime() {
+        // 双胞胎且都没填时刻：正文不写时刻，无体重行
+        val babies = listOf(
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                "小宝", "儿子", Demo.today, null),
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                "小贝", "女儿", Demo.today.minusDays(1), null)
+        )
+        birthNewsShot(
+            "birth_news_dialog_twins_no_time",
+            text = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthNewsText
+                .body(babies, null),
+            weight = "", showWeight = false
+        ).also {
+            assertTexts("报喜", "小宝于", "小贝于", "分享…")
+        }
+    }
+
+    /** 出生后要办的事演示清单：双胞胎各 5 条 + 孕妈 2 条，其中 4 条已“定日期”。 */
+    private fun demoPostnatal(): io.github.xiaohaoz1.jiarenxia.ui.checklist
+        .ChecklistUiState {
+        val clId = "cl-post"
+        val tasks = mutableListOf<io.github.xiaohaoz1.jiarenxia.core.model
+            .FamilyTask>()
+        fun task(
+            id: String, personId: String, title: String,
+            anchor: LocalDate, done: Boolean
+        ) {
+            tasks += io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask(
+                id = id, personId = personId,
+                kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CUSTOM,
+                title = title, anchorDate = anchor,
+                repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+                periodIndex = 0, done = done, enabled = true,
+                offsets = setOf(0, 1), pregnancyId = null, archived = false
+            )
+        }
+        // 有日期条目：未办（3 天后）/ 已办（5 天后）/ 逾期（2 天）/ 孕妈复查（10 天后）
+        task("t-vac1", "baby1", "小宝的疫苗接种", Demo.today.plusDays(3), false)
+        task("t-card1", "baby1", "小宝的预防接种证",
+            Demo.today.minusDays(2), false)
+        task("t-cert2", "baby2", "小贝的出生医学证明",
+            Demo.today.plusDays(5), true)
+        task("t-check2", "wife", "李雪的产后复查",
+            Demo.today.plusDays(10), false)
+        val dated = mapOf(
+            "t-vac1" to "疫苗接种",
+            "t-card1" to "预防接种证",
+            "t-cert2" to "出生医学证明",
+            "t-check2" to "产后复查"
+        )
+        val items = mutableListOf<io.github.xiaohaoz1.jiarenxia.core.model
+            .ChecklistItem>()
+        var seq = 0
+        fun addItems(
+            personId: String,
+            list: List<io.github.xiaohaoz1.jiarenxia.domain.checklist
+                .ChecklistTemplates.TemplateItem>
+        ) {
+            list.forEach { t ->
+                val taskId = dated.entries.firstOrNull {
+                    it.value == t.title && when (personId) {
+                        "baby1" -> it.key in setOf("t-vac1", "t-card1")
+                        "baby2" -> it.key == "t-cert2"
+                        else -> it.key == "t-check2"
+                    }
+                }?.key
+                items += io.github.xiaohaoz1.jiarenxia.core.model.ChecklistItem(
+                    id = "pi-" + seq, checklistId = clId,
+                    groupName = t.groupName, title = t.title, note = t.note,
+                    checked = when {
+                        taskId != null -> false
+                        personId == "baby1" && t.title == "出生医学证明" -> true
+                        personId == "baby2" && t.title == "预防接种证" -> true
+                        else -> false
+                    },
+                    sortOrder = seq, personId = personId,
+                    taskId = taskId, createdAt = 1, updatedAt = 1
+                )
+                seq++
+            }
+        }
+        addItems("baby1",
+            io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+                .POSTNATAL_BABY_ITEMS)
+        addItems("baby2",
+            io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+                .POSTNATAL_BABY_ITEMS)
+        addItems("wife",
+            io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+                .POSTNATAL_MOM_ITEMS)
+        return io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistUiState(
+            loading = false,
+            model = io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel(
+                checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+                    id = clId,
+                    kind = io.github.xiaohaoz1.jiarenxia.core.model
+                        .ChecklistKind.POSTNATAL,
+                    title = "出生后要办的事", personId = "wife",
+                    pregnancyId = "pg-demo", createdAt = 1, updatedAt = 1
+                ),
+                items = items
+            ),
+            tasks = tasks.associateBy { it.id },
+            personNames = mapOf(
+                "baby1" to "小宝", "baby2" to "小贝", "wife" to "李雪"),
+            personTitles = mapOf("wife" to "妻子"),
+            selfId = "me",
+            birthDates = mapOf(
+                "baby1" to Demo.today.minusDays(18),
+                "baby2" to Demo.today.minusDays(18)),
+            today = Demo.today
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistPostnatal() {
+        shot("checklist_postnatal") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = demoPostnatal(),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("出生后要办的事", "已办 3 / 12", "小宝", "小贝",
+                "妈妈", "疫苗接种", "3 天后", "已逾期 2 天",
+                "产后复查", "打开国家政务服务平台")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistPostnatalLg() {
+        shotLarge("checklist_postnatal") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = demoPostnatal(),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistPostnatalItemMenu() {
+        // 有日期条目的 ⋮ 菜单（「产后复查」标题唯一，便于定位节点）
+        setShotContent {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = demoPostnatal(),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }
+        composeRule.onNodeWithContentDescription("条目操作：产后复查")
+            .performClick()
+        composeRule.waitForIdle()
+        capture("checklist_postnatal_item_menu")
+        assertTexts("打开事项", "改名", "删除")
+    }
+
+    private fun newbornCardState(
+        fullMonth: LocalDate,
+        fullMonthByBirth: LocalDate,
+        fullMonthOverride: Boolean,
+        postnatal: Boolean = true
+    ) = io.github.xiaohaoz1.jiarenxia.ui.person.NewbornCardState(
+        birthDate = Demo.today.minusDays(18),
+        fullMonth = fullMonth,
+        hundredDays = Demo.today.minusDays(18).plusDays(99),
+        fullMonthByBirth = fullMonthByBirth,
+        hundredByBirth = Demo.today.minusDays(18).plusDays(99),
+        fullMonthOverride = fullMonthOverride,
+        hundredOverride = false,
+        postnatalChecklistId = if (postnatal) "cl-post" else null,
+        postnatalDone = 4, postnatalTotal = 12
+    )
+
+    @Test
+    fun newbornCard() {
+        // 满月还有 12 天（2026-10-14），百天 2026-12-31，含产后清单行
+        shot("newborn_card") {
+            Column(Modifier.padding(16.dp)) {
+                io.github.xiaohaoz1.jiarenxia.ui.person.NewbornCard(
+                    card = newbornCardState(
+                        fullMonth = Demo.today.plusDays(12),
+                        fullMonthByBirth = Demo.today.plusDays(12),
+                        fullMonthOverride = false
+                    ),
+                    today = Demo.today,
+                    onSetCelebration = { _, _ -> },
+                    onOpenChecklist = {}
+                )
+            }
+        }.also {
+            assertTexts("新生宝宝", "满月", "百天", "还有 12 天",
+                "出生后要办的事", "已办 4 / 12")
+        }
+    }
+
+    @Test
+    fun newbornCardOverride() {
+        // 满月另设 10-20（按出生日算 10-14）：值显示庆祝日 + 小字对照
+        shot("newborn_card_override") {
+            Column(Modifier.padding(16.dp)) {
+                io.github.xiaohaoz1.jiarenxia.ui.person.NewbornCard(
+                    card = newbornCardState(
+                        fullMonth = Demo.today.plusDays(18),
+                        fullMonthByBirth = Demo.today.plusDays(12),
+                        fullMonthOverride = true
+                    ),
+                    today = Demo.today,
+                    onSetCelebration = { _, _ -> },
+                    onOpenChecklist = {}
+                )
+            }
+        }.also {
+            assertTexts("新生宝宝", "满月", "按出生日算", "百天")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun personHeaderBabyAge() {
+        shot("person_header_baby_age") {
+            PersonDetailContent(
+                lunar = Demo.lunar,
+                st = babyDetail(),
+                today = Demo.today, snackbar = SnackbarHostState(),
+                onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+                onDial = {}, onSetReminder = { _, _ -> },
+                onSetReminderOffsets = { _, _ -> },
+                onSetCustomTitle = {}, onDeletePerson = {},
+                onSetSiblingOrder = { _, _, _ -> }, onRemoveRelation = {}
+            )
+        }.also {
+            assertTexts("小宝", "出生第 18 天", "儿子")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCoreBabyAge() {
+        shot(
+            "family_core_baby_age",
+            style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+        ) {
+            FamilyContent(
+                FamilyUiState(
+                    overview = babyOverview(),
+                    defaultNumbers = mapOf("me" to "13800138000"),
+                    today = Demo.today
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("小宝", "出生第 18 天")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCoreBabyAgeJiashu() {
+        shot("family_core_baby_age_jiashu") {
+            FamilyContent(
+                FamilyUiState(
+                    overview = babyOverview(),
+                    defaultNumbers = mapOf("me" to "13800138000"),
+                    today = Demo.today
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("小宝", "出生第 18 天")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryDialogBorn() {
+        // BORN 孕期历史：宝宝行 + 补记入口 + 产后清单入口
+        val born = demoPregnancy(
+            Demo.today.minusDays(400), lmp = Demo.today.minusDays(680),
+            status = io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
+                .BORN,
+            endedOn = Demo.today.minusDays(120))
+        shot("pregnancy_history_dialog_born") {
+            PregnancyHistoryDialog(
+                pregnancy = born,
+                tasks = listOf(
+                    prenatalTask("h1", Demo.today.minusDays(200),
+                        archived = true)
+                ),
+                today = Demo.today,
+                birthBag = null, onDelete = {}, onDismiss = {},
+                babyNames = listOf("小宝", "小贝"),
+                postnatal = io.github.xiaohaoz1.jiarenxia.data
+                    .ChecklistProgress(
+                        checklist = io.github.xiaohaoz1.jiarenxia.core.model
+                            .Checklist(
+                                id = "cl-post",
+                                kind = io.github.xiaohaoz1.jiarenxia.core.model
+                                    .ChecklistKind.POSTNATAL,
+                                title = "出生后要办的事", personId = "wife",
+                                pregnancyId = "pg-demo",
+                                createdAt = 1, updatedAt = 1
+                            ),
+                        checkedCount = 3, totalCount = 12
+                    ),
+                onOpenPostnatal = {}
+            )
+        }.also {
+            assertTexts("孕期记录", "宝宝出生于", "宝宝：小宝、小贝",
+                "补记一个宝宝", "产检", "出生后要办的事",
+                "查看出生后要办的事（已办 3 / 12）")
         }
     }
 

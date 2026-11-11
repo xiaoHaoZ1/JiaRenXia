@@ -1,10 +1,10 @@
 package io.github.xiaohaoz1.jiarenxia.core.model
 
 /**
- * 清单类型（FAMILY_AFFAIRS 26）：本批只有待产包。
- * 后续批次可扩展（出生后要办的事等），kind 存 TEXT 便于扩展。
+ * 清单类型（FAMILY_AFFAIRS 26）：待产包、出生后要办的事。
+ * kind 存 TEXT 便于扩展；备份遇到不认识的 kind 跳过该清单（不 fail）。
  */
-enum class ChecklistKind { BIRTH_BAG }
+enum class ChecklistKind { BIRTH_BAG, POSTNATAL }
 
 /**
  * 一张清单（挂孕期或人物；本批由孕期生成待产包）。
@@ -23,7 +23,8 @@ data class Checklist(
 
 /**
  * 清单条目：组内顺序 = 模板顺序，组内再按 [sortOrder]。
- * [personId] 为条目关联人物（第 3 批按宝宝用；本批恒为孕妈/空）。
+ * [personId]：出生后要办的事按宝宝/孕妈写；待产包条目恒 null。
+ * [taskId]：「定日期」转成的家庭事项 id（无日期为 null）。
  */
 data class ChecklistItem(
     val id: String,
@@ -34,6 +35,7 @@ data class ChecklistItem(
     val checked: Boolean = false,
     val sortOrder: Int,
     val personId: String? = null,
+    val taskId: String? = null,
     val createdAt: Long = 0,
     val updatedAt: Long = 0
 )

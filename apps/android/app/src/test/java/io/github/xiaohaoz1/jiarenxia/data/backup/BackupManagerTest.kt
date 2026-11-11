@@ -1636,12 +1636,13 @@ class BackupManagerTest : RepoTestBase() {
             ByteArrayInputStream(
                 BackupCrypto.encrypt(bytes, pw, iterations = 10_000)), pw)
 
-        // 非法 kind → 校验失败
+        // 非法 kind → 第 3 批起改为跳过这张清单（连同条目），不再整份失败
         val badKind = zipWith { root ->
             root.getJSONArray("checklists").getJSONObject(0)
                 .put("kind", "NOT_A_KIND")
         }
-        assertTrue(inspectZip(badKind).isFailure)
+        val skippedPlan = inspectZip(badKind).getOrThrow()
+        assertTrue(skippedPlan.checklists.isEmpty())
         // 清单标题超长 → 校验失败
         val badTitle = zipWith { root ->
             root.getJSONArray("checklists").getJSONObject(0)
@@ -1670,23 +1671,296 @@ class BackupManagerTest : RepoTestBase() {
         assertEquals("待产包", planCl.title)
     }
 
+    // ---------- 第 3 批：birthMinutes / taskId / babyCelebrations ----------
+
+    @Test
+    fun 第三批字段往返() = runTest {
+        seed()
+        val (pregId, momId, babyId) = seedPregnancy()
+        // 出生时刻：pg1 的宝宝关联补 birth_minute（同主键先删后插）
+        db.pregnancyBabyDao().deleteForPregnancy(pregId)
+        db.pregnancyBabyDao().insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.PregnancyBabyEntity(
+                    pregnancyId = pregId, babyPersonId = babyId,
+                    birthMinute = 510
+                )
+            )
+        )
+        // POSTNATAL 清单：一条带 taskId 的条目 + 一条不带
+        db.checklistDao().insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+                    id = "clP", kind = "POSTNATAL", title = "出生后要办的事",
+                    personId = momId, pregnancyId = pregId,
+                    createdAt = 3, updatedAt = 4
+                )
+            )
+        )
+        db.familyTaskDao().insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
+                    id = "tkB", personId = babyId, kind = "CUSTOM",
+                    title = "豆豆的出生医学证明", anchorEpochDay = 20300,
+                    repeat = "NONE", periodIndex = 0, lastDoneEpochDay = null,
+                    done = false, amountFen = null, note = null, enabled = true,
+                    pregnancyId = null, archived = false,
+                    createdAt = 1, updatedAt = 1
+                )
+            )
+        )
+        db.familyTaskOffsetDao().insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
+                    "tkB-o0", "tkB", 1),
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
+                    "tkB-o1", "tkB", 0)
+            )
+        )
+        db.checklistItemDao().insertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                    id = "ciP1", checklistId = "clP", groupName = "宝宝",
+                    title = "出生医学证明", note = null, checked = false,
+                    sortOrder = 0, personId = babyId, taskId = "tkB",
+                    createdAt = 3, updatedAt = 4
+                ),
+                io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                    id = "ciP2", checklistId = "clP", groupName = "妈妈",
+                    title = "产后复查", note = null, checked = true,
+                    sortOrder = 1, personId = momId, taskId = null,
+                    createdAt = 3, updatedAt = 4
+                )
+            )
+        )
+        db.babyCelebrationDao().upsertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.BabyCelebrationEntity(
+                    personId = babyId, kind = "FULL_MONTH", epochDay = 20400),
+                io.github.xiaohaoz1.jiarenxia.data.db.BabyCelebrationEntity(
+                    personId = babyId, kind = "HUNDRED_DAYS", epochDay = 20500)
+            )
+        )
+
+        val beforeMinute = db.pregnancyBabyDao().getAll()
+            .first { it.birthMinute != null }.birthMinute
+        val out = ByteArrayOutputStream()
+        backup.export(out, pw)
+        repo.clearAllData()
+        assertEquals(0, db.babyCelebrationDao().getAll().size)
+
+        val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
+            .getOrThrow()
+        // JSON 层：birthMinutes 键随孕期、babyCelebrations 独立键
+        assertEquals(2, plan.babyCelebrations.size)
+        assertEquals(510, plan.pregnancies
+            .first { it.first.id == pregId }.second
+            .first { it.babyPersonId == babyId }.birthMinute)
+        backup.restore(plan)
+
+        assertEquals(beforeMinute,
+            db.pregnancyBabyDao().getAll()
+                .first { it.birthMinute != null }.birthMinute)
+        val items = db.checklistItemDao().getAll()
+        assertEquals("tkB", items.first { it.id == "ciP1" }.taskId)
+        assertNull(items.first { it.id == "ciP2" }.taskId)
+        assertEquals(
+            setOf("FULL_MONTH", "HUNDRED_DAYS"),
+            db.babyCelebrationDao().getAll()
+                .map { it.kind }.toSet()
+        )
+        assertEquals(20400, db.babyCelebrationDao().getAll()
+            .first { it.kind == "FULL_MONTH" }.epochDay)
+    }
+
+    @Test
+    fun 第三批字段_悬空置空与未知跳过() = runTest {
+        seed()
+        val persons = db.personDao().getAll()
+        val mom = persons.first { it.name == "妈" }
+        val baby = persons.first { it.name == "子" }
+        val preg = io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity(
+            id = "pgA", personId = mom.id, dueEpochDay = 20300,
+            lmpEpochDay = null, status = "BORN", endedEpochDay = 20200,
+            createdAt = 1, updatedAt = 1
+        )
+        val task = io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskEntity(
+            id = "t1", personId = baby.id, kind = "CUSTOM", title = "办事",
+            anchorEpochDay = 20250, repeat = "NONE", periodIndex = 0,
+            lastDoneEpochDay = null, done = false, amountFen = null,
+            note = null, enabled = true, pregnancyId = null,
+            archived = false, createdAt = 1, updatedAt = 1
+        )
+        val cl = io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+            id = "cl1", kind = "POSTNATAL", title = "出生后要办的事",
+            personId = mom.id, pregnancyId = "pgA",
+            createdAt = 1, updatedAt = 1
+        )
+        val item = io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+            id = "ci1", checklistId = "cl1", groupName = "宝宝",
+            title = "出生医学证明", note = null, checked = false,
+            sortOrder = 0, personId = baby.id, taskId = "t1",
+            createdAt = 1, updatedAt = 1
+        )
+        val zip = BackupJson.writeZip(
+            persons = persons,
+            phones = db.phoneNumberDao().getAll(),
+            relationships = db.relationshipDao().getAll(),
+            dates = db.importantDateDao().getAllDates(),
+            prefs = emptyList(), customTitles = emptyList(),
+            tasks = listOf(task to listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.FamilyTaskOffsetEntity(
+                    "t1-o0", "t1", 0)
+            )),
+            settings = null, avatars = emptyMap(),
+            createdAt = 1L, appVersion = "0.9.0",
+            pregnancies = listOf(
+                preg to listOf(
+                    io.github.xiaohaoz1.jiarenxia.data.db.PregnancyBabyEntity(
+                        "pgA", baby.id, 510)
+                )
+            ),
+            checklists = listOf(cl to listOf(item)),
+            babyCelebrations = listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.BabyCelebrationEntity(
+                    baby.id, "FULL_MONTH", 20400)
+            )
+        )
+        // 解 zip 改 JSON：taskId 悬空、celebration 人物悬空 + 未知 kind
+        val files = mutableMapOf<String, ByteArray>()
+        java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(zip)).use { z ->
+            var e = z.nextEntry
+            while (e != null) { files[e.name] = z.readBytes(); e = z.nextEntry }
+        }
+        val root = org.json.JSONObject(files["backup.json"]!!.decodeToString())
+        // 条目 taskId 指向不存在事项 → 置 null
+        root.getJSONArray("checklists").getJSONObject(0)
+            .getJSONArray("items").getJSONObject(0).put("taskId", "ghost-task")
+        // birthMinutes 里塞一个越界值 → fail（合法性仍校验）
+        // （先不动它，单独测悬空/未知）
+        val ce = root.getJSONArray("babyCelebrations")
+        ce.put(
+            org.json.JSONObject()
+                .put("personId", "ghost-person")
+                .put("kind", "FULL_MONTH").put("epochDay", 20500)
+        )
+        ce.put(
+            org.json.JSONObject()
+                .put("personId", baby.id)
+                .put("kind", "NOT_A_KIND").put("epochDay", 20600)
+        )
+        files["backup.json"] = root.toString().encodeToByteArray()
+        val out = java.io.ByteArrayOutputStream()
+        java.util.zip.ZipOutputStream(out).use { z ->
+            files.forEach { (n, b) ->
+                z.putNextEntry(java.util.zip.ZipEntry(n))
+                z.write(b)
+                z.closeEntry()
+            }
+        }
+        val plan = backup.inspect(
+            ByteArrayInputStream(
+                BackupCrypto.encrypt(out.toByteArray(), pw, iterations = 10_000)),
+            pw
+        ).getOrThrow()
+        // 悬空人物与未知 kind 的 celebration 都被丢弃，只剩合法一条
+        assertEquals(1, plan.babyCelebrations.size)
+        assertEquals(baby.id, plan.babyCelebrations[0].personId)
+        assertEquals("FULL_MONTH", plan.babyCelebrations[0].kind)
+        // taskId 悬空 → null
+        val (planCl, planItems) = plan.checklists.single()
+        assertNull(planItems.single().taskId)
+        assertEquals("cl1", planCl.id)
+        // birthMinutes 合法值保留
+        assertEquals(510, plan.pregnancies.single().second
+            .single().birthMinute)
+    }
+
+    @Test
+    fun 第三批字段_非法值拒收() = runTest {
+        seed()
+        val persons = db.personDao().getAll()
+        val mom = persons.first { it.name == "妈" }
+        val baby = persons.first { it.name == "子" }
+        val preg = io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity(
+            id = "pgA", personId = mom.id, dueEpochDay = 20300,
+            lmpEpochDay = null, status = "BORN", endedEpochDay = 20200,
+            createdAt = 1, updatedAt = 1
+        )
+        suspend fun zipWithBirthMinute(minute: Int): ByteArray {
+            val zip = BackupJson.writeZip(
+                persons = persons,
+                phones = db.phoneNumberDao().getAll(),
+                relationships = db.relationshipDao().getAll(),
+                dates = db.importantDateDao().getAllDates(),
+                prefs = emptyList(), customTitles = emptyList(),
+                settings = null, avatars = emptyMap(),
+                createdAt = 1L, appVersion = "0.9.0",
+                pregnancies = listOf(
+                    preg to listOf(
+                        io.github.xiaohaoz1.jiarenxia.data.db.PregnancyBabyEntity(
+                            "pgA", baby.id, minute)
+                    )
+                )
+            )
+            // writeZip 不写非法值？——直接构造：先看 JSON 里 birthMinutes 形态
+            val files = mutableMapOf<String, ByteArray>()
+            java.util.zip.ZipInputStream(
+                java.io.ByteArrayInputStream(zip)).use { z ->
+                var e = z.nextEntry
+                while (e != null) { files[e.name] = z.readBytes(); e = z.nextEntry }
+            }
+            val root = org.json.JSONObject(
+                files["backup.json"]!!.decodeToString())
+            // birthMinutes 形如 {"子id": 510}；改成越界值
+            val pregJson = root.getJSONArray("pregnancies").getJSONObject(0)
+            pregJson.getJSONObject("birthMinutes").put(baby.id, 9999)
+            files["backup.json"] = root.toString().encodeToByteArray()
+            val out = java.io.ByteArrayOutputStream()
+            java.util.zip.ZipOutputStream(out).use { z ->
+                files.forEach { (n, b) ->
+                    z.putNextEntry(java.util.zip.ZipEntry(n))
+                    z.write(b)
+                    z.closeEntry()
+                }
+            }
+            return out.toByteArray()
+        }
+        val res = backup.inspect(
+            ByteArrayInputStream(
+                BackupCrypto.encrypt(zipWithBirthMinute(510), pw,
+                    iterations = 10_000)),
+            pw
+        )
+        assertTrue(res.isFailure)
+    }
+
     @Test
     fun 家人共享导出不含清单() = runTest {
         seed()
-        val (pregId, momId, _) = seedPregnancy()
+        val (pregId, momId, babyId) = seedPregnancy()
         seedChecklist(pregId, momId)
+        // 满月/百天另设日期同样不进共享（第 3 批边界）
+        db.babyCelebrationDao().upsertAll(
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.data.db.BabyCelebrationEntity(
+                    babyId, "FULL_MONTH", 20400)
+            )
+        )
         val me = db.personDao().getAll().first { it.isSelf }.id
         val out = ByteArrayOutputStream()
         backup.exportShare(out, pw, sharedBy = me)
         val plan = backup.inspect(ByteArrayInputStream(out.toByteArray()), pw)
             .getOrThrow()
         assertTrue(plan.checklists.isEmpty())
+        assertTrue(plan.babyCelebrations.isEmpty())
         // 私密备份仍带
         val priv = ByteArrayOutputStream()
         backup.export(priv, pw)
         val privPlan = backup.inspect(
             ByteArrayInputStream(priv.toByteArray()), pw).getOrThrow()
         assertEquals(1, privPlan.checklists.size)
+        assertEquals(1, privPlan.babyCelebrations.size)
     }
 
     private fun encryptedPlan(

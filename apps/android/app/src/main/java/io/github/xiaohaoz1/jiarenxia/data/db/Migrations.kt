@@ -477,3 +477,18 @@ val MIGRATION_20_21 = object : Migration(20, 21) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_checklist_items_person_id` ON `checklist_items` (`person_id`)")
     }
 }
+
+/**
+ * v21 → v22：宝宝出生（FAMILY_AFFAIRS 26 第 3 批）——
+ * pregnancy_babies +birth_minute；checklist_items +task_id（不加外键）；
+ * 新表 baby_celebrations（满月/百天另设日期，person_id+kind 主键，person_id 级联）。
+ */
+val MIGRATION_21_22 = object : Migration(21, 22) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `pregnancy_babies` ADD COLUMN `birth_minute` INTEGER")
+        db.execSQL("ALTER TABLE `checklist_items` ADD COLUMN `task_id` TEXT")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_checklist_items_task_id` ON `checklist_items` (`task_id`)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `baby_celebrations` (`person_id` TEXT NOT NULL, `kind` TEXT NOT NULL, `epoch_day` INTEGER NOT NULL, PRIMARY KEY(`person_id`, `kind`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_baby_celebrations_person_id` ON `baby_celebrations` (`person_id`)")
+    }
+}
