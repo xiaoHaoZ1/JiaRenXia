@@ -97,17 +97,36 @@ object Routes {
         "&roles=" + roles.joinToString(",") +
         "&anchors=" + anchors.joinToString(",")
     const val TASK_EDIT =
-        "task/edit?taskId={taskId}&kind={kind}&personId={personId}&shared={shared}"
+        "task/edit?taskId={taskId}&kind={kind}&personId={personId}&shared={shared}&pregnancyId={pregnancyId}"
 
-    /** 事项编辑页：taskId 空 = 新建；kind/personId/shared 为新建预填参数。 */
+    /** 清单页（待产包等，FAMILY_AFFAIRS 26）。 */
+    const val CHECKLIST = "checklist/{checklistId}"
+    fun checklist(id: String) = "checklist/" + id
+
+    /** 「宝宝出生了」页；append=true 为孕期历史里的补记。 */
+    const val BIRTH = "pregnancy/{pregnancyId}/birth?append={append}"
+    fun birth(pregnancyId: String, append: Boolean = false) =
+        "pregnancy/" + pregnancyId + "/birth?append=" + append
+
+    /** 用药编辑页（FAMILY_AFFAIRS 23）：medId 空 = 新建；personId 必填。 */
+    const val MED_EDIT = "med/edit?medId={medId}&personId={personId}"
+    fun medEdit(medId: String = "", personId: String) =
+        "med/edit?medId=" + medId + "&personId=" + personId
+
+    /** 「给医生看」页：只读用药摘要。 */
+    const val MED_DOCTOR = "med/doctor/{personId}"
+    fun medDoctor(personId: String) = "med/doctor/" + personId
+
+    /** 事项编辑页：taskId 空 = 新建；kind/personId/shared/pregnancyId 为新建预填参数。 */
         fun shareImport(uri: String?): String =
         if (uri == null) "share/import" else "share/import?uri=" + uri
 
 fun taskEdit(
         taskId: String = "", kind: String = "", personId: String = "",
-        shared: String = ""
+        shared: String = "", pregnancyId: String = ""
     ): String = "task/edit?taskId=" + taskId + "&kind=" + kind +
-        "&personId=" + personId + "&shared=" + shared
+        "&personId=" + personId + "&shared=" + shared +
+        "&pregnancyId=" + pregnancyId
 
     /** 家人共享导入（FAMILY_AFFAIRS 9.4）：uri 为可选来源（外部 intent）。 */
     const val SHARE_IMPORT = "share/import?uri={uri}"
@@ -147,6 +166,7 @@ fun AppNavHost(
     onShareTextPendingConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
+    val context = androidx.compose.ui.platform.LocalContext.current
     // 碰一碰备用入口尚无文件，先选择对方发来的共享文件；取消不改变页面。
     val tapSharePicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -403,6 +423,7 @@ fun AppNavHost(
             Routes.PERSON,
             arguments = listOf(navArgument("personId") { type = NavType.StringType })
         ) {
+            val personId = it.arguments?.getString("personId").orEmpty()
             PersonDetailScreen(
                 onBack = { navController.popBackStack() },
                 onEdit = { navController.navigate(Routes.personEdit(it)) },
@@ -414,7 +435,82 @@ fun AppNavHost(
                     navController.popBackStack()
                 },
                 onAddTask = { navController.navigate(Routes.taskEdit(personId = it)) },
-                onOpenTaskDetail = { navController.navigate(Routes.taskEdit(taskId = it)) }
+                onAddPrenatalCheckup = { personId, pregnancyId ->
+                    navController.navigate(
+                        Routes.taskEdit(personId = personId, pregnancyId = pregnancyId)
+                    )
+                },
+                onOpenTaskDetail = { navController.navigate(Routes.taskEdit(taskId = it)) },
+                onOpenChecklist = { navController.navigate(Routes.checklist(it)) },
+                onOpenBirth = { pregId, append ->
+                    navController.navigate(Routes.birth(pregId, append))
+                },
+                onOpenMedEdit = { medId ->
+                    navController.navigate(Routes.medEdit(medId ?: "", personId))
+                },
+                onOpenMedDoctor = {
+                    navController.navigate(Routes.medDoctor(personId))
+                }
+            )
+        }
+
+        composable(
+            Routes.MED_EDIT,
+            arguments = listOf(
+                navArgument("medId") {
+                    type = NavType.StringType; defaultValue = ""
+                },
+                navArgument("personId") { type = NavType.StringType }
+            )
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditScreen(
+                onDone = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.MED_DOCTOR,
+            arguments = listOf(navArgument("personId") { type = NavType.StringType })
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            Routes.CHECKLIST,
+            arguments = listOf(navArgument("checklistId") { type = NavType.StringType })
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistScreen(
+                onDone = { navController.popBackStack() },
+                onOpenTask = { navController.navigate(Routes.taskEdit(taskId = it)) }
+            )
+        }
+
+        composable(
+            Routes.BIRTH,
+            arguments = listOf(
+                navArgument("pregnancyId") { type = NavType.StringType },
+                navArgument("append") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                }
+            )
+        ) {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthScreen(
+                onBack = { navController.popBackStack() },
+                onOpenChecklist = { navController.navigate(Routes.checklist(it)) },
+                onShareFamily = { navController.navigate(Routes.shareScope()) },
+                onShareNews = { text ->
+                    val send = android.content.Intent(android.content.Intent.ACTION_SEND)
+                        .setType("text/plain")
+                        .putExtra(android.content.Intent.EXTRA_TEXT, text)
+                    runCatching {
+                        context.startActivity(
+                            android.content.Intent.createChooser(send, null)
+                        )
+                    }
+                }
             )
         }
 
@@ -671,7 +767,8 @@ fun AppNavHost(
                 navArgument("taskId") { type = NavType.StringType; defaultValue = "" },
                 navArgument("kind") { type = NavType.StringType; defaultValue = "" },
                 navArgument("personId") { type = NavType.StringType; defaultValue = "" },
-                navArgument("shared") { type = NavType.StringType; defaultValue = "" }
+                navArgument("shared") { type = NavType.StringType; defaultValue = "" },
+                navArgument("pregnancyId") { type = NavType.StringType; defaultValue = "" }
             )
         ) {
             io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditScreen(

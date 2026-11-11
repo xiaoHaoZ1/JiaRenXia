@@ -22,6 +22,10 @@ import androidx.room.RoomDatabase
  *   其余字段（id、周期、期数、办理记录、提醒）原样保留。
  * v18 +person_facts（「关于TA」，私密：进备份、不进共享/碰一碰/合并）。
  * v19 +home_visit_plans / home_visit_members（回家看看，FAMILY_AFFAIRS 20）。
+ * v20 +pregnancies / pregnancy_babies（孕期记录，FAMILY_AFFAIRS 26）；
+ *   family_tasks +pregnancy_id / archived（产检事项与归档）。
+ * v21 +checklists / checklist_items（待产包等清单，FAMILY_AFFAIRS 26）。
+ * v24 +call_questions（「打电话要问的事」，FAMILY_AFFAIRS 26 第 7 批）。
  */
 @Database(
     entities = [
@@ -42,9 +46,18 @@ import androidx.room.RoomDatabase
         TapDeviceEntity::class,
         PersonAliasEntity::class,
         HomeVisitPlanEntity::class,
-        HomeVisitMemberEntity::class
+        HomeVisitMemberEntity::class,
+        PregnancyEntity::class,
+        PregnancyBabyEntity::class,
+        ChecklistEntity::class,
+        ChecklistItemEntity::class,
+        BabyCelebrationEntity::class,
+        MedicationEntity::class,
+        MedicationTimeEntity::class,
+        MedicationPersonPrefsEntity::class,
+        CallQuestionEntity::class
     ],
-    version = 19,
+    version = 24,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -64,6 +77,15 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun personAliasDao(): PersonAliasDao
     abstract fun homeVisitPlanDao(): HomeVisitPlanDao
     abstract fun homeVisitMemberDao(): HomeVisitMemberDao
+    abstract fun pregnancyDao(): PregnancyDao
+    abstract fun pregnancyBabyDao(): PregnancyBabyDao
+    abstract fun checklistDao(): ChecklistDao
+    abstract fun checklistItemDao(): ChecklistItemDao
+    abstract fun babyCelebrationDao(): BabyCelebrationDao
+    abstract fun medicationDao(): MedicationDao
+    abstract fun medicationTimeDao(): MedicationTimeDao
+    abstract fun medicationPersonPrefsDao(): MedicationPersonPrefsDao
+    abstract fun callQuestionDao(): CallQuestionDao
 }
 
 /**
@@ -79,9 +101,23 @@ internal suspend fun AppDatabase.clearTables() {
     // 回家看看：成员表先清（外键也级联，这里显式保序）
     homeVisitMemberDao().deleteAll()
     homeVisitPlanDao().deleteAll()
+    // 清单：条目先清（外键也级联），再清清单；在 persons / pregnancies 之前
+    checklistItemDao().deleteAll()
+    checklistDao().deleteAll()
+    // 宝宝满月/百天另设日期：persons 之前清
+    babyCelebrationDao().deleteAll()
+    // 用药：时刻表先清（medication 级联也会连带），再清用药与按人开关
+    medicationTimeDao().deleteAll()
+    medicationDao().deleteAll()
+    medicationPersonPrefsDao().deleteAll()
+    // 孕期：关联表先清，再清孕期（均在 persons 之前）
+    pregnancyBabyDao().deleteAll()
+    pregnancyDao().deleteAll()
     contactLogDao().deleteAll()
     contactPlanDao().deleteAll()
     personFactDao().deleteAll()
+    // 要问的事：persons 之前清（person_id 级联是兜底）
+    callQuestionDao().deleteAll()
     familyTaskOffsetDao().deleteAll()
     familyTaskDao().deleteAll()
     reminderOffsetDao().deleteAll()

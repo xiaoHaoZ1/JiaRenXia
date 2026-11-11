@@ -2,6 +2,7 @@ package io.github.xiaohaoz1.jiarenxia.data.db
 
 import androidx.room.Dao
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Upsert
 import androidx.room.Query
 import androidx.room.Transaction
@@ -175,6 +176,21 @@ interface FamilyTaskDao {
     @Transaction
     @Query("SELECT * FROM family_tasks WHERE person_id = :personId")
     fun observeForPersonWithOffsets(personId: String): Flow<List<FamilyTaskWithOffsets>>
+    /** 孕期关联事项（含归档与已办；孕期记录/历史用）。 */
+    @Transaction
+    @Query("SELECT * FROM family_tasks WHERE pregnancy_id = :pregnancyId")
+    fun observeForPregnancyWithOffsets(pregnancyId: String): Flow<List<FamilyTaskWithOffsets>>
+    /**
+     * 归档未完成事项：孕期结束/出生后，把这次孕期关联的
+     * 未办（done=0）且未归档的事项整体转 archived。
+     */
+    @Query(
+        "UPDATE family_tasks SET archived = 1, updated_at = :updatedAt " +
+            "WHERE pregnancy_id = :pregnancyId AND done = 0 AND archived = 0"
+    )
+    suspend fun archiveUnfinishedForPregnancy(pregnancyId: String, updatedAt: Long)
+    @Query("DELETE FROM family_tasks WHERE pregnancy_id = :pregnancyId")
+    suspend fun deleteForPregnancy(pregnancyId: String)
     @Transaction
     @Query("SELECT * FROM family_tasks WHERE id = :id")
     suspend fun getWithOffsets(id: String): FamilyTaskWithOffsets?
@@ -296,4 +312,199 @@ interface HomeVisitMemberDao {
     @Query("SELECT * FROM home_visit_members WHERE plan_id = :planId")
     suspend fun getForPlan(planId: String): List<HomeVisitMemberEntity>
     @Query("DELETE FROM home_visit_members") suspend fun deleteAll()
+}
+
+/** pregnancies DAO：孕期记录。 */
+@Dao
+interface PregnancyDao {
+    @Upsert suspend fun upsert(entity: PregnancyEntity)
+    @Insert suspend fun insertAll(entities: List<PregnancyEntity>)
+    @Query("SELECT * FROM pregnancies WHERE id = :id")
+    suspend fun get(id: String): PregnancyEntity?
+    /** 该人物全部孕期：ACTIVE 在前，其余按 updated_at 倒序。 */
+    @Query(
+        "SELECT * FROM pregnancies WHERE person_id = :personId " +
+            "ORDER BY CASE WHEN status = 'ACTIVE' THEN 0 ELSE 1 END, " +
+            "updated_at DESC"
+    )
+    fun observeForPerson(personId: String): Flow<List<PregnancyEntity>>
+    /** 全部 ACTIVE 孕期（家庭页状态用）。 */
+    @Query("SELECT * FROM pregnancies WHERE status = 'ACTIVE'")
+    fun observeActive(): Flow<List<PregnancyEntity>>
+    @Query("SELECT * FROM pregnancies WHERE status = 'ACTIVE'")
+    suspend fun getActive(): List<PregnancyEntity>
+    @Query("SELECT * FROM pregnancies") suspend fun getAll(): List<PregnancyEntity>
+    @Query("SELECT * FROM pregnancies") fun observeAll(): Flow<List<PregnancyEntity>>
+    @Query("DELETE FROM pregnancies WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM pregnancies") suspend fun deleteAll()
+}
+
+/** pregnancy_babies DAO：孕期 ↔ 宝宝人物关联（两端级联）。 */
+@Dao
+interface PregnancyBabyDao {
+    @Insert suspend fun insertAll(entities: List<PregnancyBabyEntity>)
+    @Query("SELECT * FROM pregnancy_babies WHERE pregnancy_id = :pregnancyId")
+    suspend fun getForPregnancy(pregnancyId: String): List<PregnancyBabyEntity>
+    /** 该宝宝已关联的孕期行（「已关联过任何孕期的人不能再关联」校验用）。 */
+    @Query("SELECT * FROM pregnancy_babies WHERE baby_person_id = :babyPersonId")
+    suspend fun getForBaby(babyPersonId: String): List<PregnancyBabyEntity>
+    @Query("SELECT * FROM pregnancy_babies") suspend fun getAll(): List<PregnancyBabyEntity>
+    @Query("SELECT * FROM pregnancy_babies") fun observeAll(): Flow<List<PregnancyBabyEntity>>
+    @Query("DELETE FROM pregnancy_babies WHERE pregnancy_id = :pregnancyId")
+    suspend fun deleteForPregnancy(pregnancyId: String)
+    @Query("DELETE FROM pregnancy_babies") suspend fun deleteAll()
+}
+
+/** checklists DAO：清单（待产包等）。 */
+@Dao
+interface ChecklistDao {
+    @Upsert suspend fun upsert(entity: ChecklistEntity)
+    @Insert suspend fun insertAll(entities: List<ChecklistEntity>)
+    @Query("SELECT * FROM checklists WHERE id = :id")
+    suspend fun get(id: String): ChecklistEntity?
+    @Query("SELECT * FROM checklists WHERE id = :id")
+    fun observe(id: String): Flow<ChecklistEntity?>
+    /** 该孕期某类清单（至多一张；createFromTemplate 幂等判断用）。 */
+    @Query("SELECT * FROM checklists WHERE pregnancy_id = :pregnancyId AND kind = :kind")
+    suspend fun getForPregnancy(pregnancyId: String, kind: String): ChecklistEntity?
+    @Query("SELECT * FROM checklists WHERE pregnancy_id = :pregnancyId AND kind = :kind")
+    fun observeForPregnancy(pregnancyId: String, kind: String): Flow<ChecklistEntity?>
+    /** 36 周提醒用：该孕期的清单（任意 kind）。 */
+    @Query("SELECT * FROM checklists WHERE pregnancy_id = :pregnancyId")
+    suspend fun getAllForPregnancy(pregnancyId: String): List<ChecklistEntity>
+    /** 删除孕期时显式删 BIRTH_BAG 清单（其他 kind 靠 SET NULL 保留）。 */
+    @Query("DELETE FROM checklists WHERE pregnancy_id = :pregnancyId AND kind = 'BIRTH_BAG'")
+    suspend fun deleteBirthBagsForPregnancy(pregnancyId: String)
+    @Query("SELECT * FROM checklists") suspend fun getAll(): List<ChecklistEntity>
+    @Query("SELECT * FROM checklists") fun observeAll(): Flow<List<ChecklistEntity>>
+    @Query("DELETE FROM checklists WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM checklists") suspend fun deleteAll()
+}
+
+/** checklist_items DAO：清单条目（checklist / person 两端级联）。 */
+@Dao
+interface ChecklistItemDao {
+    @Upsert suspend fun upsert(entity: ChecklistItemEntity)
+    @Insert suspend fun insertAll(entities: List<ChecklistItemEntity>)
+    @Query("SELECT * FROM checklist_items WHERE id = :id")
+    suspend fun get(id: String): ChecklistItemEntity?
+    @Query("SELECT * FROM checklist_items WHERE checklist_id = :checklistId")
+    suspend fun getForChecklist(checklistId: String): List<ChecklistItemEntity>
+    /** 组内末尾追加：取该组最大 sort_order。 */
+    @Query(
+        "SELECT COALESCE(MAX(sort_order), -1) FROM checklist_items " +
+            "WHERE checklist_id = :checklistId AND group_name = :groupName"
+    )
+    suspend fun maxSortOrder(checklistId: String, groupName: String): Int
+    @Query("SELECT * FROM checklist_items") suspend fun getAll(): List<ChecklistItemEntity>
+    @Query("SELECT * FROM checklist_items") fun observeAll(): Flow<List<ChecklistItemEntity>>
+    @Query("DELETE FROM checklist_items WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM checklist_items WHERE checklist_id = :checklistId")
+    suspend fun deleteForChecklist(checklistId: String)
+    /** 「定日期」写回条目关联的事项；「再定一次日期」替换旧值。 */
+    @Query(
+        "UPDATE checklist_items SET task_id = :taskId, updated_at = :now " +
+            "WHERE id = :id"
+    )
+    suspend fun updateTaskId(id: String, taskId: String?, now: Long)
+    /** 事项被删后清掉悬空引用（仓库在事项删除路径调用）。 */
+    @Query("UPDATE checklist_items SET task_id = NULL, updated_at = :now WHERE task_id = :taskId")
+    suspend fun clearTaskId(taskId: String, now: Long)
+    @Query("DELETE FROM checklist_items") suspend fun deleteAll()
+}
+
+/** baby_celebrations DAO：宝宝满月/百天另设庆祝日期。 */
+@Dao
+interface BabyCelebrationDao {
+    @Upsert suspend fun upsert(entity: BabyCelebrationEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<BabyCelebrationEntity>)
+    @Query("SELECT * FROM baby_celebrations WHERE person_id = :personId")
+    suspend fun getForPerson(personId: String): List<BabyCelebrationEntity>
+    @Query("SELECT * FROM baby_celebrations WHERE person_id = :personId")
+    fun observeForPerson(personId: String): Flow<List<BabyCelebrationEntity>>
+    @Query("SELECT * FROM baby_celebrations") suspend fun getAll(): List<BabyCelebrationEntity>
+    @Query("SELECT * FROM baby_celebrations") fun observeAll(): Flow<List<BabyCelebrationEntity>>
+    @Query("DELETE FROM baby_celebrations WHERE person_id = :personId AND kind = :kind")
+    suspend fun delete(personId: String, kind: String)
+    @Query("DELETE FROM baby_celebrations") suspend fun deleteAll()
+}
+
+/** medications DAO：用药记录（FAMILY_AFFAIRS 23）。时刻在 medication_times 表。 */
+@Dao
+interface MedicationDao {
+    @Upsert suspend fun upsert(entity: MedicationEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<MedicationEntity>)
+    @Query("SELECT * FROM medications WHERE id = :id")
+    suspend fun get(id: String): MedicationEntity?
+    @Query("SELECT * FROM medications WHERE person_id = :personId ORDER BY created_at DESC")
+    fun observeForPerson(personId: String): Flow<List<MedicationEntity>>
+    @Query("SELECT * FROM medications WHERE person_id = :personId ORDER BY created_at DESC")
+    suspend fun getForPerson(personId: String): List<MedicationEntity>
+    @Query("SELECT * FROM medications") fun observeAll(): Flow<List<MedicationEntity>>
+    @Query("SELECT * FROM medications") suspend fun getAll(): List<MedicationEntity>
+    @Query("UPDATE medications SET stopped_epoch_day = :stoppedDay, updated_at = :now WHERE id = :id")
+    suspend fun markStopped(id: String, stoppedDay: Long, now: Long): Int
+    @Query("UPDATE medications SET stopped_epoch_day = NULL, updated_at = :now WHERE id = :id")
+    suspend fun clearStopped(id: String, now: Long): Int
+    @Query("DELETE FROM medications WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM medications") suspend fun deleteAll()
+}
+
+/** medication_times DAO：每药每天服用时刻（主键 medication_id+minute_of_day）。 */
+@Dao
+interface MedicationTimeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entities: List<MedicationTimeEntity>)
+    @Query("SELECT * FROM medication_times WHERE medication_id = :medicationId ORDER BY minute_of_day")
+    suspend fun getForMedication(medicationId: String): List<MedicationTimeEntity>
+    @Query("SELECT * FROM medication_times WHERE medication_id = :medicationId ORDER BY minute_of_day")
+    fun observeForMedication(medicationId: String): Flow<List<MedicationTimeEntity>>
+    @Query("SELECT * FROM medication_times") suspend fun getAll(): List<MedicationTimeEntity>
+    @Query("SELECT * FROM medication_times") fun observeAll(): Flow<List<MedicationTimeEntity>>
+    @Query("DELETE FROM medication_times WHERE medication_id = :medicationId")
+    suspend fun deleteForMedication(medicationId: String)
+    @Query("DELETE FROM medication_times") suspend fun deleteAll()
+}
+
+/** medication_person_prefs DAO：用药区按人开关（每人一行）。 */
+@Dao
+interface MedicationPersonPrefsDao {
+    @Upsert suspend fun upsert(entity: MedicationPersonPrefsEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(entities: List<MedicationPersonPrefsEntity>)
+    @Query("SELECT * FROM medication_person_prefs WHERE person_id = :personId")
+    suspend fun get(personId: String): MedicationPersonPrefsEntity?
+    @Query("SELECT * FROM medication_person_prefs WHERE person_id = :personId")
+    fun observeForPerson(personId: String): Flow<MedicationPersonPrefsEntity?>
+    @Query("SELECT * FROM medication_person_prefs") fun observeAll(): Flow<List<MedicationPersonPrefsEntity>>
+    @Query("SELECT * FROM medication_person_prefs") suspend fun getAll(): List<MedicationPersonPrefsEntity>
+    @Query("DELETE FROM medication_person_prefs") suspend fun deleteAll()
+}
+
+/** call_questions DAO：「打电话要问的事」（v24，每人至多 10 条由仓库保证）。 */
+@Dao
+interface CallQuestionDao {
+    @Insert suspend fun insert(entity: CallQuestionEntity)
+    @Upsert suspend fun upsert(entity: CallQuestionEntity)
+    @Upsert suspend fun upsertAll(entities: List<CallQuestionEntity>)
+    @Query("SELECT * FROM call_questions WHERE id = :id")
+    suspend fun get(id: String): CallQuestionEntity?
+    @Query("SELECT * FROM call_questions WHERE person_id = :personId ORDER BY created_at, id")
+    fun observeForPerson(personId: String): Flow<List<CallQuestionEntity>>
+    @Query("SELECT * FROM call_questions WHERE person_id = :personId ORDER BY created_at, id")
+    suspend fun getForPerson(personId: String): List<CallQuestionEntity>
+    @Query("SELECT COUNT(*) FROM call_questions WHERE person_id = :personId")
+    suspend fun countForPerson(personId: String): Int
+    @Query("SELECT * FROM call_questions ORDER BY created_at, id")
+    fun observeAll(): Flow<List<CallQuestionEntity>>
+    @Query("SELECT * FROM call_questions") suspend fun getAll(): List<CallQuestionEntity>
+    @Query("UPDATE call_questions SET text = :text, keep = :keep, updated_at = :now WHERE id = :id")
+    suspend fun update(id: String, text: String, keep: Boolean, now: Long): Int
+    @Query("UPDATE call_questions SET keep = :keep, updated_at = :now WHERE id = :id")
+    suspend fun updateKeep(id: String, keep: Boolean, now: Long): Int
+    @Query("DELETE FROM call_questions WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM call_questions WHERE id IN (:ids)") suspend fun deleteIds(ids: List<String>)
+    @Query("DELETE FROM call_questions") suspend fun deleteAll()
 }

@@ -31,6 +31,8 @@ data class TaskEditUiState(
     val taskId: String? = null,
     val kind: TaskKind = TaskKind.CUSTOM,
     val personId: String? = null,
+    /** 关联孕期 id（产检事项）；非空时模板/关联人/重复锁定。 */
+    val pregnancyId: String? = null,
     val title: String = "",
     /** 用户手动改过标题后，模板/人物变化不再覆盖。 */
     val titleEdited: Boolean = false,
@@ -74,6 +76,8 @@ class TaskEditViewModel @Inject constructor(
         val taskId = savedState.get<String>("taskId")?.takeIf { it.isNotEmpty() }
         val kindName = savedState.get<String>("kind")?.takeIf { it.isNotEmpty() }
         val personId = savedState.get<String>("personId")?.takeIf { it.isNotEmpty() }
+        val pregnancyId = savedState.get<String>("pregnancyId")
+            ?.takeIf { it.isNotEmpty() }
         // 文本分享预填（微信等 → 记为家事）
         val shared = savedState.get<String>("shared")?.takeIf { it.isNotEmpty() }
         viewModelScope.launch {
@@ -86,6 +90,7 @@ class TaskEditViewModel @Inject constructor(
                     taskId = existing.id,
                     kind = existing.kind,
                     personId = existing.personId,
+                    pregnancyId = existing.pregnancyId,
                     title = existing.title,
                     titleEdited = true,
                     anchorDate = existing.anchorDate,
@@ -99,23 +104,36 @@ class TaskEditViewModel @Inject constructor(
                     persons = options
                 )
             } else {
-                val kind = kindName?.let { runCatching { TaskKind.valueOf(it) }.getOrNull() }
-                    ?: TaskKind.CUSTOM
+                // 产检新建：kind=CHECKUP、关联孕妈、不重复、offsets={1,0}
+                val isPrenatal = pregnancyId != null
+                val kind = if (isPrenatal) TaskKind.CHECKUP
+                    else kindName?.let { runCatching { TaskKind.valueOf(it) }.getOrNull() }
+                        ?: TaskKind.CUSTOM
                 val tpl = TaskTemplates.of(kind)
                 // 分享文本：标题/备注/建议日期预填，titleEdited 置位防模板覆盖
                 val parsed = shared?.let {
                     io.github.xiaohaoz1.jiarenxia.core.model.SharedTaskText.parse(
                         it, LocalDate.now())
                 }
+                val prenatalTitle = if (isPrenatal) {
+                    val po = personId?.let { overview?.byId?.get(it) }
+                    TaskTemplates.prenatalTitle(
+                        po?.displayTitle?.ifEmpty { null } ?: po?.person?.name,
+                        personId != null &&
+                            personId == overview?.self?.person?.id
+                    )
+                } else null
                 _ui.value = TaskEditUiState(
                     taskId = null,
                     kind = kind,
                     personId = personId,
-                    title = parsed?.title ?: defaultTitle(kind, personId, overview),
-                    titleEdited = parsed != null,
+                    pregnancyId = pregnancyId,
+                    title = parsed?.title ?: prenatalTitle
+                        ?: defaultTitle(kind, personId, overview),
+                    titleEdited = parsed != null || isPrenatal,
                     anchorDate = parsed?.anchorDate ?: LocalDate.now(),
-                    repeat = tpl.repeat,
-                    offsets = tpl.offsets,
+                    repeat = if (isPrenatal) TaskRepeat.NONE else tpl.repeat,
+                    offsets = if (isPrenatal) setOf(1, 0) else tpl.offsets,
                     remindMinutes = parsed?.remindMinutes,
                     note = parsed?.note ?: "",
                     persons = options
@@ -217,7 +235,8 @@ class TaskEditViewModel @Inject constructor(
                         repeat = st.repeat, amountFen = amountFen,
                         note = st.note, enabled = st.enabled,
                         offsets = st.offsets,
-                        remindMinutes = st.remindMinutes
+                        remindMinutes = st.remindMinutes,
+                        pregnancyId = st.pregnancyId
                     )
                 )
                 when (res) {

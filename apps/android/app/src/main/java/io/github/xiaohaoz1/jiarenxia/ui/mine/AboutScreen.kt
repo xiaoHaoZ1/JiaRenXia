@@ -8,9 +8,11 @@ import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -21,14 +23,18 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +45,9 @@ import androidx.core.net.toUri
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import io.github.xiaohaoz1.jiarenxia.BuildConfig
 import io.github.xiaohaoz1.jiarenxia.R
+import io.github.xiaohaoz1.jiarenxia.ui.common.openGuardianPage
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
+import kotlinx.coroutines.launch
 
 /**
  * 帮助与关于（我的 → 二级页）：版本、新手引导、问题反馈、隐私说明。
@@ -73,6 +81,10 @@ fun AboutContent(
 ) {
     val context = LocalContext.current
     var showChangelog by remember { mutableStateOf(false) }
+    // 「守护侠」链接：ACTION_VIEW 交给浏览器；没有能处理的应用时 snackbar 提示
+    val snack = remember { SnackbarHostState() }
+    val snackScope = rememberCoroutineScope()
+    Box(Modifier.fillMaxSize()) {
     SettingsScaffold("帮助与关于", onBack) {
         Spacer(Modifier.height(10.dp))
         JrxCard(Modifier.fillMaxWidth()) {
@@ -137,6 +149,20 @@ fun AboutContent(
                 onClick = { openSite(context) }
             )
             RowDivider()
+            // 「守护侠」常驻入口：不受「我的」页推荐卡的“不再显示”影响
+            SettingsNavRow(
+                icon = Icons.Rounded.Security,
+                title = "守护侠",
+                subtitle = "装在独居长辈手机上的守护应用",
+                onClick = {
+                    if (!openGuardianPage(context)) {
+                        snackScope.launch {
+                            snack.showSnackbar("没有可以打开链接的应用")
+                        }
+                    }
+                }
+            )
+            RowDivider()
             SettingsNavRow(
                 icon = Icons.Rounded.Share,
                 title = "推荐给家人",
@@ -146,6 +172,11 @@ fun AboutContent(
         }
         SettingsHint("反馈时说清手机型号和操作步骤，能更快定位问题。")
         Spacer(Modifier.height(16.dp))
+    }
+    SnackbarHost(
+        snack,
+        Modifier.align(Alignment.BottomCenter).padding(16.dp)
+    )
     }
 
     if (showChangelog) {

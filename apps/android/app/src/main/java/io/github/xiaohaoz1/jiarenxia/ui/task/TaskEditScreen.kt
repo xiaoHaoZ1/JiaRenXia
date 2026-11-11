@@ -179,23 +179,40 @@ fun TaskEditContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            // 模板（可改）
+            // 产检事项：顶部说明（孕期结束后自动归档）
+            if (st.pregnancyId != null) {
+                Text(
+                    "这条产检属于孕期记录，孕期结束后会自动归档。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
+            }
+            // 模板（产检锁定显示“产检”，不可改）
             JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                EditRow("模板", TaskTemplates.of(st.kind).displayName) {
-                    templateDialog = true
-                }
-                if (st.templateHint.isNotEmpty()) {
-                    Text(
-                        st.templateHint,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
+                if (st.pregnancyId != null) {
+                    EditRow("模板", "产检", onClick = {}, enabled = false)
+                } else {
+                    EditRow("模板", TaskTemplates.of(st.kind).displayName) {
+                        templateDialog = true
+                    }
+                    if (st.templateHint.isNotEmpty()) {
+                        Text(
+                            st.templateHint,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
-            // 关联人（可空 = 全家）
+            // 关联人（可空 = 全家；产检锁定为孕妈）
             JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                EditRow("关联人", st.personLabel()) { personDialog = true }
+                if (st.pregnancyId != null) {
+                    EditRow("关联人", st.personLabel(), onClick = {}, enabled = false)
+                } else {
+                    EditRow("关联人", st.personLabel()) { personDialog = true }
+                }
             }
             // 标题
             JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)
@@ -216,20 +233,22 @@ fun TaskEditContent(
                         st.anchorDate.dayOfMonth + "日"
                 ) { dateDialog = true }
             }
-            // 重复
-            JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-                Text("重复", style = MaterialTheme.typography.titleSmall)
-                Spacer(Modifier.height(8.dp))
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf(TaskRepeat.NONE to "不重复", TaskRepeat.MONTHLY to "每月",
-                        TaskRepeat.YEARLY to "每年").forEachIndexed { i, (r, label) ->
-                        SegmentedButton(
-                            selected = st.repeat == r,
-                            onClick = { cb.onRepeat(r) },
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = i, count = 3
-                            )
-                        ) { Text(label) }
+            // 重复（产检不重复，隐藏该行）
+            if (st.pregnancyId == null) {
+                JrxCard(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Text("重复", style = MaterialTheme.typography.titleSmall)
+                    Spacer(Modifier.height(8.dp))
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        listOf(TaskRepeat.NONE to "不重复", TaskRepeat.MONTHLY to "每月",
+                            TaskRepeat.YEARLY to "每年").forEachIndexed { i, (r, label) ->
+                            SegmentedButton(
+                                selected = st.repeat == r,
+                                onClick = { cb.onRepeat(r) },
+                                shape = SegmentedButtonDefaults.itemShape(
+                                    index = i, count = 3
+                                )
+                            ) { Text(label) }
+                        }
                     }
                 }
             }
@@ -387,12 +406,17 @@ fun TaskEditContent(
     }
 }
 
-/** 编辑页通用行：标题 + 当前值 + 下拉箭头，整行可点。 */
+/** 编辑页通用行：标题 + 当前值 + 下拉箭头，整行可点。[enabled] 为 false 时锁定（无箭头、不可点）。 */
 @Composable
-private fun EditRow(label: String, value: String, onClick: () -> Unit) {
+private fun EditRow(
+    label: String, value: String, enabled: Boolean = true,
+    onClick: () -> Unit
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp)
+        modifier = Modifier.fillMaxWidth()
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(vertical = 4.dp)
     ) {
         Text(label, style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.width(64.dp))
@@ -401,10 +425,12 @@ private fun EditRow(label: String, value: String, onClick: () -> Unit) {
             style = MaterialTheme.typography.bodyLarge,
             modifier = Modifier.weight(1f)
         )
-        Icon(
-            Icons.Rounded.KeyboardArrowDown, contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (enabled) {
+            Icon(
+                Icons.Rounded.KeyboardArrowDown, contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

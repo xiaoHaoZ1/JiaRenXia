@@ -21,11 +21,16 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** 长辈首页状态：页头行 + 最近的日子 + 家人名单 + 默认号码表。 */
+/** 长辈首页「今天要吃的药」一行：时刻 + 药名列表。 */
+data class ElderMedPlan(val minute: Int, val text: String)
+
+/** 长辈首页状态：页头行 + 今天要吃的药 + 最近的日子 + 家人名单 + 默认号码表。 */
 data class ElderUiState(
     val loading: Boolean = true,
     /** “11月7日 星期六 · 农历十月廿七”。 */
     val headerLine: String = "",
+    /** “我”今天的用药计划（无带时刻的药时为空，整卡不显示）。 */
+    val medPlan: List<ElderMedPlan> = emptyList(),
     val upcoming: List<ElderHome.UpcomingRow> = emptyList(),
     val members: List<ElderHome.MemberRow> = emptyList(),
     /** 人物 id → 默认号码（“打电话”按钮用）。 */
@@ -41,7 +46,9 @@ class ElderViewModel @Inject constructor(
     private val repository: FamilyRepository,
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
-    private val lunar: LunarCalendar
+    private val lunar: LunarCalendar,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository
 ) : ViewModel() {
 
     /** 上坟设置快照（与 ReminderViewModel 同口径）。 */
@@ -65,8 +72,20 @@ class ElderViewModel @Inject constructor(
         repository.observeBirthdayEntries(),
         observeOverview(),
         repository.observeDefaultNumbers(),
-        tombPrefs
-    ) { entries, overview, numbers, tp ->
+        tombPrefs,
+        medicationRepository.observeAll()
+    ) { values ->
+        val entries = values[0] as List<
+            io.github.xiaohaoz1.jiarenxia.data.BirthdayEntry>
+        val overview = values[1] as io.github.xiaohaoz1.jiarenxia.domain
+            .FamilyOverview?
+        @Suppress("UNCHECKED_CAST")
+        val numbers = values[2] as Map<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val tp = values[3] as TombPrefSnapshot
+        @Suppress("UNCHECKED_CAST")
+        val meds = values[4] as List<
+            io.github.xiaohaoz1.jiarenxia.core.model.Medication>
         val today = LocalDate.now()
         val titles = overview?.byId?.mapValues { (_, o) ->
             val k = o.result.kind
@@ -86,9 +105,28 @@ class ElderViewModel @Inject constructor(
             deathEntries = dates,
             prefs = TombPrefs(tp.days, tp.zhongyuanDay, tp.excludedIds, tp.includedIds)
         ) else emptyList()
+        // 「今天要吃的药」：只看“我”的药与日期规则，不看任何提醒开关
+        val selfId = overview?.self?.person?.id
+        val livingIds = overview?.byId.orEmpty().values
+            .filter {
+                it.person.livingStatus ==
+                    io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            }
+            .map { it.person.id }
+            .toSet()
+        val medPlan = io.github.xiaohaoz1.jiarenxia.domain.med.MedOnTime
+            .planSlots(meds, selfId, livingIds, today)
+            .map {
+                ElderMedPlan(
+                    it.minute,
+                    io.github.xiaohaoz1.jiarenxia.domain.med.MedOnTime
+                        .drugListText(it.meds)
+                )
+            }
         ElderUiState(
             loading = false,
             headerLine = ElderHome.headerLine(today, lunar),
+            medPlan = medPlan,
             upcoming = ElderHome.upcoming(
                 birthdays = birthdays,
                 dates = dToday to dNext30,

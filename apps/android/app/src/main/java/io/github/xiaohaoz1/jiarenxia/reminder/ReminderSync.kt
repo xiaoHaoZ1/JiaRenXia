@@ -14,8 +14,9 @@ import kotlinx.coroutines.launch
 
 /**
  * 提醒同步器（DEVELOPMENT_PLAN 2.5）：应用启动时 reconcile 一次，
- * 随后每当生日/纪念日数据、事项数据、联系计划与记录、四类开关、
- * 各自的提醒时刻或上坟日子/名单设置变化（防抖 500ms）重新调度。
+ * 随后每当生日/纪念日数据、事项数据、联系计划与记录、用药记录与按人开关、
+ * 五类开关、各自的提醒时刻、用药开关与时刻或上坟日子/名单设置变化
+ * （防抖 500ms）重新调度。
  * WorkManager 会跨重启保持任务，无需 BOOT 广播。
  */
 @Singleton
@@ -26,7 +27,12 @@ class ReminderSync @Inject constructor(
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data.ContactRepository,
     private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
         .HomeVisitRepository,
+    private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .BabyCelebrationRepository,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository,
     private val settings: SettingsRepository,
+    private val medAlarmScheduler: MedAlarmScheduler,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     private var started = false
@@ -36,6 +42,7 @@ class ReminderSync @Inject constructor(
         started = true
         scope.launch {
             scheduler.reconcile()
+            medAlarmScheduler.rescheduleAll()
         }
         scope.launch {
             // 数据侧：生日、纪念日/忌日、家庭事项、联系计划与联系记录、回家看看计划
@@ -45,7 +52,10 @@ class ReminderSync @Inject constructor(
                 taskRepository.observeTasks(),
                 contactRepository.observePlanList(),
                 contactRepository.observeAllLogs(),
-                homeVisitRepository.observeHomes()
+                homeVisitRepository.observeHomes(),
+                celebrationRepository.observeAll(),
+                medicationRepository.observeAll(),
+                medicationRepository.observePrefs()
             ) { arr ->
                 @Suppress("UNCHECKED_CAST")
                 DataWatch(
@@ -54,7 +64,12 @@ class ReminderSync @Inject constructor(
                     arr[2] as List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>,
                     arr[3] as List<io.github.xiaohaoz1.jiarenxia.data.ContactPlan>,
                     arr[4] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
-                    arr[5] as List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>
+                    arr[5] as List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>,
+                    arr[6] as List<io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebration>,
+                    arr[7] as List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>,
+                    arr[8] as List<io.github.xiaohaoz1.jiarenxia.core.model
+                        .MedicationPersonPrefs>
                 )
             }
             // 设置侧：四个总开关、四个提醒时刻、上坟日子/名单与回家节前提醒开关
@@ -71,7 +86,10 @@ class ReminderSync @Inject constructor(
                 settings.tombZhongyuanDay,
                 settings.tombExcludedPersonIds,
                 settings.tombIncludedPersonIds,
-                settings.homeVisitHolidayNudge
+                settings.homeVisitHolidayNudge,
+                settings.medRemindersEnabled,
+                settings.medReminderMinuteOfDay,
+                settings.medOnTimeEnabled
             ) { v ->
                 SettingsWatch(
                     v[0] as Boolean, v[1] as Boolean, v[2] as Boolean,
@@ -82,13 +100,19 @@ class ReminderSync @Inject constructor(
                     v[9] as Int,
                     (v[10] as Set<*>).filterIsInstance<String>().toSet(),
                     (v[11] as Set<*>).filterIsInstance<String>().toSet(),
-                    v[12] as Boolean
+                    v[12] as Boolean,
+                    v[13] as Boolean, v[14] as Int, v[15] as Boolean
                 )
             }
             combine(dataWatch, settingsWatch) { d, s -> ReminderWatch(d, s) }
                 .distinctUntilChanged()
                 .debounce(500)
-                .collectLatest { scheduler.reconcile() }
+                .collectLatest {
+                    scheduler.reconcile()
+                    // 「按时吃」闹钟：用药数据/每人开关/三个用药设置变化、
+                    // 备份恢复与清空数据（数据流触发）都经这里全量重排
+                    medAlarmScheduler.rescheduleAll()
+                }
         }
     }
 
@@ -98,7 +122,12 @@ class ReminderSync @Inject constructor(
         val tasks: List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>,
         val contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.ContactPlan>,
         val contactLogs: List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>,
-        val homeVisits: List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>
+        val homeVisits: List<io.github.xiaohaoz1.jiarenxia.data.HomePlan>,
+        val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.core.model
+            .BabyCelebration>,
+        val medications: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>,
+        val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.core.model
+            .MedicationPersonPrefs>
     )
 
     private data class SettingsWatch(
@@ -114,7 +143,10 @@ class ReminderSync @Inject constructor(
         val tombZhongyuanDay: Int,
         val tombExcludedIds: Set<String>,
         val tombIncludedIds: Set<String>,
-        val homeVisitHolidayNudge: Boolean
+        val homeVisitHolidayNudge: Boolean,
+        val medRemindersEnabled: Boolean,
+        val medMinute: Int,
+        val medOnTimeEnabled: Boolean
     )
 
     private data class ReminderWatch(val data: DataWatch, val settings: SettingsWatch)

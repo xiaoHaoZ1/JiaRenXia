@@ -66,9 +66,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -79,7 +81,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -93,6 +97,8 @@ import io.github.xiaohaoz1.jiarenxia.core.model.PhoneStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
 import io.github.xiaohaoz1.jiarenxia.core.model.RelativeAgeOrder
 import io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat
+import io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+import io.github.xiaohaoz1.jiarenxia.ui.common.AskDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.CommonChildrenDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.ConfirmDialog
 import io.github.xiaohaoz1.jiarenxia.ui.common.PostCallPromptEffect
@@ -100,6 +106,7 @@ import io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarFormat
 import io.github.xiaohaoz1.jiarenxia.ui.common.rememberNotificationPermissionRequester
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.ChipTone
+import kotlinx.coroutines.launch
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.CountdownBadge
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DateTile
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle
@@ -136,17 +143,55 @@ fun PersonDetailScreen(
     onOpenGraph: (String) -> Unit = {},
     onOpenAffairs: () -> Unit = {},
     onAddTask: (String) -> Unit = {},
+    onAddPrenatalCheckup: (String, String) -> Unit = { _, _ -> },
     onOpenTaskDetail: (String) -> Unit = {},
+    /** 打开清单页（待产包等）。 */
+    onOpenChecklist: (String) -> Unit = {},
+    /** 「宝宝出生了」/「补记一个宝宝」：append=false 正常记录，true 补记。 */
+    onOpenBirth: (String, Boolean) -> Unit = { _, _ -> },
+    /** 用药卡：null = 新建，id = 编辑。 */
+    onOpenMedEdit: (String?) -> Unit = {},
+    /** 「给医生看」页。 */
+    onOpenMedDoctor: () -> Unit = {},
     viewModel: PersonDetailViewModel = hiltViewModel()
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    // 打完电话回来的“联系上了吗”提示（10 分钟窗口）
+    // 打完电话回来的“联系上了吗”提示（10 分钟窗口；含要问的事划掉区）
     PostCallPromptEffect(viewModel.appEvents, viewModel::logCallContact)
     val context = LocalContext.current
+    // 拨号前「打给…之前」待确认（该人有要问的事时先弹框）
+    var preCall by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.ui.common
+            .PreCallRequest?>(null)
+    }
+    val scope = rememberCoroutineScope()
+    // 「按时吃提醒」系统状态提示：每次回到前台重算（授权/通知设置返回后生效）
+    var medHint by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(medOnTimeHint(context))
+    }
+    val medHintLifecycleOwner =
+        androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(medHintLifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                medHint = medOnTimeHint(context)
+            }
+        }
+        medHintLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { medHintLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(st.error) { st.error?.let { snackbar.showSnackbar(it); viewModel.onErrorShown() } }
+    LaunchedEffect(st.notice) { st.notice?.let { snackbar.showSnackbar(it); viewModel.onNoticeShown() } }
     LaunchedEffect(st.deleted) { if (st.deleted) onBack() }
+    // 待产包建好后跳清单页
+    LaunchedEffect(st.pendingChecklistId) {
+        st.pendingChecklistId?.let {
+            onOpenChecklist(it)
+            viewModel.onPendingChecklistHandled()
+        }
+    }
 
     PersonDetailContent(
         st = st,
@@ -160,19 +205,57 @@ fun PersonDetailScreen(
         onOpenGraph = onOpenGraph,
         onOpenAffairs = onOpenAffairs,
         onAddTask = onAddTask,
+        onAddPrenatalCheckup = onAddPrenatalCheckup,
         onOpenTaskDetail = onOpenTaskDetail,
+        onOpenChecklist = onOpenChecklist,
+        onOpenBirth = onOpenBirth,
+        onOpenMedEdit = onOpenMedEdit,
+        onOpenMedDoctor = onOpenMedDoctor,
+        onSetMedCourseRefill = viewModel::setMedCourseRefillEnabled,
+        onSetMedOnTime = viewModel::setMedOnTimeEnabled,
+        medOnTimeHint = medHint,
+        onSetCelebration = viewModel::setCelebration,
+        onEnsureBirthBag = viewModel::openBirthBag,
+        observePregnancyTasks = viewModel::tasksForPregnancy,
+        onCreatePregnancy = viewModel::createPregnancy,
+        onUpdatePregnancyDates = viewModel::updatePregnancyDates,
+        onEndPregnancy = viewModel::endPregnancy,
+        onDeletePregnancy = viewModel::deletePregnancy,
+        onAddCallQuestion = viewModel::addCallQuestion,
+        onUpdateCallQuestion = viewModel::updateCallQuestion,
+        onDeleteCallQuestion = viewModel::deleteCallQuestion,
         onDial = { number ->
-            st.detail?.person?.let { p ->
+            val p = st.detail?.person
+            if (p == null) {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_DIAL,
+                        Uri.parse("tel:" + number)))
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(context, "未找到拨号应用",
+                        Toast.LENGTH_SHORT).show()
+                }
+            } else {
                 // “联系上了吗”提示用的称呼：称谓优先，本人与无称谓回退姓名
                 val o = st.overview
                 val label = if (o == null || p.isSelf) p.name
                     else o.displayTitle.ifEmpty { p.name }
-                viewModel.onDialMade(p, label)
-            }
-            try {
-                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + number)))
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, "未找到拨号应用", Toast.LENGTH_SHORT).show()
+                scope.launch {
+                    val req = io.github.xiaohaoz1.jiarenxia.ui.common
+                        .preCallRequest(
+                            questionsFor = viewModel::callQuestionsFor,
+                            personId = p.id, label = label
+                        ) { once ->
+                            viewModel.onDialMade(p, label, once)
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_DIAL,
+                                    Uri.parse("tel:" + number)))
+                            } catch (e: ActivityNotFoundException) {
+                                Toast.makeText(context, "未找到拨号应用",
+                                    Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    if (req != null) preCall = req
+                }
             }
         },
         onSetReminder = viewModel::setBirthdayReminder,
@@ -197,6 +280,12 @@ fun PersonDetailScreen(
         onSetSiblingOrder = viewModel::setSiblingOrder,
         onRemoveRelation = viewModel::removeRelationship
     )
+
+    // 拨号前「打给…之前」：有要问的事时先确认再拨
+    preCall?.let { req ->
+        io.github.xiaohaoz1.jiarenxia.ui.common.PreCallQuestionsDialog(
+            request = req, onDismiss = { preCall = null })
+    }
 }
 
 /**
@@ -217,7 +306,40 @@ fun PersonDetailContent(
     onOpenGraph: (String) -> Unit = {},
     onOpenAffairs: () -> Unit = {},
     onAddTask: (String) -> Unit = {},
+    /** 记下次产检：跳事项编辑页（personId + pregnancyId）。 */
+    onAddPrenatalCheckup: (String, String) -> Unit = { _, _ -> },
     onOpenTaskDetail: (String) -> Unit = {},
+    /** 打开清单页（待产包等）。 */
+    onOpenChecklist: (String) -> Unit = {},
+    /** 「宝宝出生了」/「补记一个宝宝」。 */
+    onOpenBirth: (String, Boolean) -> Unit = { _, _ -> },
+    /** 用药卡：null = 新建，id = 编辑。 */
+    onOpenMedEdit: (String?) -> Unit = {},
+    onOpenMedDoctor: () -> Unit = {},
+    onSetMedCourseRefill: (Boolean) -> Unit = {},
+    /** 「按时吃提醒」按人开关。 */
+    onSetMedOnTime: (Boolean) -> Unit = {},
+    /** 「按时吃提醒」系统状态提示（截图可注入；默认无提示）。 */
+    medOnTimeHint: MedOnTimeHint = MedOnTimeHint.NONE,
+    /** 满月/百天庆祝日期另设（null = 按出生日算）。 */
+    onSetCelebration: (
+        io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
+        java.time.LocalDate?) -> Unit = { _, _ -> },
+    /** 无清单时先按模板创建待产包（成功后经 pendingChecklistId 跳转）。 */
+    onEnsureBirthBag: (String) -> Unit = {},
+    /** 某次孕期关联事项（含归档/已办），供历史对话框订阅。 */
+    observePregnancyTasks: (String) -> kotlinx.coroutines.flow.Flow<
+        List<io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask>> =
+        { kotlinx.coroutines.flow.flowOf(emptyList()) },
+    onCreatePregnancy: (LocalDate, LocalDate?) -> Unit = { _, _ -> },
+    onUpdatePregnancyDates: (String, LocalDate, LocalDate?) -> Unit =
+        { _, _, _ -> },
+    onEndPregnancy: (String) -> Unit = {},
+    onDeletePregnancy: (String) -> Unit = {},
+    /** 「打电话要问的事」卡片回调（默认空实现，截图夹具不受影响）。 */
+    onAddCallQuestion: (String, Boolean) -> Unit = { _, _ -> },
+    onUpdateCallQuestion: (String, String?, Boolean?) -> Unit = { _, _, _ -> },
+    onDeleteCallQuestion: (String) -> Unit = {},
     onDial: (String) -> Unit,
     /** 生日提醒开关：第一个参数为历法槽位（阳历/农历）。 */
     onSetReminder: (
@@ -265,11 +387,32 @@ fun PersonDetailContent(
     onRemoveRelation: (String) -> Unit
 ) {
     val context = LocalContext.current
+    val clipboard = LocalClipboardManager.current
+    val scope = rememberCoroutineScope()
     val permissionRequester = rememberNotificationPermissionRequester()
     var showPhoneSheet by remember { mutableStateOf(false) }
     var showDelete by remember { mutableStateOf(false) }
     var ageDialogFor by remember { mutableStateOf<RelationRow?>(null) }
     var deleteRelFor by remember { mutableStateOf<RelationRow?>(null) }
+    // 孕期相关对话框状态
+    var showNewPregnancy by remember { mutableStateOf(false) }
+    var editPregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    var endPregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    var deletePregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    var historyPregnancyFor by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?>(null)
+    }
+    // 「问一问」对话框：非空时展示，值为预填问题（AskText 拼好，可再改）
+    var askQuestion by remember { mutableStateOf<String?>(null) }
+    // 「问一问」称呼：总览缺失时的保守回退（本人→“我”，否则“我的一位家人”）
+    val askLabel = st.askPerson?.label
+        ?: AskText.label(st.detail?.person?.isSelf == true, null)
 
     val dial = onDial
 
@@ -316,6 +459,16 @@ fun PersonDetailContent(
                                         onClick = {
                                             menuOpen = false
                                             onOpenGraph(p.id)
+                                        }
+                                    )
+                                }
+                                // 记录孕期：女性在世且无进行中孕期（不限关系）
+                                if (st.canRecordPregnancyMenu) {
+                                    DropdownMenuItem(
+                                        text = { Text("记录孕期") },
+                                        onClick = {
+                                            menuOpen = false
+                                            showNewPregnancy = true
                                         }
                                     )
                                 }
@@ -479,6 +632,57 @@ fun PersonDetailContent(
                         label = "添加关系",
                         onClick = { onRelate(person.id) }
                     )
+                }
+
+                // 新生宝宝卡（快捷操作之后、孕期卡/重要日期之前）
+                st.newbornCard?.let { card ->
+                    NewbornCard(
+                        card = card,
+                        today = today,
+                        onSetCelebration = onSetCelebration,
+                        onOpenChecklist = onOpenChecklist,
+                        onAsk = {
+                            askQuestion = AskText.forNewborn(card.birthDate, today)
+                        }
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+
+                // 孕期卡片（进行中的孕期；快捷操作行之后、「重要日期」之前；
+                // 人物已故时 activePregnancy 为 null，不显示）
+                st.activePregnancy?.let { preg ->
+                    // 下次产检：该孕期未办未归档事项中到期日最早的一条
+                    //（st.tasks 已由仓库排除归档项）
+                    val nextCheckup = st.tasks
+                        .filter { !it.done && it.pregnancyId == preg.id }
+                        .minByOrNull {
+                            io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
+                                .dueDate(it)
+                        }
+                    PregnancyCard(
+                        pregnancy = preg,
+                        nextCheckup = nextCheckup,
+                        today = today,
+                        onEditDates = { editPregnancyFor = preg },
+                        onEnd = { endPregnancyFor = preg },
+                        onDelete = { deletePregnancyFor = preg },
+                        onOpenTask = onOpenTaskDetail,
+                        onAddCheckup = {
+                            onAddPrenatalCheckup(person.id, preg.id)
+                        },
+                        birthBag = st.birthBagByPregnancy[preg.id],
+                        onOpenBirthBag = {
+                            val bag = st.birthBagByPregnancy[preg.id]
+                            if (bag != null) onOpenChecklist(bag.checklist.id)
+                            else onEnsureBirthBag(preg.id)
+                        },
+                        onBirth = { onOpenBirth(preg.id, false) },
+                        onAsk = {
+                            askQuestion = AskText.forPregnancy(
+                                askLabel, preg.dueDate, today)
+                        }
+                    )
+                    Spacer(Modifier.height(12.dp))
                 }
 
                 // 重要日期卡片（生日 / 结婚纪念日 / 忌日）
@@ -690,6 +894,18 @@ fun PersonDetailContent(
                             )
                         }
                     }
+
+                    // 添加预产期：女性在世、无进行中孕期、是“我”或“我”的配偶
+                    if (st.canRecordPregnancy) {
+                        HorizontalDivider(
+                            Modifier.padding(vertical = 10.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant
+                        )
+                        AddDateRow(
+                            label = "添加预产期",
+                            onClick = { showNewPregnancy = true }
+                        )
+                    }
                 }
                 coupleDialog?.let { dlgType ->
                     val candId = st.weddingCandidateId
@@ -752,6 +968,23 @@ fun PersonDetailContent(
                         onAdd = onAddFact,
                         onUpdate = onUpdateFact,
                         onDelete = onDeleteFact
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                // 用药卡（在世人物；「关于TA」之后、「TA 的事」之前；
+                // “我”无「关于TA」，自然落在「重要日期」之后）
+                if (!deceased) {
+                    MedicationCard(
+                        medications = st.medications,
+                        today = today,
+                        courseRefillEnabled = st.medCourseRefillEnabled,
+                        onSetCourseRefill = onSetMedCourseRefill,
+                        onOpenEdit = onOpenMedEdit,
+                        onOpenDoctor = onOpenMedDoctor,
+                        onTimeEnabled = st.medOnTimeEffective,
+                        onTimeSwitchEnabled = st.medOnTimeSwitchOn,
+                        onTimeHint = medOnTimeHint,
+                        onSetOnTime = onSetMedOnTime
                     )
                     Spacer(Modifier.height(12.dp))
                 }
@@ -833,6 +1066,19 @@ fun PersonDetailContent(
                 }
                 // 人情/保障摘要卡已随模块退出移除（A6）
                 Spacer(Modifier.height(12.dp))
+
+                // 「打电话要问的事」卡片：「联系」卡之前（同一 eligibility 门控）
+                if (io.github.xiaohaoz1.jiarenxia.domain.ContactSchedule
+                        .eligible(person)
+                ) {
+                    CallQuestionsCard(
+                        questions = st.callQuestions,
+                        onAdd = onAddCallQuestion,
+                        onUpdate = onUpdateCallQuestion,
+                        onDelete = onDeleteCallQuestion
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 // 联系卡片：最近联系 + 记一次 + 周期 + 最近 5 条（V0.9 联系提醒）；
                 // “我”与已故家人不显示（ContactSchedule.eligible）
@@ -1062,6 +1308,19 @@ fun PersonDetailContent(
                 }
                 Spacer(Modifier.height(12.dp))
 
+                // 孕期记录卡片（有 BORN/ENDED 孕期时；「关系」之后、「备注」之前）
+                PregnancyHistoryCard(
+                    pregnancies = st.pregnancies,
+                    onOpen = { historyPregnancyFor = it }
+                )
+                if (st.pregnancies.any {
+                        it.status != io.github.xiaohaoz1.jiarenxia.core.model
+                            .PregnancyStatus.ACTIVE
+                    }
+                ) {
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 // 备注卡片
                 if (!person.note.isNullOrBlank()) {
                     JrxCard(Modifier.fillMaxWidth()) {
@@ -1190,6 +1449,109 @@ fun PersonDetailContent(
             confirmText = "删除",
             onConfirm = { showDelete = false; onDeletePerson() },
             onDismiss = { showDelete = false }
+        )
+    }
+
+    // ---- 孕期相关对话框 ----
+    // 新建孕期（预产期 / 末次月经二选一）
+    if (showNewPregnancy) {
+        PregnancyDateDialog(
+            title = "记录孕期",
+            mode = PregnancyInputMode.PRE_DUE,
+            existing = null,
+            today = today,
+            onSave = { due, lmp ->
+                onCreatePregnancy(due, lmp)
+                showNewPregnancy = false
+            },
+            onDismiss = { showNewPregnancy = false }
+        )
+    }
+    // 改预产期（有末次月经默认按末次月经编辑）
+    editPregnancyFor?.let { p ->
+        PregnancyDateDialog(
+            title = "改预产期",
+            mode = initialPregnancyMode(p),
+            existing = p,
+            today = today,
+            onSave = { due, lmp ->
+                onUpdatePregnancyDates(p.id, due, lmp)
+                editPregnancyFor = null
+            },
+            onDismiss = { editPregnancyFor = null }
+        )
+    }
+    // 结束孕期确认
+    endPregnancyFor?.let {
+        PregnancyEndDialog(
+            onConfirm = {
+                onEndPregnancy(it.id)
+                endPregnancyFor = null
+            },
+            onDismiss = { endPregnancyFor = null }
+        )
+    }
+    // 删除孕期确认（活动卡片菜单与历史对话框共用）
+    deletePregnancyFor?.let {
+        PregnancyDeleteDialog(
+            onConfirm = {
+                onDeletePregnancy(it.id)
+                deletePregnancyFor = null
+            },
+            onDismiss = { deletePregnancyFor = null }
+        )
+    }
+    // 孕期记录详情（含该孕期全部产检事项）
+    historyPregnancyFor?.let { p ->
+        val histTasks by observePregnancyTasks(p.id)
+            .collectAsState(initial = emptyList())
+        PregnancyHistoryDialog(
+            pregnancy = p,
+            tasks = histTasks,
+            today = today,
+            birthBag = st.birthBagByPregnancy[p.id],
+            onOpenBirthBag = { bag ->
+                historyPregnancyFor = null
+                onOpenChecklist(bag.checklist.id)
+            },
+            babyNames = p.babyIds.mapNotNull {
+                st.familyById[it]?.person?.name
+            },
+            onAppendBirth = {
+                historyPregnancyFor = null
+                onOpenBirth(p.id, true)
+            },
+            postnatal = st.postnatalByPregnancy[p.id],
+            onOpenPostnatal = { pn ->
+                historyPregnancyFor = null
+                onOpenChecklist(pn.checklist.id)
+            },
+            onDelete = {
+                deletePregnancyFor = p
+                historyPregnancyFor = null
+            },
+            onDismiss = { historyPregnancyFor = null }
+        )
+    }
+
+    // 「问一问」对话框：分享走系统分享面板（不预设目标应用），复制写剪贴板
+    askQuestion?.let { initial ->
+        AskDialog(
+            initialText = initial,
+            onShare = { text ->
+                val send = Intent(Intent.ACTION_SEND)
+                    .setType("text/plain")
+                    .putExtra(Intent.EXTRA_TEXT, text)
+                runCatching {
+                    context.startActivity(
+                        Intent.createChooser(send, null))
+                }
+            },
+            onCopy = { text ->
+                clipboard.setText(AnnotatedString(text))
+                scope.launch { snackbar.showSnackbar("已复制") }
+            },
+            onDismiss = { askQuestion = null }
         )
     }
 }

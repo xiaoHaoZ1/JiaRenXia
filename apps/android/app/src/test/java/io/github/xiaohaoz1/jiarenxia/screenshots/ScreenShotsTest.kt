@@ -64,6 +64,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -88,6 +90,12 @@ import io.github.xiaohaoz1.jiarenxia.ui.person.PhoneRowState
 import io.github.xiaohaoz1.jiarenxia.ui.person.RelationRow
 import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorBody
 import io.github.xiaohaoz1.jiarenxia.ui.person.FactEditorMode
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyCard
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyDateDialog
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyEndDialog
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyHistoryCard
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyHistoryDialog
+import io.github.xiaohaoz1.jiarenxia.ui.person.PregnancyInputMode
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.HomeDueRow
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderContent
 import io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderUiState
@@ -140,8 +148,10 @@ class ScreenShotsTest {
     }
 
     /**
-     * 大字号（×1.3，约等于应用内“特大”级别）截图：用 LocalDensity 覆盖模拟
-     * 应用内字号系数（同 MainActivity 的 density 覆盖方式），文件名加 _lg。
+     * 大字号（×1.3，约等于应用内“特大”级别）截图：文件名加 _lg。
+     * AlertDialog 在独立窗口渲染，CompositionLocal 的 LocalDensity 传不进去；
+     * 直接改本 Activity 的 Resources 配置 fontScale（对话框窗口共用同一
+     * Resources），截图后恢复，不影响其他用例。
      * [scale] 默认 1.3；需要验证字号上限时传 1.6（外观与字号滑杆的最大值）。
      */
     private fun shotLarge(
@@ -152,12 +162,12 @@ class ScreenShotsTest {
             io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
         content: @Composable () -> Unit
     ) {
-        composeRule.setContent {
-            val d = androidx.compose.ui.platform.LocalDensity.current
-            androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.ui.platform.LocalDensity provides
-                    androidx.compose.ui.unit.Density(d.density, d.fontScale * scale)
-            ) {
+        val res = composeRule.activity.resources
+        val cfg = android.content.res.Configuration(res.configuration)
+        cfg.fontScale = scale
+        res.updateConfiguration(cfg, res.displayMetrics)
+        try {
+            composeRule.setContent {
                 JiaRenXiaTheme(
                     mode = if (dark) ThemeMode.DARK else ThemeMode.LIGHT,
                     style = style
@@ -168,10 +178,13 @@ class ScreenShotsTest {
                     ) { content() }
                 }
             }
+            composeRule.onRoot().captureRoboImage(
+                File("build/outputs/roborazzi/b_${name}_lg.png").absolutePath
+            )
+        } finally {
+            cfg.fontScale = 1.0f
+            res.updateConfiguration(cfg, res.displayMetrics)
         }
-        composeRule.onRoot().captureRoboImage(
-            File("build/outputs/roborazzi/b_${name}_lg.png").absolutePath
-        )
     }
 
     /** 截图后断言当前层次里存在指定文案（自定义称呼覆盖的回归防线）。 */
@@ -1899,7 +1912,11 @@ class ScreenShotsTest {
     @Test
     @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
     fun mineWithNav() = navShot("mine_with_nav", "mine") {
-        MineContent(self = Demo.demoOverview().self.person)
+        // 隐藏守护侠推荐卡：本截图只验底栏，「守护」断言防的是守护标签复活
+        MineContent(
+            self = Demo.demoOverview().self.person,
+            guardianPromoDismissed = true
+        )
     }.also { assertTexts("家庭", "家事", "我的", "功能介绍与管理"); assertNoTexts("守护") }
 
     @Test
@@ -2872,6 +2889,44 @@ class ScreenShotsTest {
             state = elderHomeState(), onOpenPerson = {}, onCall = {}, onExit = {})
     }.also { assertTexts("我的家人", "孙子的生日", "打电话") }
 
+    /** 长辈首页「今天要吃的药」演示：08:00 已过置灰、12:00 高亮、20:00 正常。 */
+    private fun elderHomeMedsState() = elderHomeState().copy(
+        medPlan = listOf(
+            io.github.xiaohaoz1.jiarenxia.ui.elder.ElderMedPlan(
+                480, "二甲双胍 1 片"),
+            io.github.xiaohaoz1.jiarenxia.ui.elder.ElderMedPlan(
+                720, "阿司匹林 1 片、布洛芬 1 粒"),
+            io.github.xiaohaoz1.jiarenxia.ui.elder.ElderMedPlan(
+                1200, "维生素C 1 片（疗程待确认）")
+        )
+    )
+
+    // 现在 12:10 → 阈值 11:40 → 12:00 行（中间）高亮
+    private val elderMedsNow = java.time.LocalDateTime.of(2026, 11, 11, 12, 10)
+
+    @Test
+    fun elderHomeMeds() = shotLarge(
+        "elder_home_meds",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeMedsState(), onOpenPerson = {}, onCall = {},
+            onExit = {}, now = elderMedsNow)
+    }.also {
+        assertTexts("今天要吃的药", "08:00", "二甲双胍 1 片",
+            "12:00", "阿司匹林 1 片、布洛芬 1 粒",
+            "20:00", "维生素C 1 片（疗程待确认）")
+    }
+
+    @Test
+    fun elderHomeMedsJiashu() = shotLarge("elder_home_meds_jiashu") {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeMedsState(), onOpenPerson = {}, onCall = {},
+            onExit = {}, now = elderMedsNow)
+    }.also {
+        assertTexts("今天要吃的药", "08:00", "12:00", "20:00")
+    }
+
     @Test
     fun elderHomeEmpty() = shotLarge("elder_home_empty") {
         io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
@@ -2998,10 +3053,11 @@ class ScreenShotsTest {
     /** 长辈模式开启确认框截图：AlertDialog 弹层无法被截图，渲染同款卡片内容。 */
     private fun elderConfirmShot(
         name: String,
-        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle,
+        large: Boolean = true
     ) {
         // 同 customTitleDialog 的做法：遮罩 + 圆角卡片 + 标题/正文/按钮行
-        shotLarge(name, style = style) {
+        val card: @Composable () -> Unit = {
             Box(
                 modifier = Modifier.fillMaxSize()
                     .background(Color(0x66000000)),
@@ -3032,10 +3088,11 @@ class ScreenShotsTest {
                     }
                 }
             }
-        }.also {
-            assertTexts("开启长辈模式？", "只保留看家人", "退出长辈模式",
-                "取消", "开启")
         }
+        if (large) shotLarge(name, style = style, content = card)
+        else shot(name, style = style, content = card)
+        assertTexts("开启长辈模式？", "只保留看家人", "退出长辈模式",
+            "取消", "开启")
     }
 
     @Test
@@ -3128,5 +3185,1986 @@ class ScreenShotsTest {
         "blessing_dialog_nophone_classic",
         io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC,
         number = null)
+
+    // ---------- 孕期记录截图（FAMILY_AFFAIRS 26）----------
+
+    /** 演示孕期：wife（李雪，我的配偶）的一次孕期记录。 */
+    private fun demoPregnancy(
+        due: LocalDate,
+        lmp: LocalDate? = null,
+        status: io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus =
+            io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ACTIVE,
+        endedOn: LocalDate? = null
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy(
+        id = "pg-demo", personId = "wife", dueDate = due, lmpDate = lmp,
+        status = status, endedOn = endedOn, createdAt = 1L, updatedAt = 1L
+    )
+
+    /** 产检事项样例（不重复，到期日 = anchorDate）。 */
+    private fun prenatalTask(
+        id: String, anchor: LocalDate,
+        done: Boolean = false, archived: Boolean = false
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask(
+        id = id, personId = "wife",
+        kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CHECKUP,
+        title = "妻子的产检", anchorDate = anchor,
+        repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+        periodIndex = 0, done = done, enabled = true,
+        offsets = setOf(0), pregnancyId = "pg-demo", archived = archived
+    )
+
+    @Test
+    fun pregnancyCard() {
+        // 孕 32 周 3 天：预产期 = 今天 + 53 天；末次月经 = 预产期 - 280 天
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = prenatalTask("pt1", Demo.today.plusDays(3)),
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 32 周 3 天", "下次产检", "记下次产检")
+        }
+    }
+
+    @Test
+    fun pregnancyCardOverdue() {
+        // 已过预产期 3 天；无末次月经；下次产检已逾期 2 天
+        shot("pregnancy_card_overdue") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(Demo.today.minusDays(3)),
+                    nextCheckup = prenatalTask("pt1", Demo.today.minusDays(2)),
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 40 周 3 天", "已过 3 天", "已逾期 2 天")
+            assertNoTexts("末次月经")
+        }
+    }
+
+    @Test
+    fun pregnancyCardNoneCheckup() {
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_none_checkup") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null,
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 32 周 3 天", "还没有记下次产检")
+        }
+    }
+
+    @Test
+    fun pregnancyDialogDue() {
+        // 新建「记录孕期」：填预产期，已选合法日期 → 预览孕周
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_dialog_due") {
+            PregnancyDateDialog(
+                title = "记录孕期",
+                mode = PregnancyInputMode.PRE_DUE,
+                existing = null, today = Demo.today,
+                onSave = { _, _ -> }, onDismiss = {},
+                initialPicked = due
+            )
+        }.also {
+            assertTexts("记录孕期", "填预产期", "填末次月经",
+                "现在孕 32 周 3 天", "保存")
+        }
+    }
+
+    @Test
+    fun pregnancyDialogLmpError() {
+        // 填末次月经：选了未来日期 → 非法提示
+        shot("pregnancy_dialog_lmp_error") {
+            PregnancyDateDialog(
+                title = "记录孕期",
+                mode = PregnancyInputMode.LMP,
+                existing = null, today = Demo.today,
+                onSave = { _, _ -> }, onDismiss = {},
+                initialPicked = Demo.today.plusDays(1)
+            )
+        }.also {
+            assertTexts("末次月经要在 46 周前到今天之间")
+        }
+    }
+
+    @Test
+    fun pregnancyEndDialog() {
+        shot("pregnancy_end_dialog") {
+            PregnancyEndDialog(onConfirm = {}, onDismiss = {})
+        }.also {
+            assertTexts("结束这条孕期记录？", "结束记录", "取消")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryCard() {
+        // 孕期记录卡：一条已结束 + 一条已出生
+        val ended = demoPregnancy(
+            Demo.today.minusDays(200), status =
+                io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ENDED,
+            endedOn = Demo.today.minusDays(30))
+        val born = demoPregnancy(
+            Demo.today.minusDays(400), status =
+                io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.BORN,
+            endedOn = Demo.today.minusDays(120))
+        shot("pregnancy_history_card") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyHistoryCard(
+                    pregnancies = listOf(ended, born), onOpen = {})
+            }
+        }.also {
+            assertTexts("孕期记录", "预产期", "已结束", "宝宝已出生")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryDialog() {
+        // 历史详情：已结束孕期 + 已办/已归档产检行
+        val ended = demoPregnancy(
+            Demo.today.minusDays(200), lmp = Demo.today.minusDays(480),
+            status = io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus.ENDED,
+            endedOn = Demo.today.minusDays(30))
+        shot("pregnancy_history_dialog") {
+            PregnancyHistoryDialog(
+                pregnancy = ended,
+                tasks = listOf(
+                    prenatalTask("h1", Demo.today.minusDays(60), done = true),
+                    prenatalTask("h2", Demo.today.minusDays(40), archived = true)
+                ),
+                today = Demo.today,
+                onDelete = {}, onDismiss = {}
+            )
+        }.also {
+            assertTexts("孕期记录", "已结束于", "产检", "已办", "已归档",
+                "删除这条记录", "关闭")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun importantDatesAddDue() = shot("important_dates_add_due") {
+        // “我”的配偶（李雪）详情页：「重要日期」卡末尾出现“添加预产期”
+        val base = Demo.detailOf("wife")
+        PersonDetailContent(
+            lunar = Demo.lunar,
+            st = base.copy(canRecordPregnancy = true),
+            today = Demo.today, snackbar = SnackbarHostState(),
+            onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+            onDial = {}, onSetReminder = { _, _ -> },
+            onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {},
+            onDeletePerson = {},
+            onSetSiblingOrder = { _, _, _ -> }, onRemoveRelation = {}
+        )
+    }.also {
+        assertTexts("重要日期", "添加预产期")
+    }
+
+    @Test
+    fun taskEditPrenatal() = shot("task_edit_prenatal") {
+        // 产检事项编辑：模板锁“产检”、关联人锁定、隐藏重复、顶部说明
+        io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditUiState(
+                taskId = null,
+                kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CHECKUP,
+                personId = "wife",
+                pregnancyId = "pg-demo",
+                title = "妻子的产检",
+                anchorDate = Demo.today.plusDays(10),
+                repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+                offsets = setOf(1, 0),
+                persons = listOf(
+                    io.github.xiaohaoz1.jiarenxia.ui.task.TaskPersonOption(
+                        "wife", "李雪", "李雪（妻子）")
+                )
+            ),
+            cb = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditCallbacks(),
+            onDone = {}
+        )
+    }.also {
+        assertTexts("产检", "这条产检属于孕期记录，孕期结束后会自动归档。")
+        assertNoTexts("重复")
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCorePregnancy() {
+        // 经典家庭页：配偶行显示孕周状态（primary 色）
+        val preg = demoPregnancy(Demo.today.plusDays(53))
+        shot(
+            "family_core_pregnancy",
+            style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+        ) {
+            FamilyContent(
+                Demo.familyState().copy(
+                    pregnancyByPerson = mapOf("wife" to preg)
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("孕 32 周 3 天")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCorePregnancyJiashu() {
+        // 家书家庭页：同一孕周状态
+        val preg = demoPregnancy(Demo.today.plusDays(53))
+        shot("family_core_pregnancy_jiashu") {
+            FamilyContent(
+                Demo.familyState().copy(
+                    pregnancyByPerson = mapOf("wife" to preg)
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("孕 32 周 3 天")
+        }
+    }
+
+    @Test
+    fun pregnancyCardLg() {
+        val due = Demo.today.plusDays(53)
+        shotLarge("pregnancy_card") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = prenatalTask("pt1", Demo.today.plusDays(3)),
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }
+    }
+
+    @Test
+    fun pregnancyDialogDueLg() {
+        val due = Demo.today.plusDays(53)
+        shotLarge("pregnancy_dialog_due") {
+            PregnancyDateDialog(
+                title = "记录孕期",
+                mode = PregnancyInputMode.PRE_DUE,
+                existing = null, today = Demo.today,
+                onSave = { _, _ -> }, onDismiss = {},
+                initialPicked = due
+            )
+        }
+    }
+
+    // ---------- 清单 / 待产包截图（FAMILY_AFFAIRS 26 第 2 批）----------
+
+    /** 由模板生成演示待产包：checked 下标的条目置已勾；dropTitles 删除指定条目。 */
+    private fun demoBirthBag(
+        checked: Set<Int> = emptySet(),
+        dropTitles: Set<String> = emptySet()
+    ): io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel {
+        var i = 0
+        val items = io.github.xiaohaoz1.jiarenxia.domain.checklist
+            .ChecklistTemplates.BIRTH_BAG_ITEMS
+            .filter { it.title !in dropTitles }
+            .map { t ->
+                val idx = i++
+                io.github.xiaohaoz1.jiarenxia.core.model.ChecklistItem(
+                    id = "ci-" + idx, checklistId = "cl-demo",
+                    groupName = t.groupName, title = t.title, note = t.note,
+                    checked = idx in checked, sortOrder = idx,
+                    personId = "wife", createdAt = 1, updatedAt = 1
+                )
+            }
+        return io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel(
+            checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+                id = "cl-demo",
+                kind = io.github.xiaohaoz1.jiarenxia.core.model
+                    .ChecklistKind.BIRTH_BAG,
+                title = "待产包", personId = "wife",
+                pregnancyId = "pg-demo", createdAt = 1, updatedAt = 1
+            ),
+            items = items
+        )
+    }
+
+    private fun checklistState(
+        model: io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel
+    ) = io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistUiState(
+        loading = false, model = model
+    )
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistBirthBag() {
+        // 前 12 条已勾（跨三个组、含多条 note 行），进度“已备 12 / 28”
+        shot("checklist_birth_bag") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(demoBirthBag(checked = (0..11).toSet())),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("待产包", "已备 12 / 28", "证件资料", "妈妈用品",
+                "宝宝用品", "查看出处", "母子健康手册", "各地名称可能不同")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistBirthBagDone() {
+        shot("checklist_birth_bag_done") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(
+                    demoBirthBag(checked = (0..27).toSet())),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("待产包", "都备齐了")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistEmptyGroup() {
+        // 「证件资料」整组删空：卡内只剩“这一组还没有东西”+“添加”
+        shot("checklist_empty_group") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(
+                    demoBirthBag(dropTitles = setOf(
+                        "夫妻双方身份证", "医保卡", "母子健康手册",
+                        "产科病历和孕期检查资料", "住院押金"))),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("证件资料", "这一组还没有东西", "妈妈用品", "宝宝用品")
+        }
+    }
+
+    @Test
+    fun checklistAddDialog() {
+        // AlertDialog 弹层 + 输入框在 Robolectric 下无法进入 idle
+        // （同 blessingDialogShot 的做法）：渲染同款卡片内容。
+        shot("checklist_add_dialog") {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(androidx.compose.ui.graphics.Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape
+                        .RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text(
+                            "添加到「证件资料」",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        // 初始空输入：保存禁用（与真对话框初始态一致）
+                        androidx.compose.material3.OutlinedTextField(
+                            value = "",
+                            onValueChange = {},
+                            label = { Text("名称") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(enabled = false, onClick = {}) {
+                                Text("保存")
+                            }
+                        }
+                    }
+                }
+            }
+        }.also {
+            assertTexts("添加到「证件资料」", "保存", "取消")
+        }
+    }
+
+    @Test
+    fun checklistDeleteDialog() {
+        shot("checklist_delete_dialog") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistDeleteDialog(
+                title = "待产包",
+                onConfirm = {}, onDismiss = {}
+            )
+        }.also {
+            assertTexts("删除待产包清单？", "删除", "取消")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistBirthBagLg() {
+        shotLarge("checklist_birth_bag") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = checklistState(demoBirthBag(checked = (0..11).toSet())),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }
+    }
+
+    private fun demoBagProgress(
+        checked: Int, total: Int = 28
+    ) = io.github.xiaohaoz1.jiarenxia.data.ChecklistProgress(
+        checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+            id = "cl-demo",
+            kind = io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
+                .BIRTH_BAG,
+            title = "待产包", personId = "wife", pregnancyId = "pg-demo",
+            createdAt = 1, updatedAt = 1
+        ),
+        checkedCount = checked, totalCount = total
+    )
+
+    @Test
+    fun pregnancyCardBagNone() {
+        // 还没有清单：值“还没准备”
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_bag_none") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {},
+                    birthBag = null
+                )
+            }
+        }.also {
+            assertTexts("待产包", "还没准备")
+        }
+    }
+
+    @Test
+    fun pregnancyCardBagProgress() {
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_bag_progress") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {},
+                    birthBag = demoBagProgress(12)
+                )
+            }
+        }.also {
+            assertTexts("待产包", "已备 12 / 28")
+        }
+    }
+
+    @Test
+    fun pregnancyCardBagDone() {
+        val due = Demo.today.plusDays(53)
+        shot("pregnancy_card_bag_done") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {},
+                    birthBag = demoBagProgress(28)
+                )
+            }
+        }.also {
+            assertTexts("待产包", "都备齐了")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryDialogBag() {
+        // 历史详情：产检小节后出现「待产包」入口
+        val ended = demoPregnancy(
+            Demo.today.minusDays(200), lmp = Demo.today.minusDays(480),
+            status = io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
+                .ENDED,
+            endedOn = Demo.today.minusDays(30))
+        shot("pregnancy_history_dialog_bag") {
+            PregnancyHistoryDialog(
+                pregnancy = ended,
+                tasks = listOf(
+                    prenatalTask("h1", Demo.today.minusDays(60), done = true)
+                ),
+                today = Demo.today,
+                birthBag = demoBagProgress(12),
+                onDelete = {}, onDismiss = {}
+            )
+        }.also {
+            assertTexts("孕期记录", "产检", "待产包",
+                "查看待产包（已备 12 / 28）")
+        }
+    }
+
+    // ---------- 第 3 批：宝宝出生了 / 新生宝宝 / 出生后要办的事 ----------
+
+    /** 演示宝宝人物：杨明与李雪的儿子，小宝，2026-09-15 出生（今天“出生第 18 天”）。 */
+    private fun babyGraph(): FamilyGraph {
+        val base = Demo.demoGraph()
+        val baby = Demo.p("baby", "小宝", Gender.MALE)
+        return FamilyGraph(
+            base.persons + baby,
+            base.relationships +
+                Demo.rel("me", "baby", RelationshipType.PARENT) +
+                Demo.rel("wife", "baby", RelationshipType.PARENT),
+            base.birthdays + ("baby" to PartialDate(2026, 9, 15)),
+            base.birthdayValues + ("baby" to listOf(
+                BirthdayValue(PartialDate(2026, 9, 15))))
+        )
+    }
+
+    /** 与 [Demo.demoOverview] 同一组装方式，数据换成含宝宝的图。 */
+    private fun babyOverview(): FamilyOverview {
+        val graph = babyGraph()
+        val engine = KinshipEngine()
+        val self = graph.persons.first { it.isSelf }
+        val results = engine.resolveAll(graph, self.id)
+        val byId = graph.persons.associate { person ->
+            person.id to PersonOverview(
+                person, results.getValue(person.id),
+                graph.birthdayValues[person.id] ?: emptyList(),
+                solarBirthday = graph.birthdays[person.id]
+            )
+        }
+        val rest = byId.values.filter { it.person.id != self.id }
+        return FamilyOverview(
+            self = byId.getValue(self.id),
+            graph = graph,
+            byId = byId,
+            core = FamilyOrdering.core(
+                rest.filter { it.result.coreGroup != null }, byId),
+            others = FamilyOrdering.others(
+                rest.filter { it.result.coreGroup == null })
+        )
+    }
+
+    /** 宝宝“我”的儿子”的详情态：页头年龄经 AgeMath → BabyMath 得出。 */
+    private fun babyDetail(): PersonDetailUiState {
+        val ov = babyOverview()
+        val o = ov.byId.getValue("baby")
+        val birthdays = (ov.graph.birthdayValues["baby"] ?: emptyList())
+            .associate { v ->
+                val dateId = "d-baby-" + v.calendar.name
+                v.calendar to io.github.xiaohaoz1.jiarenxia.data
+                    .BirthdayDetail(
+                        dateId = dateId, value = v,
+                        reminder = ReminderPreference(
+                            "rp-$dateId", dateId, enabled = true)
+                    )
+            }
+        val rels = ov.graph.relationships.filter {
+            it.sourcePersonId == "baby" || it.targetPersonId == "baby"
+        }
+        val engine = KinshipEngine()
+        val rows = rels.map { r ->
+            val otherId = if (r.sourcePersonId == "baby") r.targetPersonId
+            else r.sourcePersonId
+            RelationRow(
+                r, ov.graph.persons.first { it.id == otherId },
+                engine.directRelationLabel(ov.graph, "baby", r)
+            )
+        }
+        val ageText = io.github.xiaohaoz1.jiarenxia.domain.AgeMath.ageText(
+            o.birthdays, o.person.livingStatus, null, Demo.today, Demo.lunar)
+        // 新生宝宝卡：与 newbornCardOf 同一口径（出生第 18 天，在窗口内、
+        // 无产后清单 → 不显示「出生后要办的事」行）
+        val birth = java.time.LocalDate.of(2026, 9, 15)
+        val babyMath = io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+        return PersonDetailUiState(
+            loading = false,
+            detail = PersonDetail(
+                person = o.person, phones = emptyList(),
+                birthdays = birthdays, relationships = rels
+            ),
+            overview = o,
+            familyById = ov.byId,
+            relationRows = rows,
+            relatedIds = rels.flatMap {
+                listOf(it.sourcePersonId, it.targetPersonId)
+            }.toSet(),
+            ageText = ageText,
+            newbornCard = io.github.xiaohaoz1.jiarenxia.ui.person
+                .NewbornCardState(
+                    birthDate = birth,
+                    fullMonth = babyMath.fullMonthDate(birth),
+                    hundredDays = babyMath.hundredDaysDate(birth),
+                    fullMonthByBirth = babyMath.fullMonthDate(birth),
+                    hundredByBirth = babyMath.hundredDaysDate(birth),
+                    fullMonthOverride = false,
+                    hundredOverride = false,
+                    postnatalChecklistId = null,
+                    postnatalDone = 0, postnatalTotal = 0
+                )
+        )
+    }
+
+    private fun birthUiState(
+        babies: List<io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+            .BirthBabyDraft>,
+        spouseChecked: Boolean = false,
+        pickingKey: Int? = null,
+        pickerItems: List<io.github.xiaohaoz1.jiarenxia.domain
+            .PersonPickItem> = emptyList(),
+        done: List<io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby>? =
+            null,
+        checklistId: String? = null,
+        kinLines: List<String> = emptyList()
+    ) = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthUiState(
+        loading = false,
+        babies = babies,
+        momId = "wife", momName = "李雪",
+        spouseId = "me", spouseLabel = "杨明（丈夫）",
+        spouseIsFather = true, spouseChecked = spouseChecked,
+        pickingKey = pickingKey, pickerItems = pickerItems,
+        done = done, checklistId = checklistId, kinLines = kinLines
+    )
+
+    private fun newBabyDraft(
+        key: Int, name: String, gender: Gender,
+        date: LocalDate = Demo.today, minute: Int? = null
+    ) = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthBabyDraft(
+        key = key, isNew = true, name = name, gender = gender,
+        birthDate = date, birthMinute = minute
+    )
+
+    @Test
+    fun pregnancyCardBirthButton() {
+        shot("pregnancy_card_birth_button") {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(Demo.today.plusDays(53),
+                        Demo.today.plusDays(53).minusDays(280)),
+                    nextCheckup = null, today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }.also {
+            assertTexts("孕 32 周 3 天", "记下次产检", "宝宝出生了")
+        }
+    }
+
+    @Test
+    fun birthFormNew() {
+        // 一个新建宝宝已填全（含时刻 08:30），勾选另一位父母
+        shot("birth_form_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(newBabyDraft(
+                        0, "小宝", Gender.MALE, minute = 8 * 60 + 30)),
+                    spouseChecked = true
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("宝宝出生了", "新建", "已经在家谱中",
+                "名字（可以先写小名）", "出生日期", "出生时刻",
+                "也是宝宝的父亲", "完成")
+        }
+    }
+
+    @Test
+    fun birthFormTwins() {
+        // 新建 + 已在家谱中各一个（第二个宝宝卡带“去掉”）
+        shot("birth_form_twins") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(
+                        newBabyDraft(0, "小宝", Gender.MALE,
+                            minute = 8 * 60 + 30),
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                            .BirthBabyDraft(
+                                key = 1, isNew = false,
+                                existingId = "baby2",
+                                existingLabel = "小贝（女儿）",
+                                birthDate = Demo.today.minusDays(1),
+                                existingHasSolar = false
+                            )
+                    )
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("宝宝", "第 2 个宝宝", "去掉", "小贝（女儿）",
+                "选择家人")
+        }
+    }
+
+    @Test
+    fun birthFormPickDialog() {
+        // 「已经在家谱中」选人对话框（候选 ≤10 时不出搜索框，可正常渲染）
+        shot("birth_form_pick_dialog") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(
+                        newBabyDraft(0, "小宝", Gender.MALE),
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                            .BirthBabyDraft(
+                                key = 1, isNew = false,
+                                birthDate = Demo.today
+                            )
+                    ),
+                    pickingKey = 1,
+                    pickerItems = listOf(
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "baby2", "小贝", "小贝（女儿）"),
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "dau", "杨小雨", "杨小雨（女儿）"),
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "bro", "杨帆", "杨帆（弟弟）"),
+                        io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem(
+                            "cousin", "杨磊", "杨磊（堂哥）")
+                    )
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("选择家人", "小贝（女儿）", "杨小雨（女儿）",
+                "杨帆（弟弟）", "杨磊（堂哥）", "取消")
+        }
+    }
+
+    @Test
+    fun birthDone() {
+        shot("birth_done") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = emptyList(),
+                    done = listOf(
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                            "小宝", "儿子", Demo.today, 8 * 60 + 30)
+                    ),
+                    checklistId = "cl-post",
+                    // 与 ViewModel 同一函数：以宝宝为观察者的真实称谓行
+                    kinLines = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                        .babyKinLines(babyGraph(), "baby")
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }.also {
+            assertTexts("欢迎宝宝来到我们家！", "小宝（儿子）",
+                "从宝宝的角度看", "父亲 · 杨明", "母亲 · 李雪",
+                "爷爷 · 杨建国", "姥爷 · 李国强", "报喜",
+                "看看出生后要办的事", "分享给家人", "完成")
+        }
+    }
+
+    @Test
+    fun birthDoneLg() {
+        shotLarge("birth_done") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = emptyList(),
+                    done = listOf(
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                            "小宝", "儿子", Demo.today, 8 * 60 + 30)
+                    ),
+                    checklistId = "cl-post",
+                    kinLines = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                        .babyKinLines(babyGraph(), "baby")
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }
+    }
+
+    @Test
+    fun birthFormNewLg() {
+        shotLarge("birth_form_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthContent(
+                st = birthUiState(
+                    babies = listOf(newBabyDraft(
+                        0, "小宝", Gender.MALE, minute = 8 * 60 + 30)),
+                    spouseChecked = true
+                ),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                    .BirthCallbacks(),
+                onBack = {},
+                snackbar = SnackbarHostState()
+            )
+        }
+    }
+
+    /** 报喜对话框同款卡片（AlertDialog + 输入框在 Robolectric 下不 idle）。 */
+    private fun birthNewsShot(
+        name: String,
+        text: String,
+        weight: String,
+        showWeight: Boolean
+    ) {
+        shot(name) {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        Text("报喜", style = MaterialTheme.typography.titleLarge)
+                        Spacer(Modifier.height(16.dp))
+                        io.github.xiaohaoz1.jiarenxia.ui.pregnancy
+                            .BirthNewsFields(
+                                text = text, onText = {},
+                                weight = weight, onWeight = {},
+                                showWeight = showWeight
+                            )
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("复制") }
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(onClick = {}) { Text("分享…") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun birthNewsDialogSingle() {
+        // 单宝宝 + 出生时刻 + 体重：正文预填含“08:30 出生，体重 6斤8两”
+        val baby = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+            "小宝", "儿子", Demo.today, 8 * 60 + 30)
+        birthNewsShot(
+            "birth_news_dialog_single",
+            text = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthNewsText
+                .body(listOf(baby), "6斤8两"),
+            weight = "6斤8两", showWeight = true
+        ).also {
+            assertTexts("报喜", "08:30", "体重", "6斤8两", "分享…")
+        }
+    }
+
+    @Test
+    fun birthNewsDialogTwinsNoTime() {
+        // 双胞胎且都没填时刻：正文不写时刻，无体重行
+        val babies = listOf(
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                "小宝", "儿子", Demo.today, null),
+            io.github.xiaohaoz1.jiarenxia.ui.pregnancy.DoneBaby(
+                "小贝", "女儿", Demo.today.minusDays(1), null)
+        )
+        birthNewsShot(
+            "birth_news_dialog_twins_no_time",
+            text = io.github.xiaohaoz1.jiarenxia.ui.pregnancy.BirthNewsText
+                .body(babies, null),
+            weight = "", showWeight = false
+        ).also {
+            assertTexts("报喜", "小宝于", "小贝于", "分享…")
+        }
+    }
+
+    /** 出生后要办的事演示清单：双胞胎各 5 条 + 孕妈 2 条，其中 4 条已“定日期”。 */
+    private fun demoPostnatal(): io.github.xiaohaoz1.jiarenxia.ui.checklist
+        .ChecklistUiState {
+        val clId = "cl-post"
+        val tasks = mutableListOf<io.github.xiaohaoz1.jiarenxia.core.model
+            .FamilyTask>()
+        fun task(
+            id: String, personId: String, title: String,
+            anchor: LocalDate, done: Boolean
+        ) {
+            tasks += io.github.xiaohaoz1.jiarenxia.core.model.FamilyTask(
+                id = id, personId = personId,
+                kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.CUSTOM,
+                title = title, anchorDate = anchor,
+                repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+                periodIndex = 0, done = done, enabled = true,
+                offsets = setOf(0, 1), pregnancyId = null, archived = false
+            )
+        }
+        // 有日期条目：未办（3 天后）/ 已办（5 天后）/ 逾期（2 天）/ 孕妈复查（10 天后）
+        task("t-vac1", "baby1", "小宝的疫苗接种", Demo.today.plusDays(3), false)
+        task("t-card1", "baby1", "小宝的预防接种证",
+            Demo.today.minusDays(2), false)
+        task("t-cert2", "baby2", "小贝的出生医学证明",
+            Demo.today.plusDays(5), true)
+        task("t-check2", "wife", "李雪的产后复查",
+            Demo.today.plusDays(10), false)
+        val dated = mapOf(
+            "t-vac1" to "疫苗接种",
+            "t-card1" to "预防接种证",
+            "t-cert2" to "出生医学证明",
+            "t-check2" to "产后复查"
+        )
+        val items = mutableListOf<io.github.xiaohaoz1.jiarenxia.core.model
+            .ChecklistItem>()
+        var seq = 0
+        fun addItems(
+            personId: String,
+            list: List<io.github.xiaohaoz1.jiarenxia.domain.checklist
+                .ChecklistTemplates.TemplateItem>
+        ) {
+            list.forEach { t ->
+                val taskId = dated.entries.firstOrNull {
+                    it.value == t.title && when (personId) {
+                        "baby1" -> it.key in setOf("t-vac1", "t-card1")
+                        "baby2" -> it.key == "t-cert2"
+                        else -> it.key == "t-check2"
+                    }
+                }?.key
+                items += io.github.xiaohaoz1.jiarenxia.core.model.ChecklistItem(
+                    id = "pi-" + seq, checklistId = clId,
+                    groupName = t.groupName, title = t.title, note = t.note,
+                    checked = when {
+                        taskId != null -> false
+                        personId == "baby1" && t.title == "出生医学证明" -> true
+                        personId == "baby2" && t.title == "预防接种证" -> true
+                        else -> false
+                    },
+                    sortOrder = seq, personId = personId,
+                    taskId = taskId, createdAt = 1, updatedAt = 1
+                )
+                seq++
+            }
+        }
+        addItems("baby1",
+            io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+                .POSTNATAL_BABY_ITEMS)
+        addItems("baby2",
+            io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+                .POSTNATAL_BABY_ITEMS)
+        addItems("wife",
+            io.github.xiaohaoz1.jiarenxia.domain.checklist.ChecklistTemplates
+                .POSTNATAL_MOM_ITEMS)
+        return io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistUiState(
+            loading = false,
+            model = io.github.xiaohaoz1.jiarenxia.data.ChecklistWithItemsModel(
+                checklist = io.github.xiaohaoz1.jiarenxia.core.model.Checklist(
+                    id = clId,
+                    kind = io.github.xiaohaoz1.jiarenxia.core.model
+                        .ChecklistKind.POSTNATAL,
+                    title = "出生后要办的事", personId = "wife",
+                    pregnancyId = "pg-demo", createdAt = 1, updatedAt = 1
+                ),
+                items = items
+            ),
+            tasks = tasks.associateBy { it.id },
+            personNames = mapOf(
+                "baby1" to "小宝", "baby2" to "小贝", "wife" to "李雪"),
+            personTitles = mapOf("wife" to "妻子"),
+            selfId = "me",
+            birthDates = mapOf(
+                "baby1" to Demo.today.minusDays(18),
+                "baby2" to Demo.today.minusDays(18)),
+            today = Demo.today
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistPostnatal() {
+        shot("checklist_postnatal") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = demoPostnatal(),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("出生后要办的事", "已办 3 / 12", "小宝", "小贝",
+                "妈妈", "疫苗接种", "3 天后", "已逾期 2 天",
+                "产后复查", "打开国家政务服务平台")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistPostnatalLg() {
+        shotLarge("checklist_postnatal") {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = demoPostnatal(),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun checklistPostnatalItemMenu() {
+        // 有日期条目的 ⋮ 菜单（「产后复查」标题唯一，便于定位节点）
+        setShotContent {
+            io.github.xiaohaoz1.jiarenxia.ui.checklist.ChecklistContent(
+                st = demoPostnatal(),
+                cb = io.github.xiaohaoz1.jiarenxia.ui.checklist
+                    .ChecklistCallbacks(),
+                onDone = {}
+            )
+        }
+        composeRule.onNodeWithContentDescription("条目操作：产后复查")
+            .performClick()
+        composeRule.waitForIdle()
+        capture("checklist_postnatal_item_menu")
+        assertTexts("打开事项", "改名", "删除")
+    }
+
+    private fun newbornCardState(
+        fullMonth: LocalDate,
+        fullMonthByBirth: LocalDate,
+        fullMonthOverride: Boolean,
+        postnatal: Boolean = true
+    ) = io.github.xiaohaoz1.jiarenxia.ui.person.NewbornCardState(
+        birthDate = Demo.today.minusDays(18),
+        fullMonth = fullMonth,
+        hundredDays = Demo.today.minusDays(18).plusDays(99),
+        fullMonthByBirth = fullMonthByBirth,
+        hundredByBirth = Demo.today.minusDays(18).plusDays(99),
+        fullMonthOverride = fullMonthOverride,
+        hundredOverride = false,
+        postnatalChecklistId = if (postnatal) "cl-post" else null,
+        postnatalDone = 4, postnatalTotal = 12
+    )
+
+    @Test
+    fun newbornCard() {
+        // 满月还有 12 天（2026-10-14），百天 2026-12-31，含产后清单行
+        shot("newborn_card") {
+            Column(Modifier.padding(16.dp)) {
+                io.github.xiaohaoz1.jiarenxia.ui.person.NewbornCard(
+                    card = newbornCardState(
+                        fullMonth = Demo.today.plusDays(12),
+                        fullMonthByBirth = Demo.today.plusDays(12),
+                        fullMonthOverride = false
+                    ),
+                    today = Demo.today,
+                    onSetCelebration = { _, _ -> },
+                    onOpenChecklist = {}
+                )
+            }
+        }.also {
+            assertTexts("新生宝宝", "满月", "百天", "还有 12 天",
+                "出生后要办的事", "已办 4 / 12")
+        }
+    }
+
+    @Test
+    fun newbornCardOverride() {
+        // 满月另设 10-20（按出生日算 10-14）：值显示庆祝日 + 小字对照
+        shot("newborn_card_override") {
+            Column(Modifier.padding(16.dp)) {
+                io.github.xiaohaoz1.jiarenxia.ui.person.NewbornCard(
+                    card = newbornCardState(
+                        fullMonth = Demo.today.plusDays(18),
+                        fullMonthByBirth = Demo.today.plusDays(12),
+                        fullMonthOverride = true
+                    ),
+                    today = Demo.today,
+                    onSetCelebration = { _, _ -> },
+                    onOpenChecklist = {}
+                )
+            }
+        }.also {
+            assertTexts("新生宝宝", "满月", "按出生日算", "百天")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun personHeaderBabyAge() {
+        shot("person_header_baby_age") {
+            PersonDetailContent(
+                lunar = Demo.lunar,
+                st = babyDetail(),
+                today = Demo.today, snackbar = SnackbarHostState(),
+                onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+                onDial = {}, onSetReminder = { _, _ -> },
+                onSetReminderOffsets = { _, _ -> },
+                onSetCustomTitle = {}, onDeletePerson = {},
+                onSetSiblingOrder = { _, _, _ -> }, onRemoveRelation = {}
+            )
+        }.also {
+            assertTexts("小宝", "出生第 18 天", "儿子")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCoreBabyAge() {
+        shot(
+            "family_core_baby_age",
+            style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+        ) {
+            FamilyContent(
+                FamilyUiState(
+                    overview = babyOverview(),
+                    defaultNumbers = mapOf("me" to "13800138000"),
+                    today = Demo.today
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("小宝", "出生第 18 天")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h1800dp-xxhdpi")
+    fun familyCoreBabyAgeJiashu() {
+        shot("family_core_baby_age_jiashu") {
+            FamilyContent(
+                FamilyUiState(
+                    overview = babyOverview(),
+                    defaultNumbers = mapOf("me" to "13800138000"),
+                    today = Demo.today
+                ),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }.also {
+            assertTexts("小宝", "出生第 18 天")
+        }
+    }
+
+    @Test
+    fun pregnancyHistoryDialogBorn() {
+        // BORN 孕期历史：宝宝行 + 补记入口 + 产后清单入口
+        val born = demoPregnancy(
+            Demo.today.minusDays(400), lmp = Demo.today.minusDays(680),
+            status = io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
+                .BORN,
+            endedOn = Demo.today.minusDays(120))
+        shot("pregnancy_history_dialog_born") {
+            PregnancyHistoryDialog(
+                pregnancy = born,
+                tasks = listOf(
+                    prenatalTask("h1", Demo.today.minusDays(200),
+                        archived = true)
+                ),
+                today = Demo.today,
+                birthBag = null, onDelete = {}, onDismiss = {},
+                babyNames = listOf("小宝", "小贝"),
+                postnatal = io.github.xiaohaoz1.jiarenxia.data
+                    .ChecklistProgress(
+                        checklist = io.github.xiaohaoz1.jiarenxia.core.model
+                            .Checklist(
+                                id = "cl-post",
+                                kind = io.github.xiaohaoz1.jiarenxia.core.model
+                                    .ChecklistKind.POSTNATAL,
+                                title = "出生后要办的事", personId = "wife",
+                                pregnancyId = "pg-demo",
+                                createdAt = 1, updatedAt = 1
+                            ),
+                        checkedCount = 3, totalCount = 12
+                    ),
+                onOpenPostnatal = {}
+            )
+        }.also {
+            assertTexts("孕期记录", "宝宝出生于", "宝宝：小宝、小贝",
+                "补记一个宝宝", "产检", "出生后要办的事",
+                "查看出生后要办的事（已办 3 / 12）")
+        }
+    }
+
+    // ---------- 用药记录（FAMILY_AFFAIRS 23） ----------
+
+    private fun demoMed(
+        id: String, name: String,
+        usage: io.github.xiaohaoz1.jiarenxia.core.model.MedUsage,
+        courseDays: Int? = null,
+        start: LocalDate = Demo.today.minusDays(30),
+        refill: LocalDate? = null,
+        meal: io.github.xiaohaoz1.jiarenxia.core.model.MedMeal? = null,
+        dose: String? = null, spec: String? = null,
+        purpose: String? = null, note: String? = null,
+        times: List<Int> = emptyList(),
+        stopped: LocalDate? = null
+    ) = io.github.xiaohaoz1.jiarenxia.core.model.Medication(
+        id = id, personId = "me", name = name, dose = dose, spec = spec,
+        meal = meal, usage = usage, courseDays = courseDays,
+        startEpochDay = start.toEpochDay(), purpose = purpose, note = note,
+        refillEpochDay = refill?.toEpochDay(),
+        stoppedEpochDay = stopped?.toEpochDay(), times = times)
+
+    /** med_card 演示数据：五种在用状态各一 + 两条已停用（收起）。 */
+    private fun demoMeds() = listOf(
+        // 短期第 3 天（9-30 开始，7 天疗程）
+        demoMed("m1", "阿莫西林胶囊",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 7, start = Demo.today.minusDays(2),
+            dose = "1 粒", spec = "0.25g/粒",
+            meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.AFTER,
+            times = listOf(480, 1200)),
+        // 短期待确认
+        demoMed("m2", "氯雷他定片",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = null, start = Demo.today.minusDays(1),
+            dose = "1 片"),
+        // 记录疗程已到期（9-25 开始 7 天，最后一天 10-1 < 今天）
+        demoMed("m3", "布洛芬缓释胶囊",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 7, start = Demo.today.minusDays(7)),
+        // 长期吃 + 下次拿药日 11-4
+        demoMed("m4", "二甲双胍片",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.LONG_TERM,
+            start = Demo.today.minusDays(60),
+            refill = Demo.today.plusDays(33),
+            dose = "1 片",
+            meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.WITH,
+            times = listOf(480, 1200)),
+        // 需要时吃
+        demoMed("m5", "蒙脱石散",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.AS_NEEDED,
+            purpose = "腹泻"),
+        // 以前吃过 ×2
+        demoMed("m6", "感冒灵颗粒",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 3, start = Demo.today.minusDays(40),
+            stopped = Demo.today.minusDays(30)),
+        demoMed("m7", "硫酸亚铁片",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.LONG_TERM,
+            start = Demo.today.minusDays(200),
+            stopped = Demo.today.minusDays(100))
+    )
+
+    @androidx.compose.runtime.Composable
+    private fun medCardContent(
+        meds: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>,
+        onTimeEnabled: Boolean = false,
+        onTimeSwitchEnabled: Boolean = true,
+        onTimeHint: io.github.xiaohaoz1.jiarenxia.ui.person.MedOnTimeHint =
+            io.github.xiaohaoz1.jiarenxia.ui.person.MedOnTimeHint.NONE
+    ) = Column(Modifier.padding(16.dp)) {
+        io.github.xiaohaoz1.jiarenxia.ui.person.MedicationCard(
+            medications = meds, today = Demo.today,
+            courseRefillEnabled = true,
+            onSetCourseRefill = {}, onOpenEdit = {}, onOpenDoctor = {},
+            onTimeEnabled = onTimeEnabled,
+            onTimeSwitchEnabled = onTimeSwitchEnabled,
+            onTimeHint = onTimeHint,
+            onSetOnTime = {}
+        )
+    }
+
+    @Test
+    fun medCard() {
+        shot("med_card") { medCardContent(demoMeds()) }.also {
+            assertTexts("用药", "阿莫西林胶囊",
+                "短期疗程 · 记录疗程 7 天，按开始日期计算今天是第 3 天",
+                "氯雷他定片", "疗程待确认，请向医生或药师核对",
+                "布洛芬缓释胶囊", "记录疗程已到期（7 天），实际停用待确认",
+                "二甲双胍片", "长期吃 · 下次拿药 11月4日",
+                "蒙脱石散", "需要时吃",
+                "以前吃过（2）", "记一种药", "给医生看",
+                "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardOnTime() {
+        // 按时吃开 + 缺精确闹钟权限 → 「提醒可能延迟」提示
+        shot("med_card_on_time") {
+            medCardContent(
+                demoMeds(), onTimeEnabled = true,
+                onTimeHint = io.github.xiaohaoz1.jiarenxia.ui.person
+                    .MedOnTimeHint.EXACT_ALARM_MISSING
+            )
+        }.also {
+            assertTexts("按时吃提醒", "部分手机需要在系统设置里允许家人侠自启动",
+                "提醒可能延迟", "允许准时提醒", "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardNotifOff() {
+        // 通知不可用 → 「通知未开启，提醒不会响」（优先于精确闹钟提示）
+        shot("med_card_notif_off") {
+            medCardContent(
+                demoMeds(), onTimeEnabled = true,
+                onTimeHint = io.github.xiaohaoz1.jiarenxia.ui.person
+                    .MedOnTimeHint.NOTIFICATIONS_OFF
+            )
+        }.also {
+            assertTexts("按时吃提醒", "通知未开启，提醒不会响", "去开启")
+            assertNoTexts("提醒可能延迟")
+        }
+    }
+
+    @Test
+    fun medCardOnTimeDisabled() {
+        // 「提醒」里的用药提醒或按时吃提醒已关闭 → 开关行置灰 + 替换副标题
+        shot("med_card_on_time_disabled") {
+            medCardContent(
+                demoMeds(), onTimeEnabled = true, onTimeSwitchEnabled = false
+            )
+        }.also {
+            assertTexts("按时吃提醒",
+                "「提醒」里的用药提醒或按时吃提醒已关闭")
+            assertNoTexts("部分手机需要在系统设置里允许家人侠自启动")
+        }
+    }
+
+    @Test
+    fun medCardEmpty() {
+        shot("med_card_empty") { medCardContent(emptyList()) }.also {
+            assertTexts("用药", "还没有记录在用的药", "记一种药")
+            assertNoTexts("给医生看", "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardHistoryOpen() {
+        // 点开「以前吃过」：两条停用记录展开
+        setShotContent { medCardContent(demoMeds()) }
+        composeRule.onNodeWithText("以前吃过（2）").performClick()
+        composeRule.waitForIdle()
+        capture("med_card_history_open")
+        assertTexts("收起", "感冒灵颗粒", "8月23日开始", "9月2日记录停用")
+    }
+
+    @Test
+    fun medEditNew() {
+        shot("med_edit_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("记一种药", "拿药时问清楚",
+                "吃多久？能不能长期吃？", "药名", "治什么（可不填）",
+                "每次用量（可不填，如 1 片）", "药品规格（可不填，如 500mg/片）",
+                "怎么吃", "短期疗程", "长期吃", "需要时吃",
+                "开始日期", "饭前饭后", "不填", "饭前", "饭后", "随餐",
+                "医嘱备注（可不填）", "保存")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun medEditShortPending() {
+        // 短期疗程 + 疗程待确认：天数禁用 + warning 文案；时刻卡出现
+        shot("med_edit_short_pending") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today,
+                    name = "阿莫西林胶囊",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .SHORT_COURSE,
+                    coursePending = true,
+                    times = listOf(480, 1200),
+                    meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.AFTER
+                ),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("记一种药", "记录的疗程天数",
+                "疗程待确认（还没问清楚吃几天）",
+                "疗程待确认，请向医生或药师核对",
+                "每天几点吃（可不填）", "08:00", "20:00", "添加时刻")
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
+    fun medEditLong() {
+        // 长期吃：下次拿药日 + 时刻 chips + 饭后
+        shot("med_edit_long") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today,
+                    name = "二甲双胍片",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .LONG_TERM,
+                    refillDate = Demo.today.plusDays(33),
+                    times = listOf(480, 1200),
+                    meal = io.github.xiaohaoz1.jiarenxia.core.model.MedMeal.WITH
+                ),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("下次拿药日（可不填）", "11月4日",
+                "每天几点吃（可不填）", "08:00", "20:00",
+                "添加时刻", "保存")
+        }
+    }
+
+    @Test
+    fun medLongConfirmDialog() {
+        // 长期确认弹窗（新建选长期吃时保存前先弹）
+        shot("med_long_confirm_dialog") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today,
+                    name = "二甲双胍片",
+                    usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .LONG_TERM,
+                    confirmLongTerm = true),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("请确认这是医生交代的长期用药",
+                "长期吃的药会按“下次拿药日”提醒拿药。",
+                "是医生交代的", "再想想")
+        }
+    }
+
+    @Test
+    fun medEditCourseEnded() {
+        // 编辑已到期记录：状态卡 + 「记录已停用」「医生让继续吃」
+        val ended = demoMed("m3", "布洛芬缓释胶囊",
+            io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE,
+            courseDays = 7, start = Demo.today.minusDays(7),
+            dose = "1 粒", meal = io.github.xiaohaoz1.jiarenxia.core.model
+                .MedMeal.AFTER)
+        shot("med_edit_course_ended") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    medId = "m3", personId = "me", existing = ended,
+                    loaded = true,
+                    name = ended.name, dose = ended.dose ?: "",
+                    usage = ended.usage, courseDaysText = "7",
+                    startDate = LocalDate.ofEpochDay(ended.startEpochDay),
+                    meal = ended.meal),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("编辑用药", "记录疗程已到期，实际停用待确认",
+                "记录已停用", "医生让继续吃", "拿药时问清楚",
+                "记录的疗程天数")
+        }
+    }
+
+    private fun medDoctorState(
+        meds: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>
+    ) = io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorUiState(
+        loading = false, personName = "杨明", ageText = "62 岁",
+        medications = meds)
+
+    @Test
+    fun medDoctorView() {
+        // 给医生看：未停用（含到期）逐卡；药名 headlineSmall + 逐行 bodyLarge
+        val meds = demoMeds().filter { it.stoppedEpochDay == null }.map {
+            it.copy(purpose = it.purpose ?: when (it.id) {
+                "m1" -> "扁桃体发炎"; "m4" -> "二型糖尿病"; else -> null
+            }, note = when (it.id) {
+                "m1" -> "饭后半小时吃，整粒吞"; else -> null
+            })
+        }
+        shot("med_doctor_view") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorContent(
+                st = medDoctorState(meds), today = Demo.today, onBack = {}
+            )
+        }.also {
+            assertTexts("给医生看", "杨明（62 岁）",
+                "以下为家人记录，不是服药记录",
+                "阿莫西林胶囊", "怎么吃：短期疗程 · 记录疗程 7 天",
+                "治什么：扁桃体发炎", "记录的开始日期：2026年9月30日",
+                "医嘱：饭后半小时吃，整粒吞",
+                "记录疗程已到期（7 天），实际停用待确认",
+                "长期吃 · 下次拿药 11月4日")
+        }
+    }
+
+    @Test
+    fun reminderSettingsMed() {
+        // 提醒设置页第五类「用药提醒」（副标题「疗程到期与续药」，时刻 20:30）
+        shot("reminder_settings_med") {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
+                state = io.github.xiaohaoz1.jiarenxia.ui.reminder
+                    .ReminderSettingsUi(medMinute = 20 * 60 + 30),
+                onBack = {}
+            )
+        }.also {
+            assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
+                "用药提醒", "疗程到期与续药", "20:30")
+        }
+    }
+
+    @Test
+    fun reminderSettingsMedOnTime() {
+        // 提醒设置页：用药提醒组内「按时吃提醒」子行
+        shot("reminder_settings_med_on_time") {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
+                state = io.github.xiaohaoz1.jiarenxia.ui.reminder
+                    .ReminderSettingsUi(medMinute = 20 * 60 + 30),
+                onBack = {}
+            )
+        }.also {
+            assertTexts("用药提醒", "疗程到期与续药", "20:30",
+                "按时吃提醒", "到点提醒吃药，默认只提醒“我”的药")
+        }
+    }
+
+    // ---------- 用药截图·大字号 ----------
+
+    @Test
+    fun medCardLg() {
+        shotLarge("med_card") { medCardContent(demoMeds()) }.also {
+            assertTexts("用药", "阿莫西林胶囊", "以前吃过（2）",
+                "记一种药", "给医生看")
+        }
+    }
+
+    @Test
+    fun medDoctorViewLg() {
+        val meds = demoMeds().filter { it.stoppedEpochDay == null }
+        shotLarge("med_doctor_view") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedDoctorContent(
+                st = medDoctorState(meds), today = Demo.today, onBack = {}
+            )
+        }.also {
+            assertTexts("给医生看", "杨明（62 岁）",
+                "以下为家人记录，不是服药记录", "阿莫西林胶囊")
+        }
+    }
+
+    @Test
+    fun medEditNewLg() {
+        shotLarge("med_edit_new") {
+            io.github.xiaohaoz1.jiarenxia.ui.med.MedEditContent(
+                st = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditUiState(
+                    personId = "me", loaded = true, startDate = Demo.today),
+                today = Demo.today,
+                cb = io.github.xiaohaoz1.jiarenxia.ui.med.MedEditCallbacks(),
+                onDone = {}
+            )
+        }.also {
+            assertTexts("记一种药", "拿药时问清楚", "药名", "怎么吃", "保存")
+        }
+    }
+
+    // ---------- 「问一问」截图（FAMILY_AFFAIRS §25 方案 C） ----------
+
+    /**
+     * 「问一问」对话框截图：AlertDialog 弹层无法被截图，渲染同款卡片内容
+     * （同 blessingDialogShot 的做法）：标题 + [AskDialogBody] + 按钮行。
+     */
+    private fun askDialogShot(
+        name: String,
+        text: String,
+        large: Boolean = false
+    ) {
+        val content: @Composable () -> Unit = {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        io.github.xiaohaoz1.jiarenxia.ui.designsystem
+                            .DialogTitle("问一问")
+                        Spacer(Modifier.height(16.dp))
+                        io.github.xiaohaoz1.jiarenxia.ui.common.AskDialogBody(
+                            text = text, onTextChange = {})
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(onClick = {}) { Text("复制") }
+                            TextButton(onClick = {}) { Text("取消") }
+                            TextButton(onClick = {}) { Text("分享…") }
+                        }
+                    }
+                }
+            }
+        }
+        if (large) shotLarge(name, content = content)
+        else shot(name, content = content)
+        assertTexts("问一问", "问题", "拼好的问题可以发给 AI 应用",
+            "分享…", "复制", "取消")
+    }
+
+    /** 用药「问一问」示例文本：短期 + 疗程待确认（规格例句）。 */
+    private fun askMedText(): String {
+        val med = io.github.xiaohaoz1.jiarenxia.core.model.Medication(
+            id = "m-ask", personId = "dad",
+            name = "头孢克肟分散片", dose = "1 片", spec = null,
+            meal = null,
+            usage = io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                .SHORT_COURSE,
+            courseDays = null,
+            startEpochDay = LocalDate.of(2026, 10, 20).toEpochDay(),
+            purpose = "支气管炎", note = null, refillEpochDay = null,
+            stoppedEpochDay = null, times = emptyList(),
+            createdAt = 0L, updatedAt = 0L
+        )
+        return io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+            .forMedication("我父亲", "70 多岁", med, Demo.today)
+    }
+
+    @Test
+    fun askDialogMed() {
+        askDialogShot("ask_dialog_med", askMedText()).also {
+            assertTexts("我父亲，70 多岁", "记录的药是头孢克肟分散片",
+                "疗程还没问清楚", "这个药一般吃多久？能不能长期吃？")
+        }
+    }
+
+    @Test
+    fun askDialogPregnancy() {
+        // 与 pregnancyCard 同一孕周：预产期 = 今天 + 53 天 → 32 周
+        val due = Demo.today.plusDays(53)
+        askDialogShot(
+            "ask_dialog_pregnancy",
+            io.github.xiaohaoz1.jiarenxia.domain.ask.AskText.forPregnancy(
+                "我妻子", due, Demo.today)
+        ).also {
+            assertTexts("我妻子怀孕 32 周。这个阶段要注意什么？")
+        }
+    }
+
+    @Test
+    fun askDialogNewborn() {
+        // 出生第 19 天（出生当天算第 1 天；与 newborn_card 同一出生日）
+        askDialogShot(
+            "ask_dialog_newborn",
+            io.github.xiaohaoz1.jiarenxia.domain.ask.AskText.forNewborn(
+                Demo.today.minusDays(18), Demo.today)
+        ).also {
+            assertTexts("我家宝宝出生 19 天。",
+                "妈妈坐月子要注意什么？")
+        }
+    }
+
+    @Test
+    fun askDialogMedLg() {
+        askDialogShot("ask_dialog_med", askMedText(), large = true).also {
+            assertTexts("我父亲，70 多岁", "疗程还没问清楚")
+        }
+    }
+
+    @Test
+    fun pregnancyCardMenu() {
+        // 孕期卡 ⋮ 菜单展开：「问一问」在首位（真实 DropdownMenu）
+        val due = Demo.today.plusDays(53)
+        setShotContent {
+            Column(Modifier.padding(16.dp)) {
+                PregnancyCard(
+                    pregnancy = demoPregnancy(due, due.minusDays(280)),
+                    nextCheckup = null,
+                    today = Demo.today,
+                    onEditDates = {}, onEnd = {}, onDelete = {},
+                    onOpenTask = {}, onAddCheckup = {}
+                )
+            }
+        }
+        composeRule.onNodeWithContentDescription("孕期操作")
+            .performClick()
+        composeRule.waitForIdle()
+        capture("pregnancy_card_menu")
+        assertTexts("问一问", "改预产期", "结束这条孕期记录", "删除这条记录")
+    }
+
+    // ---------- 第 7 批：守护侠推荐 + 打电话要问的事 ----------
+
+    private fun shotCallQuestion(
+        id: String, text: String, keep: Boolean = false
+    ) = io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity(
+        id = id, personId = "mom", text = text, keep = keep,
+        createdAt = 1, updatedAt = 1)
+
+    @Composable
+    private fun callQuestionsCardContent(
+        questions: List<io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity>
+    ) = Column(Modifier.padding(16.dp)) {
+        io.github.xiaohaoz1.jiarenxia.ui.person.CallQuestionsCard(
+            questions = questions,
+            onAdd = { _, _ -> }, onUpdate = { _, _, _ -> }, onDelete = {})
+    }
+
+    /** 「我的」页守护侠推荐卡（经典）。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun mineGuardianPromo() = shot(
+        "mine_guardian_promo",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        MineContent(self = Demo.demoOverview().self.person)
+    }.also {
+        assertTexts("给爸妈的手机装上「守护侠」", "去看看", "不再显示")
+    }
+
+    /** 「我的」页守护侠推荐卡（家书）。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun mineGuardianPromoJiashu() = shot("mine_guardian_promo_jiashu") {
+        MineContent(self = Demo.demoOverview().self.person)
+    }.also {
+        assertTexts("给爸妈的手机装上「守护侠」", "去看看", "不再显示")
+    }
+
+    /** 「不再显示」后推荐卡整卡隐藏（本机设置，不进备份）。 */
+    @Test
+    fun mineGuardianPromoDismissed() = shot("mine_guardian_promo_dismissed") {
+        MineContent(
+            self = Demo.demoOverview().self.person,
+            guardianPromoDismissed = true
+        )
+    }.also {
+        assertNoTexts("给爸妈的手机装上「守护侠」")
+    }
+
+    /** 「帮助与关于」常驻守护侠入口行。 */
+    @Test
+    fun aboutGuardianRow() = shot("about_guardian_row") {
+        io.github.xiaohaoz1.jiarenxia.ui.mine.AboutContent(
+            onBack = {}, onPrivacy = {}, onIntro = {}
+        )
+    }.also {
+        assertTexts("守护侠", "装在独居长辈手机上的守护应用")
+    }
+
+    /** 长辈模式确认框末尾的守护侠推荐段。 */
+    @Test
+    fun elderConfirmGuardian() {
+        elderConfirmShot(
+            "elder_confirm_guardian",
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+            large = false
+        )
+        assertTexts("建议在这台手机上同时安装「守护侠」")
+    }
+
+    /** 人物页「打电话要问的事」卡：2 条，其中 1 条「每次都问」。 */
+    @Test
+    fun callQuestionsCard() = shot("call_questions_card") {
+        callQuestionsCardContent(listOf(
+            shotCallQuestion("q1", "有没有按时吃药"),
+            shotCallQuestion("q2", "血压量了吗", keep = true)
+        ))
+    }.also {
+        assertTexts("打电话要问的事", "有没有按时吃药", "血压量了吗",
+            "每次都问", "添加")
+        assertDescs("要问的事操作：有没有按时吃药", "要问的事操作：血压量了吗")
+    }
+
+    /** 「打电话要问的事」卡空态。 */
+    @Test
+    fun callQuestionsCardEmpty() = shot("call_questions_card_empty") {
+        callQuestionsCardContent(emptyList())
+    }.also {
+        assertTexts("打电话要问的事",
+            "想在电话里问的事记在这里，从家人侠拨号前会提醒你。", "添加")
+    }
+
+    /**
+     * 对话框截图：AlertDialog 弹层无法被截图（同 elderConfirmShot 做法），
+     * 渲染同款卡片：遮罩 + 圆角卡片 + 标题/正文/按钮行。
+     */
+    private fun dialogCardShot(
+        name: String,
+        large: Boolean = false,
+        title: @Composable () -> Unit,
+        body: @Composable () -> Unit,
+        actions: @Composable () -> Unit
+    ) {
+        val card: @Composable () -> Unit = {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        title()
+                        Spacer(Modifier.height(16.dp))
+                        body()
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) { actions() }
+                    }
+                }
+            }
+        }
+        if (large) shotLarge(name, content = card)
+        else shot(name, content = card)
+    }
+
+    /** 「添加要问的事」对话框初始态（空输入、保存禁用）。 */
+    @Test
+    fun callQuestionDialog() {
+        dialogCardShot(
+            "call_question_dialog",
+            title = {
+                io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle(
+                    "添加要问的事")
+            },
+            body = {
+                Column {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = "",
+                        onValueChange = {},
+                        label = { Text("要问什么") },
+                        placeholder = { Text("比如：有没有按时吃药") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        androidx.compose.material3.Checkbox(
+                            checked = false, onCheckedChange = {})
+                        Text("每次打电话都问")
+                    }
+                }
+            },
+            actions = {
+                TextButton(onClick = {}) { Text("取消") }
+                TextButton(enabled = false, onClick = {}) { Text("保存") }
+            }
+        )
+        // placeholder 不进语义树，不参与断言（截图里可见）
+        assertTexts("添加要问的事", "要问什么",
+            "每次打电话都问", "取消", "保存")
+    }
+
+    /** 拨号前「打给…之前」夹具：3 条要问的事（含 1 条每次都问，不加标注）。 */
+    private val shotPreCallQuestions = listOf(
+        shotCallQuestion("q1", "有没有按时吃药"),
+        shotCallQuestion("q2", "血压量了吗", keep = true),
+        shotCallQuestion("q3", "上次说的复查去了吗")
+    )
+
+    private fun precallDialogShot(large: Boolean) {
+        dialogCardShot(
+            "precall_dialog",
+            large = large,
+            title = {
+                io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle(
+                    "打给妈妈之前")
+            },
+            body = {
+                io.github.xiaohaoz1.jiarenxia.ui.common.PreCallQuestionsBody(
+                    shotPreCallQuestions)
+            },
+            actions = {
+                TextButton(onClick = {}) { Text("取消") }
+                TextButton(onClick = {}) { Text("去拨号") }
+            }
+        )
+        assertTexts("打给妈妈之前", "记得问：", "· 有没有按时吃药",
+            "· 血压量了吗", "· 上次说的复查去了吗", "取消", "去拨号")
+    }
+
+    @Test
+    fun precallDialog() = precallDialogShot(large = false)
+
+    @Test
+    fun precallDialogLg() = precallDialogShot(large = true)
+
+    /** 「联系上了吗」+ 「问过的就划掉」勾选区（只问一次条目默认全勾）。 */
+    @Test
+    fun postcallDialogQuestions() {
+        dialogCardShot(
+            "postcall_dialog_questions",
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("联系上了吗？", modifier = Modifier.weight(1f))
+                    androidx.compose.material3.IconButton(onClick = {}) {
+                        androidx.compose.material3.Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = "关闭")
+                    }
+                }
+            },
+            body = {
+                Column {
+                    Text("刚才给妈妈打了电话。" +
+                        "联系上了记一笔，没联系上提醒还会留着。")
+                    Text(
+                        "问过的就划掉：",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                    listOf("有没有按时吃药", "上次说的复查去了吗")
+                        .forEach { q ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                androidx.compose.material3.Checkbox(
+                                    checked = true, onCheckedChange = {})
+                                Text(q, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                }
+            },
+            actions = {
+                TextButton(onClick = {}) { Text("没联系上") }
+                TextButton(onClick = {}) { Text("联系上了") }
+            }
+        )
+        assertTexts("联系上了吗？", "刚才给妈妈打了电话。",
+            "问过的就划掉：", "有没有按时吃药", "上次说的复查去了吗",
+            "没联系上", "联系上了")
+        assertDescs("关闭")
+    }
 
 }

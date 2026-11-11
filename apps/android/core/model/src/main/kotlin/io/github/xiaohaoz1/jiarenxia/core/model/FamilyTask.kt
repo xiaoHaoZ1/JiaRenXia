@@ -42,5 +42,9 @@ data class FamilyTask(
      * 一天内的提醒时刻（分钟数），null 表示跟随「家事提醒时刻」设置。
      * 对每个到期提醒日生效（提前 N 天的提醒也在该时刻发）。
      */
-    val remindMinutes: Int? = null
+    val remindMinutes: Int? = null,
+    /** 关联的孕期 id（产检事项）；null = 普通事项。 */
+    val pregnancyId: String? = null,
+    /** 已归档：孕期结束/出生后未完成的产检事项转入，不计入家事待办与逾期统计。 */
+    val archived: Boolean = false
 )

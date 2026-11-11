@@ -71,6 +71,12 @@ data class BackupSettings(
     val tombIncludedPersonIds: Set<String>? = null,
     /** 回家看看·节前提醒开关（可选；缺失 → 保留当前设置）。 */
     val homeVisitHolidayNudge: Boolean? = null,
+    /** 用药提醒开关（可选；缺失 → 保留当前设置）。 */
+    val medRemindersEnabled: Boolean? = null,
+    /** 用药提醒时刻（可选；缺失/越界 → 保留当前设置）。 */
+    val medReminderMinuteOfDay: Int? = null,
+    /** 「按时吃提醒」子开关（可选；缺失 → 保留当前设置）。 */
+    val medOnTimeEnabled: Boolean? = null,
     /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
      *  仅为兼容旧备份保留字段，恢复时忽略。 */
     val licenseCode: String? = null
@@ -84,6 +90,13 @@ data class HomeVisitBackup(
     val updatedAt: Long,
     val memberIds: List<String>
 )
+
+/**
+ * 孕期 ↔ 宝宝关联行（备份内 babyIds 的载体；恢复时展开为
+ * pregnancy_babies 行）。本批无写入入口，仅随备份往返。
+ */
+typealias PregnancyBabyLink = io.github.xiaohaoz1.jiarenxia.data.db
+    .PregnancyBabyEntity
 
 /** 解密并校验后的恢复计划：可直接 apply。 */
 data class RestorePlan(
@@ -108,6 +121,41 @@ data class RestorePlan(
     val personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
     /** 回家看看计划（可选键，不升 schemaVersion；旧备份缺失为空）。 */
     val homeVisits: List<HomeVisitBackup> = emptyList(),
+    /**
+     * 孕期记录（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * 每条 = 孕期实体 + 宝宝关联行（babyIds 已过滤为备份内人物）。
+     */
+    val pregnancies: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+        .PregnancyEntity, List<PregnancyBabyLink>>> = emptyList(),
+    /**
+     * 清单（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * 每条 = 清单实体 + 其条目。
+     */
+    val checklists: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+        .ChecklistEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+        .ChecklistItemEntity>>> = emptyList(),
+    /**
+     * 宝宝满月/百天另设日期（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * kind 不认识的跳过；personId 不在备份人物中的丢弃。
+     */
+    val babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .BabyCelebrationEntity> = emptyList(),
+    /**
+     * 用药记录（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * 每条 = 用药实体 + 其服用时刻。
+     */
+    val medications: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+        .MedicationEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+        .MedicationTimeEntity>>> = emptyList(),
+    /** 用药按人开关（可选键；personId 不在备份人物中的丢弃）。 */
+    val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .MedicationPersonPrefsEntity> = emptyList(),
+    /**
+     * 「打电话要问的事」（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * personId 不在备份人物中的丢弃；文字越界 fail。
+     */
+    val callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .CallQuestionEntity> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -158,6 +206,24 @@ object BackupJson {
         contactPlans: List<io.github.xiaohaoz1.jiarenxia.data.db.ContactPlanEntity> = emptyList(),
         personFacts: List<io.github.xiaohaoz1.jiarenxia.data.db.PersonFactEntity> = emptyList(),
         homeVisits: List<HomeVisitBackup> = emptyList(),
+        pregnancies: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+            .PregnancyEntity, List<PregnancyBabyLink>>> = emptyList(),
+        checklists: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+            .ChecklistEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+            .ChecklistItemEntity>>> = emptyList(),
+        /** 宝宝满月/百天另设日期（可选键；分享/碰一碰不传）。 */
+        babyCelebrations: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .BabyCelebrationEntity> = emptyList(),
+        /** 用药记录（可选键；分享/碰一碰不传）。 */
+        medications: List<Pair<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationEntity, List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationTimeEntity>>> = emptyList(),
+        /** 用药按人开关（可选键；分享/碰一碰不传）。 */
+        medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .MedicationPersonPrefsEntity> = emptyList(),
+        /** 「打电话要问的事」（可选键；分享/碰一碰不传）。 */
+        callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .CallQuestionEntity> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -258,6 +324,8 @@ object BackupJson {
                     task.note?.let { put("note", it) }
                     put("enabled", task.enabled)
                     task.remindMinutes?.let { put("remindMinutes", it) }
+                    task.pregnancyId?.let { put("pregnancyId", it) }
+                    if (task.archived) put("archived", true)
                     put("offsets", JSONArray().apply {
                         offsets.sortedBy { it.daysBefore }.forEach { put(it.daysBefore) }
                     })
@@ -308,6 +376,120 @@ object BackupJson {
                 })
             }
         })
+        // 孕期记录（可选键）：babyIds 只写真正关联的宝宝人物
+        json.put("pregnancies", JSONArray().apply {
+            pregnancies.forEach { (preg, babies) ->
+                put(JSONObject().apply {
+                    put("id", preg.id); put("personId", preg.personId)
+                    put("dueEpochDay", preg.dueEpochDay)
+                    preg.lmpEpochDay?.let { put("lmpEpochDay", it) }
+                    put("status", preg.status)
+                    preg.endedEpochDay?.let { put("endedEpochDay", it) }
+                    put("createdAt", preg.createdAt); put("updatedAt", preg.updatedAt)
+                    // 出生时刻（第 3 批）：非空才写 {babyPersonId: 分钟}
+                    val minutes = babies.mapNotNull { b ->
+                        b.birthMinute?.let { b.babyPersonId to it }
+                    }.toMap()
+                    if (minutes.isNotEmpty()) {
+                        put("birthMinutes", JSONObject().apply {
+                            minutes.forEach { (pid, m) -> put(pid, m) }
+                        })
+                    }
+                    put("babyIds", JSONArray().apply {
+                        babies.forEach { put(it.babyPersonId) }
+                    })
+                })
+            }
+        })
+        // 清单（可选键）：非空才写——分享/碰一碰文件不携带此键
+        if (checklists.isNotEmpty()) {
+            json.put("checklists", JSONArray().apply {
+                checklists.forEach { (cl, items) ->
+                    put(JSONObject().apply {
+                        put("id", cl.id); put("kind", cl.kind)
+                        put("title", cl.title)
+                        cl.personId?.let { put("personId", it) }
+                        cl.pregnancyId?.let { put("pregnancyId", it) }
+                        put("createdAt", cl.createdAt); put("updatedAt", cl.updatedAt)
+                        put("items", JSONArray().apply {
+                            items.forEach { it ->
+                                put(JSONObject().apply {
+                                    put("id", it.id)
+                                    put("groupName", it.groupName)
+                                    put("title", it.title)
+                                    it.note?.let { n -> put("note", n) }
+                                    put("checked", it.checked)
+                                    put("sortOrder", it.sortOrder)
+                                    it.personId?.let { p -> put("personId", p) }
+                                    it.taskId?.let { t -> put("taskId", t) }
+                                    put("createdAt", it.createdAt)
+                                    put("updatedAt", it.updatedAt)
+                                })
+                            }
+                        })
+                    })
+                }
+            })
+        }
+        // 宝宝满月/百天另设日期（可选键）：非空才写——分享/碰一碰文件不携带
+        if (babyCelebrations.isNotEmpty()) {
+            json.put("babyCelebrations", JSONArray().apply {
+                babyCelebrations.forEach { c ->
+                    put(JSONObject().apply {
+                        put("personId", c.personId); put("kind", c.kind)
+                        put("epochDay", c.epochDay)
+                    })
+                }
+            })
+        }
+        // 用药记录（可选键）：非空才写——分享/碰一碰文件不携带
+        if (medications.isNotEmpty()) {
+            json.put("medications", JSONArray().apply {
+                medications.forEach { (m, times) ->
+                    put(JSONObject().apply {
+                        put("id", m.id); put("personId", m.personId)
+                        put("name", m.name)
+                        m.dose?.let { put("dose", it) }
+                        m.spec?.let { put("spec", it) }
+                        m.meal?.let { put("meal", it) }
+                        put("usage", m.usage)
+                        m.courseDays?.let { put("courseDays", it) }
+                        put("startEpochDay", m.startEpochDay)
+                        m.purpose?.let { put("purpose", it) }
+                        m.note?.let { put("note", it) }
+                        m.refillEpochDay?.let { put("refillEpochDay", it) }
+                        m.stoppedEpochDay?.let { put("stoppedEpochDay", it) }
+                        put("times", JSONArray().apply {
+                            times.map { it.minuteOfDay }.sorted().forEach { put(it) }
+                        })
+                        put("createdAt", m.createdAt); put("updatedAt", m.updatedAt)
+                    })
+                }
+            })
+        }
+        if (medicationPrefs.isNotEmpty()) {
+            json.put("medicationPrefs", JSONArray().apply {
+                medicationPrefs.forEach { p ->
+                    put(JSONObject().apply {
+                        put("personId", p.personId)
+                        put("courseRefillEnabled", p.courseRefillEnabled)
+                        p.onTimeEnabled?.let { put("onTimeEnabled", it) }
+                    })
+                }
+            })
+        }
+        // 「打电话要问的事」（可选键）：非空才写——分享/碰一碰文件不携带
+        if (callQuestions.isNotEmpty()) {
+            json.put("callQuestions", JSONArray().apply {
+                callQuestions.forEach { q ->
+                    put(JSONObject().apply {
+                        put("id", q.id); put("personId", q.personId)
+                        put("text", q.text); put("keep", q.keep)
+                        put("createdAt", q.createdAt); put("updatedAt", q.updatedAt)
+                    })
+                }
+            })
+        }
         settings?.let {
             json.put("settings", JSONObject()
                 .put("themeMode", it.themeMode.name)
@@ -332,6 +514,10 @@ object BackupJson {
                     JSONArray().apply { ids.sorted().forEach { put(it) } }
                 } ?: JSONObject.NULL)
                 .put("homeVisitHolidayNudge", it.homeVisitHolidayNudge ?: JSONObject.NULL)
+                .put("medRemindersEnabled", it.medRemindersEnabled ?: JSONObject.NULL)
+                .put("medReminderMinuteOfDay",
+                    it.medReminderMinuteOfDay ?: JSONObject.NULL)
+                .put("medOnTimeEnabled", it.medOnTimeEnabled ?: JSONObject.NULL)
                 .put("licenseCode", it.licenseCode ?: JSONObject.NULL))
         }
 
@@ -605,6 +791,10 @@ object BackupJson {
                             if (it !in 0..1439) fail("task remindMinutes range")
                         }
                     else null,
+                    // 可选键：缺失按 null/false；pregnancyId 悬空引用在校验段置 null
+                    pregnancyId = if (o.isNull("pregnancyId")) null
+                        else o.optString("pregnancyId", null),
+                    archived = o.optBoolean("archived", false),
                     createdAt = o.getLong("createdAt"),
                     updatedAt = o.getLong("updatedAt")
                 ) to offsets
@@ -735,6 +925,257 @@ object BackupJson {
             if (it.createdAt < 0 || it.updatedAt < 0) fail("homeVisit time")
         }
 
+        // 孕期记录（可选键，不升 schemaVersion）：id 唯一、人物存在、
+        // status 合法枚举（与 task kind 一致，非法即 fail）；
+        // babyIds 指向不存在人物的丢弃（不 fail）；
+        // birthMinutes 可选 {babyPersonId: 0..1439}，非法范围即 fail。
+        val pregnancies = root.optJSONArray("pregnancies")?.let { arr ->
+            (0 until arr.length()).map { i ->
+                val o = arr.getJSONObject(i)
+                val pregId = o.getString("id")
+                val birthMinutes = o.optJSONObject("birthMinutes")?.let { bm ->
+                    bm.keys().asSequence().associateWith { pid ->
+                        val m = bm.getInt(pid)
+                        if (m !in 0..1439) fail("birthMinutes range")
+                        m
+                    }
+                } ?: emptyMap()
+                val babyIds = o.optJSONArray("babyIds")?.let { b ->
+                    (0 until b.length()).map { b.getString(it) }
+                }?.distinct() ?: emptyList()
+                io.github.xiaohaoz1.jiarenxia.data.db.PregnancyEntity(
+                    id = pregId,
+                    personId = o.getString("personId"),
+                    dueEpochDay = o.getLong("dueEpochDay"),
+                    lmpEpochDay = if (o.has("lmpEpochDay"))
+                        o.getLong("lmpEpochDay") else null,
+                    status = enumOf(
+                        io.github.xiaohaoz1.jiarenxia.core.model
+                            .PregnancyStatus::class.java,
+                        o.optString("status", null), "pregnancy status"
+                    ).name,
+                    endedEpochDay = if (o.has("endedEpochDay"))
+                        o.getLong("endedEpochDay") else null,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to babyIds.filter { it in personIds }
+                    .map {
+                        PregnancyBabyLink(pregId, it, birthMinutes[it])
+                    }
+            }
+        } ?: emptyList()
+        uniqueIds(pregnancies.map { it.first.id }, "pregnancies")
+        pregnancies.forEach { (preg, _) ->
+            if (preg.personId !in personIds) fail("pregnancy->person")
+        }
+        // 事项的 pregnancyId 指向不存在的孕期时置 null（不 fail）
+        val pregnancyIds = pregnancies.map { it.first.id }.toSet()
+        val tasksFixed = tasks.map { (task, offsets) ->
+            if (task.pregnancyId != null && task.pregnancyId !in pregnancyIds) {
+                task.copy(pregnancyId = null) to offsets
+            } else task to offsets
+        }
+
+        // 清单（可选键，不升 schemaVersion）：kind 不认识的整张跳过
+        // （连同条目）——旧版本恢复新备份时不丢整份；
+        // personId/pregnancyId（含条目 personId）悬空引用置 null（不 fail）；
+        // taskId 指向不存在事项的置 null；
+        // 标题 trim 后 1–30 字，超长/为空 fail。
+        val taskIds = tasks.mapTo(HashSet()) { it.first.id }
+        val checklistsRaw = root.optJSONArray("checklists")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val clId = o.getString("id")
+                // kind 不认识（含缺失/空）→ 跳过整张清单
+                val kindName = runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind
+                        .valueOf(o.optString("kind", ""))
+                }.getOrNull()?.name ?: return@mapNotNull null
+                val items = o.optJSONArray("items")?.let { it2 ->
+                    (0 until it2.length()).map { j ->
+                        val io2 = it2.getJSONObject(j)
+                        io.github.xiaohaoz1.jiarenxia.data.db.ChecklistItemEntity(
+                            id = io2.getString("id"),
+                            checklistId = clId,
+                            groupName = io2.getString("groupName"),
+                            title = io2.getString("title"),
+                            note = if (io2.has("note")) io2.getString("note") else null,
+                            checked = io2.optBoolean("checked", false),
+                            sortOrder = io2.optInt("sortOrder", 0),
+                            personId = if (io2.isNull("personId")) null
+                                else io2.optString("personId", null),
+                            taskId = if (io2.isNull("taskId")) null
+                                else io2.optString("taskId", null),
+                            createdAt = io2.getLong("createdAt"),
+                            updatedAt = io2.getLong("updatedAt")
+                        )
+                    }
+                } ?: emptyList()
+                io.github.xiaohaoz1.jiarenxia.data.db.ChecklistEntity(
+                    id = clId,
+                    kind = kindName,
+                    title = o.getString("title"),
+                    personId = if (o.isNull("personId")) null
+                        else o.optString("personId", null),
+                    pregnancyId = if (o.isNull("pregnancyId")) null
+                        else o.optString("pregnancyId", null),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to items
+            }
+        } ?: emptyList()
+        uniqueIds(checklistsRaw.map { it.first.id }, "checklists")
+        uniqueIds(checklistsRaw.flatMap { it.second }.map { it.id }, "checklistItems")
+        val checklists = checklistsRaw.map { (cl, items) ->
+            if (cl.title.trim().isEmpty() || cl.title.length > 30) fail("checklist title")
+            items.forEach {
+                if (it.title.trim().isEmpty() || it.title.length > 30)
+                    fail("checklist item title")
+            }
+            cl.copy(
+                personId = cl.personId?.takeIf { it in personIds },
+                pregnancyId = cl.pregnancyId?.takeIf { it in pregnancyIds }
+            ) to items.map {
+                it.copy(
+                    personId = it.personId?.takeIf { p -> p in personIds },
+                    taskId = it.taskId?.takeIf { t -> t in taskIds }
+                )
+            }
+        }
+
+        // 宝宝满月/百天另设日期（可选键，不升 schemaVersion）：
+        // kind 不认识的跳过；personId 不在备份人物中的丢弃（不 fail）。
+        val babyCelebrations = root.optJSONArray("babyCelebrations")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val kind = runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebrationKind.valueOf(o.optString("kind", ""))
+                }.getOrNull() ?: return@mapNotNull null
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                io.github.xiaohaoz1.jiarenxia.data.db.BabyCelebrationEntity(
+                    personId = pid, kind = kind.name,
+                    epochDay = o.getLong("epochDay")
+                )
+            }
+        } ?: emptyList()
+
+        // 用药记录（可选键，不升 schemaVersion）：
+        // usage / meal 不认识的跳过该条（连同时刻）；personId 不在备份
+        // 人物中的丢弃（不 fail）；文本长度越界 fail；
+        // 时刻去重排序、至多 4 个、0..1439；usage 与字段不匹配的按
+        // 写入口径归一化（非 SHORT 清 course_days、非 LONG 清 refill、
+        // AS_NEEDED 清时刻）。
+        val medications = root.optJSONArray("medications")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val usage = runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model.MedUsage
+                        .valueOf(o.optString("usage", ""))
+                }.getOrNull() ?: return@mapNotNull null
+                val meal = if (o.isNull("meal") || !o.has("meal")) null
+                else runCatching {
+                    io.github.xiaohaoz1.jiarenxia.core.model.MedMeal
+                        .valueOf(o.getString("meal"))
+                }.getOrNull() ?: return@mapNotNull null
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                val name = o.getString("name")
+                if (name.trim().isEmpty() || name.length > 30) fail("med name")
+                val dose = if (o.has("dose")) o.getString("dose") else null
+                if (dose != null && dose.length > 20) fail("med dose")
+                val spec = if (o.has("spec")) o.getString("spec") else null
+                if (spec != null && spec.length > 20) fail("med spec")
+                val purpose = if (o.has("purpose")) o.getString("purpose") else null
+                if (purpose != null && purpose.length > 30) fail("med purpose")
+                val note = if (o.has("note")) o.getString("note") else null
+                if (note != null && note.length > 200) fail("med note")
+                val courseDays = if (o.has("courseDays")) o.getInt("courseDays") else null
+                if (courseDays != null && courseDays !in 1..365) fail("med courseDays")
+                val times = o.optJSONArray("times")?.let { t ->
+                    (0 until t.length()).map { t.getInt(it) }
+                }?.distinct()?.sorted() ?: emptyList()
+                if (times.size > 4 || times.any { it !in 0..1439 }) fail("med times")
+                val refill = if (o.has("refillEpochDay"))
+                    o.getLong("refillEpochDay") else null
+                val stopped = if (o.has("stoppedEpochDay"))
+                    o.getLong("stoppedEpochDay") else null
+                io.github.xiaohaoz1.jiarenxia.data.db.MedicationEntity(
+                    id = o.getString("id"),
+                    personId = pid,
+                    name = name,
+                    dose = dose, spec = spec, meal = meal?.name,
+                    usage = usage.name,
+                    courseDays = if (usage ==
+                        io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.SHORT_COURSE)
+                        courseDays else null,
+                    startEpochDay = o.getLong("startEpochDay"),
+                    purpose = purpose, note = note,
+                    refillEpochDay = if (usage ==
+                        io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.LONG_TERM)
+                        refill else null,
+                    stoppedEpochDay = stopped,
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                ) to if (usage ==
+                    io.github.xiaohaoz1.jiarenxia.core.model.MedUsage.AS_NEEDED)
+                    emptyList()
+                else times.map {
+                    io.github.xiaohaoz1.jiarenxia.data.db.MedicationTimeEntity(
+                        medicationId = "", minuteOfDay = it)
+                }
+            }
+        }?.map { (m, times) ->
+            m to times.map { it.copy(medicationId = m.id) }
+        } ?: emptyList()
+        uniqueIds(medications.map { it.first.id }, "medications")
+
+        // 用药按人开关（可选键）：personId 不在备份人物中的丢弃；
+        // on_time_enabled 缺失为 null（第 5 批默认口径）。
+        val medicationPrefs = root.optJSONArray("medicationPrefs")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                io.github.xiaohaoz1.jiarenxia.data.db.MedicationPersonPrefsEntity(
+                    personId = pid,
+                    courseRefillEnabled = o.optBoolean("courseRefillEnabled", true),
+                    onTimeEnabled = if (o.isNull("onTimeEnabled") ||
+                        !o.has("onTimeEnabled")) null
+                    else o.getBoolean("onTimeEnabled")
+                )
+            }
+        } ?: emptyList()
+
+        // 「打电话要问的事」（可选键，不升 schemaVersion）：id 唯一、
+        // personId 不在备份人物中的丢弃（不 fail）、文字越界 fail、
+        // 每人至多 10 条（超出即 fail，与仓库口径一致）。
+        val callQuestions = root.optJSONArray("callQuestions")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                val text = o.getString("text")
+                if (text.trim().isEmpty() || text.length >
+                    io.github.xiaohaoz1.jiarenxia.data.CallQuestionRepository
+                        .MAX_TEXT) fail("callQuestion text")
+                io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity(
+                    id = o.getString("id"),
+                    personId = pid,
+                    text = text,
+                    keep = o.optBoolean("keep", false),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+        uniqueIds(callQuestions.map { it.id }, "callQuestions")
+        callQuestions.groupBy { it.personId }.forEach { (_, list) ->
+            if (list.size > io.github.xiaohaoz1.jiarenxia.data
+                    .CallQuestionRepository.MAX_PER_PERSON) fail("callQuestion limit")
+        }
+
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
             p.avatarPath?.removePrefix("avatars/")
@@ -783,6 +1224,13 @@ object BackupJson {
                 },
                 homeVisitHolidayNudge = if (o.isNull("homeVisitHolidayNudge")) null
                 else o.optBoolean("homeVisitHolidayNudge", true),
+                // 用药提醒（可选键，不升 schemaVersion）：缺失/非法保留当前设置
+                medRemindersEnabled = if (o.isNull("medRemindersEnabled")) null
+                else o.optBoolean("medRemindersEnabled", true),
+                medReminderMinuteOfDay = if (o.isNull("medReminderMinuteOfDay")) null
+                else o.optInt("medReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
+                medOnTimeEnabled = if (o.isNull("medOnTimeEnabled")) null
+                else o.optBoolean("medOnTimeEnabled", true),
                 // A6 后忽略：旧备份里的 giftModuleEnabled / insuranceModuleEnabled
                 licenseCode = if (o.isNull("licenseCode")) null
                 else o.optString("licenseCode", "").ifEmpty { null }
@@ -809,11 +1257,17 @@ object BackupJson {
             importantDates = dates,
             prefs = prefs,
             customTitles = customTitles,
-            tasks = tasks,
+            tasks = tasksFixed,
             contactLogs = contactLogs,
             contactPlans = contactPlans,
             personFacts = personFacts,
             homeVisits = homeVisits,
+            pregnancies = pregnancies,
+            checklists = checklists,
+            babyCelebrations = babyCelebrations,
+            medications = medications,
+            medicationPrefs = medicationPrefs,
+            callQuestions = callQuestions,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),

@@ -37,6 +37,18 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         contactReminderMinuteOfDay.value = minute
     }
+    override val medRemindersEnabled = MutableStateFlow(true)
+    override suspend fun setMedRemindersEnabled(enabled: Boolean) {
+        medRemindersEnabled.value = enabled
+    }
+    override val medReminderMinuteOfDay = MutableStateFlow(540)
+    override suspend fun setMedReminderMinuteOfDay(minute: Int) {
+        medReminderMinuteOfDay.value = minute
+    }
+    override val medOnTimeEnabled = MutableStateFlow(true)
+    override suspend fun setMedOnTimeEnabled(enabled: Boolean) {
+        medOnTimeEnabled.value = enabled
+    }
     override val tombRemindersEnabled = MutableStateFlow(true)
     override suspend fun setTombRemindersEnabled(enabled: Boolean) {
         tombRemindersEnabled.value = enabled
@@ -101,5 +113,9 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setUpdateKnownNotes(notes: String) { updateKnownNotes.value = notes }
     override val updateSkippedCode = MutableStateFlow(0)
     override suspend fun setUpdateSkippedCode(code: Int) { updateSkippedCode.value = code }
+    override val guardianPromoDismissed = MutableStateFlow(false)
+    override suspend fun setGuardianPromoDismissed(dismissed: Boolean) {
+        guardianPromoDismissed.value = dismissed
+    }
     override suspend fun clear() {}
 }

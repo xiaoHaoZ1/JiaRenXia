@@ -109,4 +109,15 @@ object TaskTemplates {
             else -> (personTitle ?: personName) + "的" + name
         }
     }
+
+    /**
+     * 产检事项默认标题（FAMILY_AFFAIRS 26）：是“我”→“我的产检”，
+     * 否则“{称谓}的产检”；[personLabel] 传已解析的称谓（无称谓时传姓名），
+     * 为空时退化为“产检”。
+     */
+    fun prenatalTitle(personLabel: String?, isSelf: Boolean): String = when {
+        isSelf -> "我的产检"
+        personLabel.isNullOrEmpty() -> "产检"
+        else -> personLabel + "的产检"
+    }
 }

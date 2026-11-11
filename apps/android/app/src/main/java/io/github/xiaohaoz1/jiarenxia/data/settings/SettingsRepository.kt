@@ -64,6 +64,18 @@ interface SettingsRepository {
     val contactReminderMinuteOfDay: Flow<Int>
     suspend fun setContactReminderMinuteOfDay(minute: Int)
 
+    /** 用药提醒总开关（疗程到期与续药），默认开启（FAMILY_AFFAIRS 23）。 */
+    val medRemindersEnabled: Flow<Boolean>
+    suspend fun setMedRemindersEnabled(enabled: Boolean)
+
+    /** 用药提醒的检查时间（一天内的分钟数），默认 540（09:00）。 */
+    val medReminderMinuteOfDay: Flow<Int>
+    suspend fun setMedReminderMinuteOfDay(minute: Int)
+
+    /** 「按时吃提醒」子开关（用药提醒组内），默认开启（FAMILY_AFFAIRS 23）。 */
+    val medOnTimeEnabled: Flow<Boolean>
+    suspend fun setMedOnTimeEnabled(enabled: Boolean)
+
     /** 上坟提醒总开关，默认开启（FAMILY_AFFAIRS 19）。 */
     val tombRemindersEnabled: Flow<Boolean>
     suspend fun setTombRemindersEnabled(enabled: Boolean)
@@ -214,6 +226,11 @@ interface SettingsRepository {
     val updateSkippedCode: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(0)
     suspend fun setUpdateSkippedCode(code: Int) {}
 
+    /** “我的”页「守护侠」推荐卡是否已被“不再显示”（本机设置，不进备份）。 */
+    val guardianPromoDismissed: Flow<Boolean>
+        get() = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun setGuardianPromoDismissed(dismissed: Boolean) {}
+
     suspend fun clear()
 }
 
@@ -247,6 +264,9 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyReminderMinute = intPreferencesKey("reminder_minute_of_day")
     private val keyTaskReminderMinute = intPreferencesKey("task_reminder_minute_of_day")
     private val keyContactReminderMinute = intPreferencesKey("contact_reminder_minute_of_day")
+    private val keyMedReminders = booleanPreferencesKey("med_reminders_enabled")
+    private val keyMedReminderMinute = intPreferencesKey("med_reminder_minute_of_day")
+    private val keyMedOnTime = booleanPreferencesKey("med_on_time_enabled")
     private val keyTombReminders = booleanPreferencesKey("tomb_reminders_enabled")
     private val keyTombReminderMinute = intPreferencesKey("tomb_reminder_minute_of_day")
     private val keyTombDays = stringSetPreferencesKey("tomb_days")
@@ -274,6 +294,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyUpdateKnownNotes = stringPreferencesKey("update_known_notes")
     private val keyUpdateSkippedCode = intPreferencesKey("update_skipped_code")
     private val keyReminderGuideSeen = booleanPreferencesKey("reminder_guide_seen")
+    private val keyGuardianPromoDismissed =
+        booleanPreferencesKey("guardian_promo_dismissed")
 
     override val remindersEnabled: Flow<Boolean> =
         dataStore.data.map { it[keyRemindersEnabled] ?: true }
@@ -341,6 +363,28 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setContactReminderMinuteOfDay(minute: Int) {
         dataStore.edit { it[keyContactReminderMinute] = minute.coerceIn(0, 1439) }
+    }
+
+    override val medRemindersEnabled: Flow<Boolean> =
+        dataStore.data.map { it[keyMedReminders] ?: true }
+
+    override suspend fun setMedRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { it[keyMedReminders] = enabled }
+    }
+
+    override val medReminderMinuteOfDay: Flow<Int> =
+        dataStore.data.map { (it[keyMedReminderMinute] ?: 9 * 60).coerceIn(0, 1439) }
+            .distinctUntilChanged()
+
+    override suspend fun setMedReminderMinuteOfDay(minute: Int) {
+        dataStore.edit { it[keyMedReminderMinute] = minute.coerceIn(0, 1439) }
+    }
+
+    override val medOnTimeEnabled: Flow<Boolean> =
+        dataStore.data.map { it[keyMedOnTime] ?: true }
+
+    override suspend fun setMedOnTimeEnabled(enabled: Boolean) {
+        dataStore.edit { it[keyMedOnTime] = enabled }
     }
 
     override val tombRemindersEnabled: Flow<Boolean> =
@@ -566,6 +610,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setUpdateSkippedCode(code: Int) {
         dataStore.edit { it[keyUpdateSkippedCode] = code }
+    }
+
+    override val guardianPromoDismissed: Flow<Boolean> =
+        dataStore.data.map { it[keyGuardianPromoDismissed] ?: false }
+            .distinctUntilChanged()
+
+    override suspend fun setGuardianPromoDismissed(dismissed: Boolean) {
+        dataStore.edit { it[keyGuardianPromoDismissed] = dismissed }
     }
 
     override suspend fun clear() {

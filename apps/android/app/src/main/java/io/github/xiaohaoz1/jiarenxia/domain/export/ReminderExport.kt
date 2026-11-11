@@ -127,7 +127,10 @@ object ReminderExport {
                 due, 2,
                 Row(
                     due, t.personId?.let { labelOf(it) } ?: "全家",
-                    TaskTemplates.of(t.kind).displayName, t.title, status, "公历"
+                    // 产检事项（pregnancyId 非空）模板名一律显示“产检”
+                    if (t.pregnancyId != null) "产检"
+                    else TaskTemplates.of(t.kind).displayName,
+                    t.title, status, "公历"
                 )
             )
         }

@@ -18,6 +18,11 @@ import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_15_16
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_16_17
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_17_18
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_18_19
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_19_20
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_20_21
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_21_22
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_22_23
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_23_24
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -170,7 +175,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -191,7 +196,7 @@ class MigrationTest {
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24
             )
             .allowMainThreadQueries()
             .build()
@@ -330,7 +335,7 @@ class MigrationTest {
         createV6Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -365,7 +370,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19
+                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24
             )
             .allowMainThreadQueries()
             .build()
@@ -428,7 +433,7 @@ class MigrationTest {
         createV7Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -494,7 +499,7 @@ class MigrationTest {
 
         // Room 以 v9 打开：执行 MIGRATION_8_9 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -566,7 +571,7 @@ class MigrationTest {
 
         // Room 以 v10 打开：执行 MIGRATION_9_10 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -625,7 +630,7 @@ class MigrationTest {
 
         // Room 以 v11 打开：执行 MIGRATION_10_11 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -825,7 +830,7 @@ class MigrationTest {
         createV12Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
+            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -1104,6 +1109,336 @@ class MigrationTest {
             assertTrue(cursor.moveToFirst())
             assertEquals(0, cursor.getInt(0))
         }
+        migrated.close()
+        dbFile.delete()
+    }
+
+    /** v19 → v20：孕期两表 + family_tasks 两列；旧事项 pregnancy_id=null、archived=0。 */
+    @Test
+    fun `v19到v20新增孕期表与事项列`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-1920.db")
+        dbFile.delete()
+        // v19 形态：persons（含 sibling_rank）+ v13 后的 family_tasks
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gender` TEXT NOT NULL, `avatar_path` TEXT, `note` TEXT, `living_status` TEXT NOT NULL, `is_self` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sibling_rank` INTEGER, PRIMARY KEY(`id`))")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p1','妈妈','FEMALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `family_tasks` (`id` TEXT NOT NULL, `person_id` TEXT, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `anchor_epoch_day` INTEGER NOT NULL, `repeat` TEXT NOT NULL, `period_index` INTEGER NOT NULL, `last_done_epoch_day` INTEGER, `done` INTEGER NOT NULL, `amount_fen` INTEGER, `note` TEXT, `enabled` INTEGER NOT NULL, `remind_minutes` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                        db.execSQL("INSERT INTO `family_tasks` VALUES ('t1','p1','CHECKUP','产检',20000,'NONE',0,NULL,0,NULL,NULL,1,NULL,1,1)")
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {}
+                }).build()
+        ).writableDatabase.close()
+
+        val migrated = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(20) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_19_20.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 旧事项迁移后 pregnancy_id 为 null、archived 为 0
+        migrated.query(
+            "SELECT `pregnancy_id`, `archived` FROM `family_tasks` WHERE `id`='t1'"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertTrue(cursor.isNull(0))
+            assertEquals(0, cursor.getInt(1))
+        }
+        // 新表可写：孕期 + 宝宝关联
+        migrated.execSQL("INSERT INTO `pregnancies` VALUES ('g1','p1',20100,19820,'ACTIVE',NULL,1,1)")
+        migrated.execSQL("INSERT INTO `pregnancy_babies` VALUES ('g1','p1')")
+        // 删孕期 → babies 行级联；删人物 → 孕期级联
+        migrated.execSQL("DELETE FROM `pregnancies` WHERE `id`='g1'")
+        migrated.query("SELECT COUNT(*) FROM `pregnancy_babies`").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        migrated.execSQL("INSERT INTO `pregnancies` VALUES ('g2','p1',20100,NULL,'ENDED',20000,1,1)")
+        migrated.execSQL("DELETE FROM `persons` WHERE `id`='p1'")
+        migrated.query("SELECT COUNT(*) FROM `pregnancies`").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        migrated.close()
+        dbFile.delete()
+    }
+
+    /** v20 → v21：清单两表；孕期删除时 BIRTH_BAG 级联、其他 kind SET NULL。 */
+    @Test
+    fun `v20到v21新增清单两表`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-2021.db")
+        dbFile.delete()
+        // v20 形态：persons + pregnancies（v19→v20 迁移先跑）
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gender` TEXT NOT NULL, `avatar_path` TEXT, `note` TEXT, `living_status` TEXT NOT NULL, `is_self` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sibling_rank` INTEGER, PRIMARY KEY(`id`))")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p1','妈妈','FEMALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        // v19→v20 会 ALTER family_tasks，v19 形态须先有此表
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `family_tasks` (`id` TEXT NOT NULL, `person_id` TEXT, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `anchor_epoch_day` INTEGER NOT NULL, `repeat` TEXT NOT NULL, `period_index` INTEGER NOT NULL, `last_done_epoch_day` INTEGER, `done` INTEGER NOT NULL, `amount_fen` INTEGER, `note` TEXT, `enabled` INTEGER NOT NULL, `remind_minutes` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {}
+                }).build()
+        ).writableDatabase.close()
+
+        val migrated = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(21) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_19_20.migrate(db)
+                        MIGRATION_20_21.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 新表可写：清单 + 条目
+        migrated.execSQL("INSERT INTO `pregnancies` VALUES ('g1','p1',20100,NULL,'ACTIVE',NULL,1,1)")
+        migrated.execSQL("INSERT INTO `checklists` VALUES ('c1','BIRTH_BAG','待产包','p1','g1',1,1)")
+        migrated.execSQL("INSERT INTO `checklist_items` VALUES ('i1','c1','证件资料','身份证',NULL,0,0,'p1',1,1)")
+        // 删清单 → 条目级联
+        migrated.execSQL("DELETE FROM `checklists` WHERE `id`='c1'")
+        migrated.query("SELECT COUNT(*) FROM `checklist_items`").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        // 删孕期 → pregnancy_id SET NULL（清单保留）
+        migrated.execSQL("INSERT INTO `checklists` VALUES ('c2','BIRTH_BAG','待产包','p1','g1',1,1)")
+        migrated.execSQL("DELETE FROM `pregnancies` WHERE `id`='g1'")
+        migrated.query(
+            "SELECT `pregnancy_id` FROM `checklists` WHERE `id`='c2'"
+        ).use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertTrue(cursor.isNull(0))
+        }
+        // 删人物 → person_id 级联（清单消失）
+        migrated.execSQL("DELETE FROM `persons` WHERE `id`='p1'")
+        migrated.query("SELECT COUNT(*) FROM `checklists`").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals(0, cursor.getInt(0))
+        }
+        migrated.close()
+        dbFile.delete()
+    }
+
+    /** v21 → v22：pregnancy_babies.birth_minute、checklist_items.task_id、baby_celebrations 表。 */
+    @Test
+    fun `v21到v22出生时刻任务关联与庆祝表`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-2122.db")
+        dbFile.delete()
+        // v19 形态起步，onUpgrade 依次跑 19→20→21→22
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gender` TEXT NOT NULL, `avatar_path` TEXT, `note` TEXT, `living_status` TEXT NOT NULL, `is_self` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sibling_rank` INTEGER, PRIMARY KEY(`id`))")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p1','妈妈','FEMALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p2','宝宝','MALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `family_tasks` (`id` TEXT NOT NULL, `person_id` TEXT, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `anchor_epoch_day` INTEGER NOT NULL, `repeat` TEXT NOT NULL, `period_index` INTEGER NOT NULL, `last_done_epoch_day` INTEGER, `done` INTEGER NOT NULL, `amount_fen` INTEGER, `note` TEXT, `enabled` INTEGER NOT NULL, `remind_minutes` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {}
+                }).build()
+        ).writableDatabase.close()
+
+        val migrated = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(22) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_19_20.migrate(db)
+                        MIGRATION_20_21.migrate(db)
+                        MIGRATION_21_22.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 新列与新表可写；旧数据不受影响
+        migrated.execSQL("INSERT INTO `pregnancies` VALUES ('g1','p1',20100,NULL,'BORN',20100,1,1)")
+        migrated.execSQL("INSERT INTO `pregnancy_babies` VALUES ('g1','p1',510)")
+        migrated.execSQL("INSERT INTO `checklists` VALUES ('c1','POSTNATAL','出生后要办的事','p1','g1',1,1)")
+        // v22 列序：…note, checked, sort_order, person_id, created_at, updated_at, task_id
+        migrated.execSQL("INSERT INTO `checklist_items` (`id`,`checklist_id`,`group_name`,`title`,`note`,`checked`,`sort_order`,`person_id`,`created_at`,`updated_at`) VALUES ('i1','c1','宝宝','出生医学证明',NULL,0,0,'p2',1,1)")
+        migrated.execSQL("INSERT INTO `checklist_items` (`id`,`checklist_id`,`group_name`,`title`,`note`,`checked`,`sort_order`,`person_id`,`created_at`,`updated_at`) VALUES ('i2','c1','妈妈','产后复查',NULL,1,1,'p1',1,1)")
+        migrated.execSQL("UPDATE `checklist_items` SET `task_id`='t9' WHERE `id`='i1'")
+        migrated.execSQL("INSERT INTO `baby_celebrations` VALUES ('p2','FULL_MONTH',20400)")
+        migrated.query(
+            "SELECT `birth_minute` FROM `pregnancy_babies` " +
+                "WHERE `pregnancy_id`='g1' AND `baby_person_id`='p1'"
+        ).use { c -> assertTrue(c.moveToFirst()); assertEquals(510, c.getInt(0)) }
+        migrated.query("SELECT `task_id` FROM `checklist_items` WHERE `id`='i1'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals("t9", c.getString(0)) }
+        migrated.query(
+            "SELECT `epoch_day` FROM `baby_celebrations` " +
+                "WHERE `person_id`='p2' AND `kind`='FULL_MONTH'"
+        ).use { c -> assertTrue(c.moveToFirst()); assertEquals(20400, c.getInt(0)) }
+        // task_id 无外键不校验；celebrations 随人物级联（p1 删除带走其 celebrations，p2 保留）
+        migrated.execSQL("DELETE FROM `persons` WHERE `id`='p1'")
+        migrated.query("SELECT COUNT(*) FROM `pregnancies`").use { c ->
+            assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        migrated.query("SELECT COUNT(*) FROM `baby_celebrations`").use { c ->
+            assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        migrated.close()
+        dbFile.delete()
+    }
+
+    /** v22 → v23：用药三表（medications / medication_times / medication_person_prefs）。 */
+    @Test
+    fun `v22到v23新增用药三表`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-2223.db")
+        dbFile.delete()
+        // v19 形态起步，onUpgrade 依次跑 19→20→21→22→23
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gender` TEXT NOT NULL, `avatar_path` TEXT, `note` TEXT, `living_status` TEXT NOT NULL, `is_self` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sibling_rank` INTEGER, PRIMARY KEY(`id`))")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p1','妈妈','FEMALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p2','爸爸','MALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `family_tasks` (`id` TEXT NOT NULL, `person_id` TEXT, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `anchor_epoch_day` INTEGER NOT NULL, `repeat` TEXT NOT NULL, `period_index` INTEGER NOT NULL, `last_done_epoch_day` INTEGER, `done` INTEGER NOT NULL, `amount_fen` INTEGER, `note` TEXT, `enabled` INTEGER NOT NULL, `remind_minutes` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {}
+                }).build()
+        ).writableDatabase.close()
+
+        val migrated = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(23) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_19_20.migrate(db)
+                        MIGRATION_20_21.migrate(db)
+                        MIGRATION_21_22.migrate(db)
+                        MIGRATION_22_23.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 三表可写；prefs 默认 course_refill_enabled=1
+        migrated.execSQL("INSERT INTO `medications` (`id`,`person_id`,`name`,`dose`,`spec`,`meal`,`usage`,`course_days`,`start_epoch_day`,`purpose`,`note`,`refill_epoch_day`,`stopped_epoch_day`,`created_at`,`updated_at`) VALUES ('m1','p1','阿莫西林','1 片','250mg/粒','AFTER','SHORT_COURSE',7,20000,'扁桃体炎','医嘱：饭后吃',NULL,NULL,1,1)")
+        migrated.execSQL("INSERT INTO `medication_times` VALUES ('m1',480),('m1',1200)")
+        migrated.execSQL("INSERT INTO `medication_person_prefs` (`person_id`) VALUES ('p2')")
+        migrated.query(
+            "SELECT `minute_of_day` FROM `medication_times` " +
+                "WHERE `medication_id`='m1' ORDER BY `minute_of_day`"
+        ).use { c ->
+            assertTrue(c.moveToFirst()); assertEquals(480, c.getInt(0))
+            assertTrue(c.moveToNext()); assertEquals(1200, c.getInt(0))
+        }
+        migrated.query(
+            "SELECT `course_refill_enabled` FROM `medication_person_prefs` " +
+                "WHERE `person_id`='p2'"
+        ).use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        // 级联：删人物带走其 medications/times/prefs
+        migrated.execSQL("INSERT INTO `medications` (`id`,`person_id`,`name`,`usage`,`start_epoch_day`,`created_at`,`updated_at`) VALUES ('m2','p2','维生素','LONG_TERM',20000,1,1)")
+        migrated.execSQL("DELETE FROM `persons` WHERE `id`='p2'")
+        migrated.query("SELECT COUNT(*) FROM `medications` WHERE `id`='m2'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        migrated.query("SELECT COUNT(*) FROM `medication_person_prefs` WHERE `person_id`='p2'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        // p1 的药保留
+        migrated.query("SELECT COUNT(*) FROM `medications` WHERE `id`='m1'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        migrated.close()
+        dbFile.delete()
+    }
+
+    /** v23 → v24：call_questions 表（person_id 级联，keep = 每次都问）。 */
+    @Test
+    fun `v23到v24新增要问的事表`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-2324.db")
+        dbFile.delete()
+        // v19 形态起步，onUpgrade 依次跑 19→20→21→22→23→24
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gender` TEXT NOT NULL, `avatar_path` TEXT, `note` TEXT, `living_status` TEXT NOT NULL, `is_self` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sibling_rank` INTEGER, PRIMARY KEY(`id`))")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p1','妈妈','FEMALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p2','爸爸','MALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `family_tasks` (`id` TEXT NOT NULL, `person_id` TEXT, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `anchor_epoch_day` INTEGER NOT NULL, `repeat` TEXT NOT NULL, `period_index` INTEGER NOT NULL, `last_done_epoch_day` INTEGER, `done` INTEGER NOT NULL, `amount_fen` INTEGER, `note` TEXT, `enabled` INTEGER NOT NULL, `remind_minutes` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {}
+                }).build()
+        ).writableDatabase.close()
+
+        val migrated = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(24) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_19_20.migrate(db)
+                        MIGRATION_20_21.migrate(db)
+                        MIGRATION_21_22.migrate(db)
+                        MIGRATION_22_23.migrate(db)
+                        MIGRATION_23_24.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 表可写：keep 默认 0
+        migrated.execSQL("INSERT INTO `call_questions` (`id`,`person_id`,`text`,`keep`,`created_at`,`updated_at`) VALUES ('q1','p1','有没有按时吃药',1,1,1)")
+        migrated.execSQL("INSERT INTO `call_questions` (`id`,`person_id`,`text`,`created_at`,`updated_at`) VALUES ('q2','p2','体检做了吗',1,1)")
+        migrated.query(
+            "SELECT `keep` FROM `call_questions` WHERE `id`='q2'"
+        ).use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        // 级联：删人物带走其要问的事
+        migrated.execSQL("DELETE FROM `persons` WHERE `id`='p1'")
+        migrated.query("SELECT COUNT(*) FROM `call_questions` WHERE `id`='q1'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        migrated.query("SELECT COUNT(*) FROM `call_questions` WHERE `id`='q2'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
         migrated.close()
         dbFile.delete()
     }

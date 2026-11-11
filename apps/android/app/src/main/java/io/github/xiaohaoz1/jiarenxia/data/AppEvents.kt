@@ -1,5 +1,6 @@
 package io.github.xiaohaoz1.jiarenxia.data
 
+import io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestionPrompt
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -34,5 +35,11 @@ data class ContactPrompt(
     /** 称谓或姓名（拨号入口当时显示的称呼；无称谓回退姓名）。 */
     val label: String,
     /** 拨号时刻；“联系上了”按这个时刻记一条电话联系。 */
-    val atMillis: Long
+    val atMillis: Long,
+    /**
+     * 这次拨号前弹过的「只问一次」要问的事（id + 文字；
+     * 只在内存里随提示走，不持久化）。「每次都问」的条目不在这里，
+     * “联系上了”时按勾选删除这里列出的条目。
+     */
+    val oneTimeQuestions: List<CallQuestionPrompt> = emptyList()
 )

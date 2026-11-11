@@ -50,6 +50,14 @@ class BirthdayReminderWorker @AssistedInject constructor(
         .ContactRepository,
     private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
         .HomeVisitRepository,
+    private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
+        .PregnancyRepository,
+    private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistRepository,
+    private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .BabyCelebrationRepository,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository,
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
@@ -75,6 +83,8 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 postHomeVisitNotifications(today, posted)
             }
             if (settings.tombRemindersEnabled.first()) postTombNotifications(today, posted)
+            if (settings.medRemindersEnabled.first())
+                postMedicationNotifications(today, posted)
             return Result.success()
         }
         // 当天已通知过的提醒键：补跑（数据在时刻过后被改成今天到期等）只发新的
@@ -102,6 +112,11 @@ class BirthdayReminderWorker @AssistedInject constructor(
         ) {
             postTombNotifications(today, posted)
         }
+        if (settings.medRemindersEnabled.first() &&
+            !nowTime.isBefore(ReminderTiming.timeOf(settings.medReminderMinuteOfDay.first()))
+        ) {
+            postMedicationNotifications(today, posted)
+        }
         settings.setReminderRunState(today.toEpochDay(), posted)
         enqueueNext(now)
         return Result.success()
@@ -126,13 +141,16 @@ class BirthdayReminderWorker @AssistedInject constructor(
             val k = o.result.kind
             if (k == KinshipKind.UNRELATED || k == KinshipKind.SELF) null else o.displayTitle
         }
-        val dues = ReminderPlanner.dueNotifications(repository.getBirthdayEntries(), titles, today, lunar) +
+        val birthdayEntries = repository.getBirthdayEntries()
+        val dues = ReminderPlanner.dueNotifications(birthdayEntries, titles, today, lunar) +
             // 纪念日与生日同一开关、独立渠道（V0.8）；忌日已挪入上坟提醒（FAMILY_AFFAIRS 19）
             ReminderPlanner.dueDateReminders(repository.getDateEntries(), titles, today, lunar, overview)
                 .filter { it.kind != ImportantDateType.DEATH_ANNIVERSARY }
-        if (dues.isEmpty()) return
         ensureChannel()
         ensureAnnivChannel()
+        // 满月/百天与生日 dues 相互独立：当天没有生日类事项也要照发
+        postBabyCelebrationNotifications(today, posted, overview, birthdayEntries)
+        if (dues.isEmpty()) return
         // 「发祝福」动作要默认号码：仅当存在生日当天提醒时才查
         val numbers = if (dues.any { it.kind.isBirthday && it.daysBefore == 0 })
             repository.observeDefaultNumbers().first() else emptyMap()
@@ -146,6 +164,97 @@ class BirthdayReminderWorker @AssistedInject constructor(
             runCatching { nm.notify(notificationId(d), build(d, isSelf, blessing = blessing)) }
                 .onSuccess { posted += key }
         }
+    }
+
+    /**
+     * 宝宝满月 / 百天提醒（FAMILY_AFFAIRS 26 第 3 批）：与生日同开关、
+     * 同 birthday 渠道、同补跑与去重机制；只在事件日 −7 天与当天各发一次。
+     * 事件日 = 另设庆祝日期（baby_celebrations），没有则按出生日算。
+     */
+    private suspend fun postBabyCelebrationNotifications(
+        today: LocalDate,
+        posted: MutableSet<String>,
+        overview: io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview,
+        birthdayEntries: List<io.github.xiaohaoz1.jiarenxia.data.BirthdayEntry>
+    ) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        // 至少一条生日提醒开着的人
+        val reminderOn = birthdayEntries
+            .filter { it.reminderEnabled }
+            .map { it.person.id }.toSet()
+        if (reminderOn.isEmpty()) return
+        // 另设庆祝日期覆盖：personId → kind → 事件日 epochDay
+        val overrides = celebrationRepository.getAll()
+            .groupBy { it.personId }
+            .mapValues { (_, l) -> l.associate { it.kind to it.epochDay } }
+        val nm = NotificationManagerCompat.from(context)
+        reminderOn.forEach { personId ->
+            val o = overview.byId[personId] ?: return@forEach
+            if (o.person.livingStatus !=
+                io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            ) return@forEach
+            val birth = o.solarBirthday?.takeIf { it.isComplete }
+                ?.toLocalDateOrNull() ?: return@forEach
+            val kinds = overrides[personId].orEmpty()
+            listOf(
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .FULL_MONTH to "满月",
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .HUNDRED_DAYS to "百天"
+            ).forEach { (kind, label) ->
+                val computed = when (kind) {
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebrationKind.FULL_MONTH ->
+                        io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                            .fullMonthDate(birth)
+                    io.github.xiaohaoz1.jiarenxia.core.model
+                        .BabyCelebrationKind.HUNDRED_DAYS ->
+                        io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+                            .hundredDaysDate(birth)
+                }
+                // 事件日 = 另设庆祝日期，没有则按出生日算
+                val event = kinds[kind]?.let { LocalDate.ofEpochDay(it) } ?: computed
+                val daysBefore = when {
+                    today == event.minusDays(7) -> 7
+                    today == event -> 0
+                    else -> return@forEach
+                }
+                val key = "baby:" + personId + ":" + kind.name + ":" +
+                    event.toEpochDay() + ":" + daysBefore
+                if (key in posted) return@forEach
+                val text = if (daysBefore == 7)
+                    "7 天后（" + event.monthValue + "月" + event.dayOfMonth +
+                        "日）是" + o.person.name + "的" + label
+                else "今天是" + o.person.name + "的" + label
+                runCatching {
+                    nm.notify(key.hashCode(), buildBaby(personId, text))
+                }.onSuccess { posted += key }
+            }
+        }
+    }
+
+    /** 宝宝满月/百天通知：birthday 渠道 + 同款锁屏公开文案 + 人物页深链。 */
+    private fun buildBaby(personId: String, text: String): android.app.Notification {
+        val intent = PendingIntent.getActivity(
+            context, ("baby:" + personId + ":" + text).hashCode(),
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有家人的生日提醒")
+            .build()
+        return NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
     }
 
     /**
@@ -326,16 +435,93 @@ class BirthdayReminderWorker @AssistedInject constructor(
                 val at = d.task.remindMinutes?.let { ReminderTiming.timeOf(it) } ?: global
                 !nowTime.isBefore(at)
             }
-        if (dues.isEmpty()) return
-        ensureTaskChannel()
-        val nm = NotificationManagerCompat.from(context)
-        dues.forEach { d ->
-            val key = "task:" + d.task.id + ":" + TaskSchedule.dueDate(d.task).toEpochDay() +
-                ":" + d.daysBefore
-            if (key in posted) return@forEach
-            runCatching { nm.notify(taskNotificationId(d), buildTask(d)) }
-                .onSuccess { posted += key }
+        if (dues.isNotEmpty()) {
+            ensureTaskChannel()
+            val nm = NotificationManagerCompat.from(context)
+            dues.forEach { d ->
+                val key = "task:" + d.task.id + ":" + TaskSchedule.dueDate(d.task).toEpochDay() +
+                    ":" + d.daysBefore
+                if (key in posted) return@forEach
+                runCatching { nm.notify(taskNotificationId(d), buildTask(d)) }
+                    .onSuccess { posted += key }
+            }
         }
+        // 36 周待产包提醒（FAMILY_AFFAIRS 26）：与事项同渠道同每日时刻
+        postBirthBagNotifications(today, nowTime, global, posted)
+    }
+
+    /**
+     * 36 周待产包提醒：预产期前 28 天当天，孕期 ACTIVE、孕妈在世、
+     * 待产包未备齐（或还没有清单）时发一次；改预产期自然按新日期算，
+     * 不存额外状态。点开孕妈的人物详情页。
+     */
+    private suspend fun postBirthBagNotifications(
+        today: LocalDate,
+        nowTime: java.time.LocalTime,
+        global: java.time.LocalTime,
+        posted: MutableSet<String>
+    ) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        // 家庭事项每日时刻未到不发（与事项段同一口径，含当天补跑）
+        if (nowTime.isBefore(global)) return
+        val active = pregnancyRepository.observeActive().first()
+        if (active.isEmpty()) return
+        val overview = observeOverview().first() ?: return
+        val nm = NotificationManagerCompat.from(context)
+        active.forEach { preg ->
+            // 今天 == 预产期 − 28 天（孕 36 周）
+            if (today != preg.dueDate.minusDays(28)) return@forEach
+            val entry = overview.byId[preg.personId] ?: return@forEach
+            val person = entry.person
+            if (person.livingStatus !=
+                io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            ) return@forEach
+            // 已有待产包且全部勾完 → 不提醒；没有清单或未备齐 → 提醒
+            val bag = checklistRepository.observeForPregnancy(
+                preg.id,
+                io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.BIRTH_BAG
+            ).first()
+            if (bag != null && bag.totalCount > 0 &&
+                bag.checkedCount == bag.totalCount
+            ) return@forEach
+            val key = "birthbag:" + preg.id + ":" + today.toEpochDay()
+            if (key in posted) return@forEach
+            val text = if (person.isSelf) "孕 36 周了，待产包备齐了吗？"
+            else {
+                val title = entry.displayTitle.ifBlank { person.name }
+                title + "孕 36 周了，待产包备齐了吗？"
+            }
+            runCatching {
+                nm.notify(key.hashCode(), buildBirthBag(key, text, person.id))
+            }.onSuccess { posted += key }
+        }
+    }
+
+    /** 36 周提醒通知：家庭事项渠道，点开孕妈人物详情页。 */
+    private fun buildBirthBag(
+        key: String, text: String, personId: String
+    ): android.app.Notification {
+        ensureTaskChannel()
+        val intent = PendingIntent.getActivity(
+            context, key.hashCode(),
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, TASK_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有家庭事项提醒")
+            .build()
+        return NotificationCompat.Builder(context, TASK_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
     }
 
     private fun taskNotificationId(d: DueTask): Int =
@@ -494,6 +680,113 @@ class BirthdayReminderWorker @AssistedInject constructor(
             .build()
     }
 
+    /**
+     * 用药提醒（FAMILY_AFFAIRS 23）：疗程到期（记录的最后一天当天）与
+     * 续药（下次拿药日前 3 天与当天）。独立渠道 medication；
+     * 仅当该人物「疗程到期与续药提醒」开关为真（无记录按默认开）才发；
+     * 点开该人物详情页。锁屏公开文案不带药名。
+     */
+    private suspend fun postMedicationNotifications(
+        today: LocalDate,
+        posted: MutableSet<String>
+    ) {
+        if (!NotificationManagerCompat.from(context).areNotificationsEnabled()) return
+        val meds = medicationRepository.getAll()
+        if (meds.isEmpty()) return
+        val overview = observeOverview().first() ?: return
+        // 按人开关：无记录的行按默认开
+        val prefs = medicationRepository.observePrefs().first()
+            .associate { it.personId to it.courseRefillEnabled }
+        ensureMedChannel()
+        val nm = NotificationManagerCompat.from(context)
+        meds.forEach { med ->
+            val entry = overview.byId[med.personId] ?: return@forEach
+            val person = entry.person
+            if (person.livingStatus !=
+                io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE
+            ) return@forEach
+            if (prefs[med.personId] == false) return@forEach
+            val isSelf = person.isSelf
+            // 称谓无（SELF/UNRELATED/空）则用姓名
+            val label = entry.displayTitle.ifBlank { person.name }
+            io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule.duesOn(med, today)
+                .forEach { due ->
+                    val key = when (due.kind) {
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.COURSE_END ->
+                            "medcourse:" + med.id + ":" + due.epochDay
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.REFILL ->
+                            "medrefill:" + med.id + ":" + due.epochDay +
+                                ":" + due.daysBefore
+                    }
+                    if (key in posted) return@forEach
+                    val text = when (due.kind) {
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.COURSE_END ->
+                            if (isSelf)
+                                "今天是" + med.name +
+                                    "记录疗程的最后一天，之后怎么吃请按医嘱确认"
+                            else
+                                "今天是" + label + "的" + med.name +
+                                    "记录疗程的最后一天，之后怎么吃请按医嘱确认"
+                        io.github.xiaohaoz1.jiarenxia.domain.med.MedSchedule
+                            .DueKind.REFILL -> {
+                            val day = LocalDate.ofEpochDay(due.epochDay)
+                            val date = day.monthValue.toString() + "月" +
+                                day.dayOfMonth + "日"
+                            if (due.daysBefore == 3) {
+                                if (isSelf) "3 天后（" + date + "）该去拿" +
+                                    med.name + "了"
+                                else "3 天后（" + date + "）该给" + label +
+                                    "拿" + med.name + "了"
+                            } else {
+                                if (isSelf) "今天该去拿" + med.name + "了"
+                                else "今天该给" + label + "拿" + med.name + "了"
+                            }
+                        }
+                    }
+                    runCatching {
+                        nm.notify(key.hashCode(), buildMed(key, text, med.personId))
+                    }.onSuccess { posted += key }
+                }
+        }
+    }
+
+    /** 用药提醒通知：独立渠道，点开人物详情页；锁屏公开版不带药名。 */
+    private fun buildMed(
+        key: String, text: String, personId: String
+    ): android.app.Notification {
+        val intent = PendingIntent.getActivity(
+            context, key.hashCode(),
+            Intent(context, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val publicVersion = NotificationCompat.Builder(context, MED_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentText("家人侠：有用药提醒")
+            .build()
+        return NotificationCompat.Builder(context, MED_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_stat_notify)
+            .setContentTitle("家人侠")
+            .setContentText(text)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .setPublicVersion(publicVersion)
+            .setContentIntent(intent)
+            .build()
+    }
+
+    private fun ensureMedChannel() {
+        val channel = NotificationChannel(
+            MED_CHANNEL_ID, "用药提醒", NotificationManager.IMPORTANCE_DEFAULT
+        )
+        context.getSystemService(NotificationManager::class.java)
+            .createNotificationChannel(channel)
+    }
+
     private fun ensureHomeChannel() {
         val channel = NotificationChannel(
             HOME_CHANNEL_ID, "回家看看", NotificationManager.IMPORTANCE_DEFAULT
@@ -547,6 +840,7 @@ class BirthdayReminderWorker @AssistedInject constructor(
         const val CONTACT_CHANNEL_ID = "contact"
         const val TOMB_CHANNEL_ID = "tomb"
         const val HOME_CHANNEL_ID = "home_visit"
+        const val MED_CHANNEL_ID = "medication"
         const val KEY_FORCE = "force"
     }
 }

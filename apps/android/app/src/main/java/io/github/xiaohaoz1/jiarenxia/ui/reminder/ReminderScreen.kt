@@ -173,7 +173,12 @@ fun ReminderScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
-    // 打完电话回来的“联系上了吗”提示（10 分钟窗口）
+    // 拨号前「打给…之前」待确认（该人有要问的事时先弹框）
+    var preCall by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.ui.common
+            .PreCallRequest?>(null)
+    }
+    // 打完电话回来的“联系上了吗”提示（10 分钟窗口；含要问的事划掉区）
     io.github.xiaohaoz1.jiarenxia.ui.common.PostCallPromptEffect(
         viewModel.appEvents, viewModel::logCallContact)
     val snack by viewModel.snack.collectAsStateWithLifecycle()
@@ -291,10 +296,20 @@ fun ReminderScreen(
                     },
                     onLogContact = viewModel::logContactNow,
                     onPersonDial = { person, label, number ->
-                        viewModel.onDialMade(person, label)
-                        context.startActivity(
-                            Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + number))
-                        )
+                        scope.launch {
+                            val req = io.github.xiaohaoz1.jiarenxia.ui.common
+                                .preCallRequest(
+                                    questionsFor = viewModel::callQuestionsFor,
+                                    personId = person.id, label = label
+                                ) { once ->
+                                    viewModel.onDialMade(person, label, once)
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_DIAL,
+                                            Uri.parse("tel:" + number))
+                                    )
+                                }
+                            if (req != null) preCall = req
+                        }
                     },
                     onNotifSettings = {
                         runCatching {
@@ -315,6 +330,12 @@ fun ReminderScreen(
                     onBless = { blessingFor = it },
                     onDismissGuide = viewModel::dismissReminderGuide
                 )
+                // 拨号前「打给…之前」：有要问的事时先确认再拨
+                preCall?.let { req ->
+                    io.github.xiaohaoz1.jiarenxia.ui.common
+                        .PreCallQuestionsDialog(
+                            request = req, onDismiss = { preCall = null })
+                }
                 // 「家书」新建已收到右上，不再用悬浮按钮
                 if (!jiashu) ExtendedFloatingActionButton(
                     onClick = { templatePickerOpen = true },

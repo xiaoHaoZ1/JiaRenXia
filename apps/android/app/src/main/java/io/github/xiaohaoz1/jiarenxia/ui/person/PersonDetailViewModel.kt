@@ -46,6 +46,27 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
         values[5] as List<io.github.xiaohaoz1.jiarenxia.core.model.ContactLog>
     @Suppress("UNCHECKED_CAST")
     val facts get() = values[6] as List<PersonFact>
+    @Suppress("UNCHECKED_CAST")
+    val pregnancies get() = values[7] as List<io.github.xiaohaoz1.jiarenxia
+        .core.model.Pregnancy>
+    @Suppress("UNCHECKED_CAST")
+    val checklists get() = values[8] as List<io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress>
+    val postnatalItems get() = values[9] as io.github.xiaohaoz1.jiarenxia.data
+        .ItemsProgress?
+    @Suppress("UNCHECKED_CAST")
+    val celebrations get() = values[10] as Map<
+        io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
+        java.time.LocalDate>
+    val medications get() = values[11] as List<
+        io.github.xiaohaoz1.jiarenxia.core.model.Medication>
+    val medPrefs get() = values[12] as List<
+        io.github.xiaohaoz1.jiarenxia.core.model.MedicationPersonPrefs>
+    val medRemindersOn get() = values[13] as Boolean
+    val medOnTimeOn get() = values[14] as Boolean
+    @Suppress("UNCHECKED_CAST")
+    val callQuestions get() = values[15] as List<
+        io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity>
 }
 
 data class PersonDetailUiState(
@@ -69,6 +90,37 @@ data class PersonDetailUiState(
         emptyList(),
     /** 「关于TA」记录，按创建时间升序。 */
     val facts: List<PersonFact> = emptyList(),
+    /** 这个人的孕期记录（ACTIVE 在前）。 */
+    val pregnancies: List<io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy> =
+        emptyList(),
+    /** 各孕期的待产包进度（pregnancyId → ChecklistProgress；无清单不在表内）。 */
+    val birthBagByPregnancy: Map<String, io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress> = emptyMap(),
+    /** 各孕期的「出生后要办的事」进度（pregnancyId → ChecklistProgress）。 */
+    val postnatalByPregnancy: Map<String, io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistProgress> = emptyMap(),
+    /** 新生宝宝卡（未满一岁窗口内或产后清单未办完；否则 null）。 */
+    val newbornCard: NewbornCardState? = null,
+    /** 这个人的用药记录（含已停用；在世人物才有值）。 */
+    val medications: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication> =
+        emptyList(),
+    /** 「疗程到期与续药提醒」按人开关（无记录按默认开）。 */
+    val medCourseRefillEnabled: Boolean = true,
+    /** 「按时吃提醒」该人开关的生效值（显式值优先；无记录“我”开他人关）。 */
+    val medOnTimeEffective: Boolean = false,
+    /** 用药总开关 && 「按时吃提醒」子开关都开时，按人开关才可改。 */
+    val medOnTimeSwitchOn: Boolean = true,
+    /** 「打电话要问的事」（在世、非“我”的人物；按创建时间升序）。 */
+    val callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .CallQuestionEntity> = emptyList(),
+    /** 待产包按模板建好后的待跳转清单 id（页面消费后清空）。 */
+    val pendingChecklistId: String? = null,
+    /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
+    val canRecordPregnancy: Boolean = false,
+    /** 女性在世且无 ACTIVE 孕期（不限关系）→ ⋮ 菜单“记录孕期”（菜单本身只对非“我”显示）。 */
+    val canRecordPregnancyMenu: Boolean = false,
+    /** 操作成功后的轻提示（结束/删除孕期记录）。 */
+    val notice: String? = null,
     /** 共同父母推荐（无配偶且恰有一位异性共同父母）：记为夫妻+纪念日。 */
     val weddingCandidateId: String? = null,
     val weddingCandidateName: String? = null,
@@ -78,8 +130,37 @@ data class PersonDetailUiState(
     val parentCompletion: io.github.xiaohaoz1.jiarenxia.data.CommonChildrenAsk? = null,
     /** 年龄文案：“62 岁”/“享年 81 岁”/“享年约 81 岁”。 */
     val ageText: String? = null,
+    /** 「问一问」称呼与年龄（孕期卡/新生宝宝卡入口用；无总览为 null）。 */
+    val askPerson: io.github.xiaohaoz1.jiarenxia.domain.ask.AskText.PersonAsk? =
+        null,
     val error: String? = null,
     val deleted: Boolean = false
+) {
+    /** 进行中的孕期；人物已故时为 null（孕期卡不显示，数据保留在 [pregnancies]）。 */
+    val activePregnancy: io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy?
+        get() = if (detail?.person?.livingStatus ==
+            io.github.xiaohaoz1.jiarenxia.core.model.LivingStatus.ALIVE)
+            pregnancies.firstOrNull {
+                it.status == io.github.xiaohaoz1.jiarenxia.core.model
+                    .PregnancyStatus.ACTIVE
+            } else null
+}
+
+/** 新生宝宝卡数据（FAMILY_AFFAIRS 26 第 3 批）。 */
+data class NewbornCardState(
+    val birthDate: java.time.LocalDate,
+    /** 生效满月/百天日（另设覆盖优先，否则按出生日算）。 */
+    val fullMonth: java.time.LocalDate,
+    val hundredDays: java.time.LocalDate,
+    /** 按出生日算的满月/百天日（覆盖时小字对照用）。 */
+    val fullMonthByBirth: java.time.LocalDate,
+    val hundredByBirth: java.time.LocalDate,
+    val fullMonthOverride: Boolean,
+    val hundredOverride: Boolean,
+    /** 「出生后要办的事」行：清单 id + 该宝宝条目进度。 */
+    val postnatalChecklistId: String?,
+    val postnatalDone: Int,
+    val postnatalTotal: Int
 )
 
 @HiltViewModel
@@ -93,7 +174,19 @@ class PersonDetailViewModel @Inject constructor(
     private val engine: KinshipEngine,
     observeOverview: ObserveFamilyOverview,
     val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
-    private val factRepository: io.github.xiaohaoz1.jiarenxia.data.PersonFactRepository
+    private val factRepository: io.github.xiaohaoz1.jiarenxia.data.PersonFactRepository,
+    private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
+        .PregnancyRepository,
+    private val checklistRepository: io.github.xiaohaoz1.jiarenxia.data
+        .ChecklistRepository,
+    private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .BabyCelebrationRepository,
+    private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
+        .MedicationRepository,
+    private val settings: io.github.xiaohaoz1.jiarenxia.data.settings
+        .SettingsRepository,
+    private val callQuestionRepository: io.github.xiaohaoz1.jiarenxia.data
+        .CallQuestionRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -110,7 +203,19 @@ class PersonDetailViewModel @Inject constructor(
                 repository.observeDateEntries(),
                 contactRepository.observePlans(),
                 contactRepository.observeLogs(personId),
-                factRepository.observeForPerson(personId)
+                factRepository.observeForPerson(personId),
+                pregnancyRepository.observeForPerson(personId),
+                checklistRepository.observeAll(),
+                checklistRepository.observeItemsProgressForPerson(
+                    personId,
+                    io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.POSTNATAL
+                ),
+                celebrationRepository.observeOverrides(personId),
+                medicationRepository.observeForPerson(personId),
+                medicationRepository.observePrefs(),
+                settings.medRemindersEnabled,
+                settings.medOnTimeEnabled,
+                callQuestionRepository.observeForPerson(personId)
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -159,6 +264,65 @@ class PersonDetailViewModel @Inject constructor(
                                 comb.contactPlans[personId],
                             contactLogs = comb.contactLogs,
                             facts = comb.facts,
+                            pregnancies = comb.pregnancies,
+                            birthBagByPregnancy = comb.checklists
+                                .filter {
+                                    it.checklist.kind == io.github.xiaohaoz1
+                                        .jiarenxia.core.model.ChecklistKind.BIRTH_BAG &&
+                                        it.checklist.pregnancyId != null
+                                }
+                                .associateBy { it.checklist.pregnancyId!! },
+                            postnatalByPregnancy = comb.checklists
+                                .filter {
+                                    it.checklist.kind == io.github.xiaohaoz1
+                                        .jiarenxia.core.model.ChecklistKind.POSTNATAL &&
+                                        it.checklist.pregnancyId != null
+                                }
+                                .associateBy { it.checklist.pregnancyId!! },
+                            newbornCard = newbornCardOf(detail, comb),
+                            medications = comb.medications,
+                            medCourseRefillEnabled = comb.medPrefs
+                                .firstOrNull { it.personId == personId }
+                                ?.courseRefillEnabled ?: true,
+                            medOnTimeEffective = comb.medPrefs
+                                .firstOrNull { it.personId == personId }
+                                ?.onTimeEnabled
+                                ?: (detail?.person?.isSelf == true),
+                            medOnTimeSwitchOn =
+                                comb.medRemindersOn && comb.medOnTimeOn,
+                            callQuestions = comb.callQuestions,
+                            canRecordPregnancy = run {
+                                val p = detail?.person ?: return@run false
+                                if (p.gender != io.github.xiaohaoz1.jiarenxia
+                                        .core.model.Gender.FEMALE ||
+                                    p.livingStatus != io.github.xiaohaoz1.jiarenxia
+                                        .core.model.LivingStatus.ALIVE
+                                ) return@run false
+                                val selfId = overview?.self?.person?.id
+                                val isSelfOrSpouse = p.isSelf ||
+                                    (selfId != null && detail.relationships.any {
+                                        it.type == io.github.xiaohaoz1.jiarenxia
+                                            .core.model.RelationshipType.SPOUSE &&
+                                            setOf(it.sourcePersonId,
+                                                it.targetPersonId) ==
+                                                setOf(personId, selfId)
+                                    })
+                                isSelfOrSpouse && comb.pregnancies.none {
+                                    it.status == io.github.xiaohaoz1.jiarenxia
+                                        .core.model.PregnancyStatus.ACTIVE
+                                }
+                            },
+                            canRecordPregnancyMenu = run {
+                                val p = detail?.person ?: return@run false
+                                p.gender == io.github.xiaohaoz1.jiarenxia
+                                    .core.model.Gender.FEMALE &&
+                                    p.livingStatus == io.github.xiaohaoz1.jiarenxia
+                                        .core.model.LivingStatus.ALIVE &&
+                                    comb.pregnancies.none {
+                                        it.status == io.github.xiaohaoz1.jiarenxia
+                                            .core.model.PregnancyStatus.ACTIVE
+                                    }
+                            },
                             // “记为夫妻”候选只给“我”的页面用，其他人不查
                             weddingCandidateId = weddingCandidate?.id,
                             weddingCandidateName = weddingCandidate?.name,
@@ -176,6 +340,13 @@ class PersonDetailViewModel @Inject constructor(
                                                 it.person.id == personId
                                         }?.date, java.time.LocalDate.now(),
                                         lunar)
+                            },
+                            // 「问一问」称呼与年龄：我视角 displayTitle + AgeMath.ageAt
+                            askPerson = overview?.byId?.get(personId)?.let { o ->
+                                io.github.xiaohaoz1.jiarenxia.domain.ask.AskText
+                                    .personAsk(
+                                        o, o.birthdays,
+                                        java.time.LocalDate.now(), lunar)
                             }
                         )
                     }
@@ -184,6 +355,156 @@ class PersonDetailViewModel @Inject constructor(
     }
 
     fun onErrorShown() = _ui.update { it.copy(error = null) }
+
+    /** 「疗程到期与续药提醒」按人开关（用药卡底部）。 */
+    fun setMedCourseRefillEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            medicationRepository.setCourseRefillEnabled(personId, enabled)
+        }
+    }
+
+    /** 「按时吃提醒」按人开关（用药卡；写显式值）。 */
+    fun setMedOnTimeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            medicationRepository.setOnTimeEnabled(personId, enabled)
+        }
+    }
+
+    fun onNoticeShown() = _ui.update { it.copy(notice = null) }
+
+    /** 新建孕期记录（预产期或末次月经二选一由调用方换算好）。 */
+    fun createPregnancy(due: java.time.LocalDate, lmp: java.time.LocalDate?) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.create(
+                personId, due, lmp, java.time.LocalDate.now())
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 修改预产期/末次月经（仅 ACTIVE）。 */
+    fun updatePregnancyDates(
+        id: String, due: java.time.LocalDate, lmp: java.time.LocalDate?
+    ) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.updateDates(
+                id, due, lmp, java.time.LocalDate.now())
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 结束这条孕期记录：未完成产检自动归档。 */
+    fun endPregnancy(id: String) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.end(id, java.time.LocalDate.now())
+            when (r) {
+                is FamilyResult.Success -> _ui.update {
+                    it.copy(notice = "已结束这条孕期记录")
+                }
+                is FamilyResult.Failure -> _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 删除孕期记录（连同关联产检事项）。 */
+    fun deletePregnancy(id: String) {
+        viewModelScope.launch {
+            val r = pregnancyRepository.delete(id)
+            when (r) {
+                is FamilyResult.Success -> _ui.update {
+                    it.copy(notice = "已删除孕期记录")
+                }
+                is FamilyResult.Failure -> _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 某次孕期关联的全部事项（含归档与已办），供历史对话框订阅。 */
+    fun tasksForPregnancy(pregnancyId: String) =
+        taskRepository.observeTasksForPregnancy(pregnancyId)
+
+    /**
+     * 孕期卡“待产包”入口：按模板建清单（幂等，已有直接返回），
+     * 成功后把清单 id 放进 pendingChecklistId 由页面跳转；失败走 error。
+     */
+    fun openBirthBag(pregnancyId: String) {
+        viewModelScope.launch {
+            val r = checklistRepository.createFromTemplate(
+                io.github.xiaohaoz1.jiarenxia.core.model.ChecklistKind.BIRTH_BAG,
+                pregnancyId
+            )
+            when (r) {
+                is FamilyResult.Success -> _ui.update {
+                    it.copy(pendingChecklistId = r.value)
+                }
+                is FamilyResult.Failure -> _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    fun onPendingChecklistHandled() = _ui.update { it.copy(pendingChecklistId = null) }
+
+    /**
+     * 新生宝宝卡（FAMILY_AFFAIRS 26 第 3 批）：在世 + 出生日确切，且
+     * （未满一岁且今天 ≤ 生效百天日 + 30 天）或名下 POSTNATAL 条目未办完。
+     */
+    private fun newbornCardOf(
+        detail: io.github.xiaohaoz1.jiarenxia.data.PersonDetail?,
+        comb: PersonDetailCombine
+    ): NewbornCardState? {
+        val d = detail ?: return null
+        val p = d.person
+        if (p.livingStatus != io.github.xiaohaoz1.jiarenxia.core.model
+                .LivingStatus.ALIVE
+        ) return null
+        val birth = io.github.xiaohaoz1.jiarenxia.domain.lunar.BirthdayMath
+            .resolveBirthDate(
+                d.birthdays.values.map { it.value }, lunar
+            ).date ?: return null
+        val today = java.time.LocalDate.now()
+        val babyMath = io.github.xiaohaoz1.jiarenxia.domain.baby.BabyMath
+        val fmByBirth = babyMath.fullMonthDate(birth)
+        val hdByBirth = babyMath.hundredDaysDate(birth)
+        val ov = comb.celebrations
+        val fm = ov[io.github.xiaohaoz1.jiarenxia.core.model
+            .BabyCelebrationKind.FULL_MONTH] ?: fmByBirth
+        val hd = ov[io.github.xiaohaoz1.jiarenxia.core.model
+            .BabyCelebrationKind.HUNDRED_DAYS] ?: hdByBirth
+        val pn = comb.postnatalItems
+        val postnatalIncomplete = pn != null && pn.doneCount < pn.totalCount
+        val inWindow = today.isBefore(babyMath.firstBirthday(birth)) &&
+            !today.isAfter(hd.plusDays(30))
+        if (!inWindow && !postnatalIncomplete) return null
+        return NewbornCardState(
+            birthDate = birth,
+            fullMonth = fm,
+            hundredDays = hd,
+            fullMonthByBirth = fmByBirth,
+            hundredByBirth = hdByBirth,
+            fullMonthOverride =
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .FULL_MONTH in ov,
+            hundredOverride =
+                io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind
+                    .HUNDRED_DAYS in ov,
+            postnatalChecklistId = pn?.checklistId,
+            postnatalDone = pn?.doneCount ?: 0,
+            postnatalTotal = pn?.totalCount ?: 0
+        )
+    }
+
+    /** 满月 / 百天庆祝日期：date 为 null 表示「按出生日算」（清除覆盖）。 */
+    fun setCelebration(
+        kind: io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
+        date: java.time.LocalDate?
+    ) {
+        viewModelScope.launch {
+            celebrationRepository.set(personId, kind, date)
+        }
+    }
 
     fun setSiblingOrder(relId: String, subjectId: String, order: RelativeAgeOrder?) {
         viewModelScope.launch {
@@ -281,21 +602,68 @@ class PersonDetailViewModel @Inject constructor(
         }
     }
 
-    /** 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。 */
-    fun onDialMade(person: io.github.xiaohaoz1.jiarenxia.core.model.Person,
-        label: String) {
-        appEvents.pendingContactPrompt =
-            io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
-                person.id, label, System.currentTimeMillis())
+    /** 「打电话要问的事」新增（卡片内对话框；校验失败走 error）。 */
+    fun addCallQuestion(text: String, keep: Boolean) {
+        viewModelScope.launch {
+            val r = callQuestionRepository.add(personId, text, keep)
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
     }
 
-    /** “联系上了”：按拨号时刻记一条电话类型的联系。 */
-    fun logCallContact(prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt) {
+    /** 「打电话要问的事」改文字与/或 keep（null 表示不改该项）。 */
+    fun updateCallQuestion(id: String, text: String?, keep: Boolean?) {
+        viewModelScope.launch {
+            val r = callQuestionRepository.update(id, text, keep)
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 「打电话要问的事」删除（不二次确认，snackbar「已删除」）。 */
+    fun deleteCallQuestion(id: String) {
+        viewModelScope.launch {
+            callQuestionRepository.delete(id)
+            _ui.update { it.copy(notice = "已删除") }
+        }
+    }
+
+    /** 拨号前现取该人要问的事（不等 UI 状态流刷新）。 */
+    suspend fun callQuestionsFor(pid: String) =
+        callQuestionRepository.getForPerson(pid)
+
+    /**
+     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。
+     * [oneTimeQuestions] 为这次拨号前弹过的「只问一次」条目，
+     * “联系上了”时按勾选删除（只在内存里，不持久化）。
+     */
+    fun onDialMade(person: io.github.xiaohaoz1.jiarenxia.core.model.Person,
+        label: String,
+        oneTimeQuestions: List<io.github.xiaohaoz1.jiarenxia.domain.call
+            .CallQuestionPrompt> = emptyList()) {
+        appEvents.pendingContactPrompt =
+            io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
+                person.id, label, System.currentTimeMillis(), oneTimeQuestions)
+    }
+
+    /**
+     * “联系上了”：按拨号时刻记一条电话类型的联系；
+     * 勾选的「只问一次」要问的事一并删除（“每次都问”永不在列）。
+     */
+    fun logCallContact(
+        prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt,
+        checkedQuestionIds: Set<String> = emptySet()
+    ) {
         viewModelScope.launch {
             contactRepository.logContact(
                 personId,
                 io.github.xiaohaoz1.jiarenxia.core.model.ContactMethod.CALL,
                 null, prompt.atMillis)
+            val ids = io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestions
+                .deletionIds(prompt.oneTimeQuestions, checkedQuestionIds)
+            if (ids.isNotEmpty()) callQuestionRepository.deleteIds(ids)
         }
     }
 

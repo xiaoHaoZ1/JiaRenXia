@@ -53,10 +53,13 @@ fun jrxActionShape(classic: Shape? = null): Shape =
 fun JrxCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
+    /** 卡片底色覆盖（默认 surfaceContainerLow）；推荐卡等强调场景用。 */
+    containerColor: Color? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val colors = CardDefaults.cardColors(
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        containerColor = containerColor
+            ?: MaterialTheme.colorScheme.surfaceContainerLow
     )
     val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     val none = CardDefaults.cardElevation(defaultElevation = 0.dp)

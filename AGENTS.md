@@ -113,10 +113,10 @@ gradlew.bat :app:assembleRelease
 
 - `data/` — 家庭名册（人物、关系、重要日期、手机号）只经 `FamilyRepository` 写入；挂在人物下、生命周期独立的私密列表（事项 `FamilyTaskRepository`、联系记录 `ContactRepository`、「关于TA」`PersonFactRepository`）各有自己的仓库。多表写入一律 `db.withTransaction`，校验失败用 `TxAbort` 回滚；头像经 `AvatarStorage`（`filesDir/avatars`）。
 - `domain/` — `ObserveFamilyOverview`（resolveAll + 生日合成总览，`Dispatchers.Default`）、`FamilyOrdering`（核心家人分组排序，中国拼音 Collator）、`PersonSearch`。
-- `reminder/` — 数据库是唯一事实来源：每天按各类提醒时刻做 WorkManager 检查（`ReminderTiming`，生日/事项/联系/上坟四时刻各自可配，默认 09:00），已过的时刻可当天补跑、按当日已通知键去重，跑完排最近的下一时刻；`ReminderSync` 在启动及生日/纪念日/事项/联系计划与记录/四个开关/四个时刻/上坟日子与名单变化时 reconcile；`POST_NOTIFICATIONS` 只自动问一次。**`BirthdayReminderWorker` 类名不可改**——WorkManager 已持久化已排队任务名。
+- `reminder/` — 数据库是唯一事实来源：每天按各类提醒时刻做 WorkManager 检查（`ReminderTiming`，生日/事项/联系/上坟/用药五时刻各自可配，默认 09:00），已过的时刻可当天补跑、按当日已通知键去重，跑完排最近的下一时刻；`ReminderSync` 在启动及生日/纪念日/事项/联系计划与记录/五个开关/五个时刻/上坟日子与名单/用药数据与每人开关变化时 reconcile；「按时吃」不走每日检查，由 `MedAlarmScheduler` 按“人物 + 时刻”排 AlarmManager 闹钟（有精确闹钟权限用精确，否则退回非精确），`ReminderSync`、`MainActivity.onResume` 与开机 / 改时间等系统广播触发全量重排；`POST_NOTIFICATIONS` 只自动问一次。**`BirthdayReminderWorker` 类名不可改**——WorkManager 已持久化已排队任务名。
 - `ui/` — Compose + Hilt ViewModel + StateFlow；业务规则不进 Composable；`ui/graph/GraphLayout` 为纯 JVM 布局算法。
 - `navigation/AppNavHost` — 全部路由与通知深链（`personId` extra）。
-- 界面改版（2026-10-09，见 `docs/DEVELOPMENT_PLAN.md` 2.16）：一级页只放入口，开关与详细设置在二级页，二级页共用 `ui/mine/SettingsRows.kt` 的 `SettingsScaffold`/`SettingsGroup`/`SettingsNavRow`/`SettingsSwitchRow`。「我的」= 个人资料 + 备份卡 + 数据管理/外观与字号/功能管理/帮助与关于四个入口；四类提醒的开关与时刻在**家事页顶栏铃铛**（`settings/reminders`）；分享、接收、碰一碰、婚礼祝词在**家庭页 → 共享与连接**（`share/connect`）。主题 token 在 `core/designsystem/ui/theme/`，改 token 即全 App 生效；页头组件是 `PageHeader`（平底，原名 `GradientHeader`，渐变页头已取消），背景色取 `JrxColors.pageHeaderBackground`。
+- 界面改版（2026-10-09，见 `docs/DEVELOPMENT_PLAN.md` 2.16）：一级页只放入口，开关与详细设置在二级页，二级页共用 `ui/mine/SettingsRows.kt` 的 `SettingsScaffold`/`SettingsGroup`/`SettingsNavRow`/`SettingsSwitchRow`。「我的」= 个人资料 + 守护侠推荐卡（可不再显示）+ 备份卡 + 数据管理/外观与字号/功能管理/帮助与关于四个入口；五类提醒的开关与时刻在**家事页顶栏铃铛**（`settings/reminders`）；分享、接收、碰一碰、婚礼祝词在**家庭页 → 共享与连接**（`share/connect`）。主题 token 在 `core/designsystem/ui/theme/`，改 token 即全 App 生效；页头组件是 `PageHeader`（平底，原名 `GradientHeader`，渐变页头已取消），背景色取 `JrxColors.pageHeaderBackground`。
 
 ## 约定
 

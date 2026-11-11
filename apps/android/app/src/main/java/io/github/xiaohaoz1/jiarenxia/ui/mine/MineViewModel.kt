@@ -46,6 +46,8 @@ data class MineUiState(
     val lastBackupAt: Long? = null,
     /** Snackbar 提示（备份/恢复结果等），一次性事件。 */
     val message: String? = null,
+    /** 「守护侠」推荐卡是否已被“不再显示”（本机设置，不进备份）。 */
+    val guardianPromoDismissed: Boolean = false,
     /** 婚礼祝词原始串（“左|右”），展示经 WeddingWords.split。 */
     val weddingWords: String = WeddingWords.join(WeddingWords.DEFAULT)
 )
@@ -115,6 +117,8 @@ class MineViewModel @Inject constructor(
         .combine(message) { st, m -> st.copy(message = m) }
         .combine(settings.weddingWords) { st, w -> st.copy(weddingWords = w) }
         .combine(settings.elderMode) { st, e -> st.copy(elderMode = e) }
+        .combine(settings.guardianPromoDismissed) { st, d ->
+            st.copy(guardianPromoDismissed = d) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MineUiState())
 
     fun setRemindersEnabled(enabled: Boolean) {
@@ -134,6 +138,11 @@ class MineViewModel @Inject constructor(
     /** 长辈模式开关（外观与字号页入口；退出在长辈模式页底部长按）。 */
     fun setElderMode(enabled: Boolean) {
         viewModelScope.launch { settings.setElderMode(enabled) }
+    }
+
+    /** 「守护侠」推荐卡「不再显示」（本机设置，不进备份）。 */
+    fun onGuardianPromoDismiss() {
+        viewModelScope.launch { settings.setGuardianPromoDismissed(true) }
     }
 
     /** 婚礼祝词（左词/右词）；落库前由 settings 归一化。 */

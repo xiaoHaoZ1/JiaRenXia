@@ -197,6 +197,8 @@ data class CustomTitleEntity(
  * family_tasks 表（DATABASE_SCHEMA v4）：家庭事项。
  * person_id 可空（全家的事）。v13（A6）去掉 policy_id：原挂保单的
  * 缴费事项保留为普通事项，字段与周期不变。
+ * v20 +pregnancy_id / archived：产检事项挂在孕期下，孕期结束后
+ * 未完成的产检转 archived（不计入家事待办与逾期统计）。
  */
 @Entity(
     tableName = "family_tasks",
@@ -206,7 +208,7 @@ data class CustomTitleEntity(
         childColumns = ["person_id"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("person_id")]
+    indices = [Index("person_id"), Index("pregnancy_id")]
 )
 data class FamilyTaskEntity(
     @PrimaryKey val id: String,
@@ -229,6 +231,10 @@ data class FamilyTaskEntity(
     val enabled: Boolean = true,
     /** 一天内提醒时刻（分钟数）；null = 跟随家事提醒时刻设置。 */
     @ColumnInfo(name = "remind_minutes") val remindMinutes: Int? = null,
+    /** 关联孕期 id（产检）；不加外键约束，由仓库维护完整性。 */
+    @ColumnInfo(name = "pregnancy_id") val pregnancyId: String? = null,
+    /** 已归档（孕期结束/出生后未完成的产检）；不计入待办与逾期。 */
+    val archived: Boolean = false,
     @ColumnInfo(name = "created_at") val createdAt: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long
 )
@@ -373,6 +379,89 @@ data class HomeVisitMemberEntity(
 )
 
 /**
+ * pregnancies：孕期记录（FAMILY_AFFAIRS 26）。
+ * person_id 级联删除（删孕妈人物 → 孕期与关联宝宝行一并消失）；
+ * status 存枚举名 ACTIVE / BORN / ENDED；日期均为 epochDay。
+ */
+@Entity(
+    tableName = "pregnancies",
+    foreignKeys = [ForeignKey(
+        entity = PersonEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["person_id"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [Index("person_id")]
+)
+data class PregnancyEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    @ColumnInfo(name = "due_epoch_day") val dueEpochDay: Long,
+    /** 末次月经第一天（epochDay），可空。 */
+    @ColumnInfo(name = "lmp_epoch_day") val lmpEpochDay: Long?,
+    val status: String,
+    /** BORN / ENDED 的结束日期（epochDay），ACTIVE 为 null。 */
+    @ColumnInfo(name = "ended_epoch_day") val endedEpochDay: Long?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * pregnancy_babies：孕期 ↔ 宝宝人物（一对多，双胞胎等）。
+ * 两端均级联：删孕期 → 关联行消失；删宝宝人物 → 只删关联行。
+ * 本批只建表与备份读写，不提供写入入口。
+ */
+@Entity(
+    tableName = "pregnancy_babies",
+    primaryKeys = ["pregnancy_id", "baby_person_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PregnancyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["pregnancy_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["baby_person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("baby_person_id")]
+)
+data class PregnancyBabyEntity(
+    @ColumnInfo(name = "pregnancy_id") val pregnancyId: String,
+    @ColumnInfo(name = "baby_person_id") val babyPersonId: String,
+    /** 出生时刻（0..1439 分钟数）；未填为 null。 */
+    @ColumnInfo(name = "birth_minute") val birthMinute: Int? = null
+)
+
+/**
+ * baby_celebrations：宝宝满月 / 百天的另设庆祝日期（FAMILY_AFFAIRS 26 第 3 批）。
+ * 每人每种庆祝至多一条（主键 person_id+kind）；person_id 级联。
+ */
+@Entity(
+    tableName = "baby_celebrations",
+    primaryKeys = ["person_id", "kind"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("person_id")]
+)
+data class BabyCelebrationEntity(
+    @ColumnInfo(name = "person_id") val personId: String,
+    /** FULL_MONTH 满月 / HUNDRED_DAYS 百天。 */
+    val kind: String,
+    @ColumnInfo(name = "epoch_day") val epochDay: Long
+)
+
+/**
  * spouse_pairing：碰一碰夫妻配对记录（单行，id 恒 1）。
  * 本机配偶人物被删（含备份恢复/共享导入/清空数据的整表清空）时级联清除——
  * 恢复出来的资料不会被误认为“已配对的另一台手机”。
@@ -465,4 +554,203 @@ data class PersonAliasEntity(
     /** 本机对应的人物 id。 */
     @ColumnInfo(name = "local_person_id") val localPersonId: String,
     @ColumnInfo(name = "created_at") val createdAt: Long
+)
+
+/**
+ * checklists：清单（FAMILY_AFFAIRS 26，待产包等）。
+ * person_id / pregnancy_id 均可空：孕期删除时 pregnancy_id 经
+ * SET NULL 保留清单（为第 3 批做准备）；人物删除时 person_id 级联。
+ */
+@Entity(
+    tableName = "checklists",
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PregnancyEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["pregnancy_id"],
+            onDelete = ForeignKey.SET_NULL
+        )
+    ],
+    indices = [Index("person_id"), Index("pregnancy_id")]
+)
+data class ChecklistEntity(
+    @PrimaryKey val id: String,
+    val kind: String,
+    val title: String,
+    @ColumnInfo(name = "person_id") val personId: String?,
+    @ColumnInfo(name = "pregnancy_id") val pregnancyId: String?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * checklist_items：清单条目（checklist 级联）。
+ * person_id：出生后要办的事按宝宝/孕妈写；待产包条目恒 null。
+ */
+@Entity(
+    tableName = "checklist_items",
+    foreignKeys = [
+        ForeignKey(
+            entity = ChecklistEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["checklist_id"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("checklist_id"), Index("person_id"), Index("task_id")]
+)
+data class ChecklistItemEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "checklist_id") val checklistId: String,
+    @ColumnInfo(name = "group_name") val groupName: String,
+    val title: String,
+    val note: String?,
+    val checked: Boolean,
+    @ColumnInfo(name = "sort_order") val sortOrder: Int,
+    @ColumnInfo(name = "person_id") val personId: String?,
+    /** 条目「定日期」转成的家庭事项；不加外键（事项删除时置 null 由仓库处理）。 */
+    @ColumnInfo(name = "task_id") val taskId: String? = null,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * medications：用药记录（FAMILY_AFFAIRS 23，v23）。
+ * App 只知道「记录」不知道「实际服用」；各日期列均为 epochDay。
+ * usage / meal 存 TEXT（与 checklist.kind 一致），仓库负责枚举转换。
+ */
+@Entity(
+    tableName = "medications",
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("person_id")]
+)
+data class MedicationEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    /** 药名（≤30）。 */
+    val name: String,
+    /** 每次用量（≤20）；null = 未填。 */
+    val dose: String?,
+    /** 药品规格（≤20）；null = 未填。 */
+    val spec: String?,
+    /** BEFORE / AFTER / WITH；null = 不填。 */
+    val meal: String?,
+    /** SHORT_COURSE / LONG_TERM / AS_NEEDED。 */
+    val usage: String,
+    /** 仅 SHORT_COURSE（1..365）；null = 疗程待确认。 */
+    @ColumnInfo(name = "course_days") val courseDays: Int?,
+    @ColumnInfo(name = "start_epoch_day") val startEpochDay: Long,
+    /** 治什么（≤30）；null = 未填。 */
+    val purpose: String?,
+    /** 医嘱备注（≤200）；null = 未填。 */
+    val note: String?,
+    /** 仅 LONG_TERM：下次拿药日；其他用法恒 null。 */
+    @ColumnInfo(name = "refill_epoch_day") val refillEpochDay: Long?,
+    /** 记录停用日期；null = 未停用。 */
+    @ColumnInfo(name = "stopped_epoch_day") val stoppedEpochDay: Long?,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/**
+ * medication_times：每药每天服用时刻（FAMILY_AFFAIRS 23，v23）。
+ * 主键 (medication_id, minute_of_day)；medication 级联删除。
+ * AS_NEEDED 不存时刻；每药至多 4 个。
+ */
+@Entity(
+    tableName = "medication_times",
+    primaryKeys = ["medication_id", "minute_of_day"],
+    foreignKeys = [
+        ForeignKey(
+            entity = MedicationEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["medication_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("medication_id")]
+)
+data class MedicationTimeEntity(
+    @ColumnInfo(name = "medication_id") val medicationId: String,
+    /** 一天内分钟数（0..1439）。 */
+    @ColumnInfo(name = "minute_of_day") val minuteOfDay: Int
+)
+
+/**
+ * medication_person_prefs：用药区按人开关（FAMILY_AFFAIRS 23，v23）。
+ * 每人一行；person_id 级联。on_time_enabled 为第 5 批「按时吃」预留，
+ * null = 按默认（“我”开、他人关）。
+ */
+@Entity(
+    tableName = "medication_person_prefs",
+    primaryKeys = ["person_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class MedicationPersonPrefsEntity(
+    @ColumnInfo(name = "person_id") val personId: String,
+    @ColumnInfo(name = "course_refill_enabled") val courseRefillEnabled: Boolean,
+    @ColumnInfo(name = "on_time_enabled") val onTimeEnabled: Boolean?
+)
+
+/**
+ * call_questions：「打电话要问的事」（FAMILY_AFFAIRS 26 第 7 批，v24）。
+ * person_id 级联；keep = 每次打电话都问（否则只问一次，联系上后可划掉）。
+ * 每人至多 10 条、文字 1–40 字，由仓库校验。
+ */
+@Entity(
+    tableName = "call_questions",
+    indices = [Index("person_id")],
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class CallQuestionEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    val text: String,
+    /** 1 = 每次都问；0 = 只问一次（联系上后可在“联系上了吗”里划掉删除）。 */
+    val keep: Boolean,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
+/** 清单 + 其条目（一致快照查询用）。 */
+data class ChecklistWithItems(
+    @Embedded val checklist: ChecklistEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "checklist_id"
+    )
+    val items: List<ChecklistItemEntity>
 )
