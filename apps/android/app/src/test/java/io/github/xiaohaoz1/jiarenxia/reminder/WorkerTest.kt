@@ -168,6 +168,10 @@ private class FakeSettings : SettingsRepository {
     override suspend fun setMedReminderMinuteOfDay(minute: Int) {
         medReminderMinuteOfDay.value = minute
     }
+    override val medOnTimeEnabled = MutableStateFlow(true)
+    override suspend fun setMedOnTimeEnabled(enabled: Boolean) {
+        medOnTimeEnabled.value = enabled
+    }
     override val tombRemindersEnabled = MutableStateFlow(true)
     override suspend fun setTombRemindersEnabled(enabled: Boolean) {
         tombRemindersEnabled.value = enabled
@@ -1247,5 +1251,7 @@ private class FakeMedicationRepo(
     override suspend fun delete(id: String) = FamilyResult.Success(Unit)
     override fun observePrefs() = kotlinx.coroutines.flow.flowOf(prefs)
     override suspend fun setCourseRefillEnabled(personId: String, enabled: Boolean) =
+        FamilyResult.Success(Unit)
+    override suspend fun setOnTimeEnabled(personId: String, enabled: Boolean) =
         FamilyResult.Success(Unit)
 }

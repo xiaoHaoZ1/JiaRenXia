@@ -135,6 +135,12 @@ abstract class AppBindsModule {
 
     @Binds
     @Singleton
+    abstract fun bindMedAlarmGateway(
+        impl: io.github.xiaohaoz1.jiarenxia.reminder.AlarmManagerGateway
+    ): io.github.xiaohaoz1.jiarenxia.reminder.MedAlarmGateway
+
+    @Binds
+    @Singleton
     abstract fun bindDataClearer(
         impl: io.github.xiaohaoz1.jiarenxia.domain.ClearAllDataUseCase
     ): io.github.xiaohaoz1.jiarenxia.domain.DataClearer

@@ -11,6 +11,11 @@
          用户仍要在系统「安装未知应用」里单独授权。 -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- 「按时吃」提醒：SCHEDULE_EXACT_ALARM 允许用户授权后走精确闹钟
+         （不用 USE_EXACT_ALARM，避免无条件授予）；RECEIVE_BOOT_COMPLETED
+         供开机后重排用药闹钟。 -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
 
@@ -100,6 +105,20 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/jrx_widget_info" />
+        </receiver>
+
+        <!-- 「按时吃」闹钟：系统广播触发全量重排；闹钟本身走
+             exported=false 的显式 PendingIntent（不需要导出）。 -->
+        <receiver
+            android:name=".reminder.MedAlarmReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
         </receiver>
 
         <!-- GlanceRemoteViewsService 由 glance 库清单自带（BIND_REMOTEVIEWS 保护），

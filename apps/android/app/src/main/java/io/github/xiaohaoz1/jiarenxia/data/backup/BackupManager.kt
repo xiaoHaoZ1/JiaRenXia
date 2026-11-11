@@ -110,7 +110,8 @@ class BackupManager @Inject constructor(
                     tombIncludedPersonIds = settings.tombIncludedPersonIds.first(),
                     homeVisitHolidayNudge = settings.homeVisitHolidayNudge.first(),
                     medRemindersEnabled = settings.medRemindersEnabled.first(),
-                    medReminderMinuteOfDay = settings.medReminderMinuteOfDay.first()
+                    medReminderMinuteOfDay = settings.medReminderMinuteOfDay.first(),
+                    medOnTimeEnabled = settings.medOnTimeEnabled.first()
                 ),
                 avatars = avatarMap,
                 createdAt = System.currentTimeMillis(),
@@ -338,6 +339,7 @@ class BackupManager @Inject constructor(
             it.medRemindersEnabled?.let { v -> settings.setMedRemindersEnabled(v) }
             it.medReminderMinuteOfDay?.takeIf { m -> m in 0..1439 }
                 ?.let { m -> settings.setMedReminderMinuteOfDay(m) }
+            it.medOnTimeEnabled?.let { v -> settings.setMedOnTimeEnabled(v) }
             // 旧版激活码 licenseCode 字段：会员功能已下线，恢复时忽略
         }
         settings.clearReminderRunState()

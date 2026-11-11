@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -230,13 +231,20 @@ fun SettingsSwitchRow(
     subtitle: String? = null,
     icon: ImageVector? = null,
     /** 开关右侧之前的附加内容（如提醒时刻）。 */
-    trailing: (@Composable () -> Unit)? = null
+    trailing: (@Composable () -> Unit)? = null,
+    /** 置灰不可改（如子开关跟随总开关关闭）。 */
+    enabled: Boolean = true
 ) {
     val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth()
-            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .toggleable(
+                enabled = enabled,
+                value = checked, role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
+            .alpha(if (enabled) 1f else 0.5f)
             .padding(vertical = if (jiashu) 14.dp else 4.dp)
     ) {
         if (icon != null && !jiashu) {
@@ -256,7 +264,7 @@ fun SettingsSwitchRow(
             }
         }
         trailing?.invoke()
-        Switch(checked = checked, onCheckedChange = null)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 

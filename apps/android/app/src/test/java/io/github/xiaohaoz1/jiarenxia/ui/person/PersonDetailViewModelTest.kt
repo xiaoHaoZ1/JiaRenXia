@@ -100,7 +100,8 @@ class PersonDetailViewModelTest : RepoTestBase() {
                 db,
                 object : IdGenerator { override fun newId() = "m-" + (++seq) },
                 object : TimeSource { override fun now() = now }
-            )
+            ),
+            io.github.xiaohaoz1.jiarenxia.data.FakeSettingsRepository()
         ).also(viewModels::add)
     }
 

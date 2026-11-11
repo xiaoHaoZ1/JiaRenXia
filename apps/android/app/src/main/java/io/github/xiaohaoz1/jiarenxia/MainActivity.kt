@@ -39,6 +39,10 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var settings: SettingsRepository
 
+    /** 「按时吃」闹钟：每次回到前台重排（覆盖从授权页/通知设置返回）。 */
+    @Inject lateinit var medAlarmScheduler:
+        io.github.xiaohaoz1.jiarenxia.reminder.MedAlarmScheduler
+
     /** 起始路由判定：就绪前为 null，系统启动页由此保持。 */
     private val startVm: StartViewModel by viewModels()
 
@@ -130,6 +134,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
             }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            medAlarmScheduler.rescheduleAll()
         }
     }
 

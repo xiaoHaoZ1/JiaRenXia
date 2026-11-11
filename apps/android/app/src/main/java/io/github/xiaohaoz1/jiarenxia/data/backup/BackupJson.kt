@@ -75,6 +75,8 @@ data class BackupSettings(
     val medRemindersEnabled: Boolean? = null,
     /** 用药提醒时刻（可选；缺失/越界 → 保留当前设置）。 */
     val medReminderMinuteOfDay: Int? = null,
+    /** 「按时吃提醒」子开关（可选；缺失 → 保留当前设置）。 */
+    val medOnTimeEnabled: Boolean? = null,
     /** 旧版离线激活码（schemaVersion 6，会员功能已下线）：不再写入，
      *  仅为兼容旧备份保留字段，恢复时忽略。 */
     val licenseCode: String? = null
@@ -494,6 +496,7 @@ object BackupJson {
                 .put("medRemindersEnabled", it.medRemindersEnabled ?: JSONObject.NULL)
                 .put("medReminderMinuteOfDay",
                     it.medReminderMinuteOfDay ?: JSONObject.NULL)
+                .put("medOnTimeEnabled", it.medOnTimeEnabled ?: JSONObject.NULL)
                 .put("licenseCode", it.licenseCode ?: JSONObject.NULL))
         }
 
@@ -1177,6 +1180,8 @@ object BackupJson {
                 else o.optBoolean("medRemindersEnabled", true),
                 medReminderMinuteOfDay = if (o.isNull("medReminderMinuteOfDay")) null
                 else o.optInt("medReminderMinuteOfDay", -1).takeIf { it in 0..1439 },
+                medOnTimeEnabled = if (o.isNull("medOnTimeEnabled")) null
+                else o.optBoolean("medOnTimeEnabled", true),
                 // A6 后忽略：旧备份里的 giftModuleEnabled / insuranceModuleEnabled
                 licenseCode = if (o.isNull("licenseCode")) null
                 else o.optString("licenseCode", "").ifEmpty { null }

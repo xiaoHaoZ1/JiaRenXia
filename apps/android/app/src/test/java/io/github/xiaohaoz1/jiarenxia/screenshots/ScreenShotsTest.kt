@@ -2883,6 +2883,44 @@ class ScreenShotsTest {
             state = elderHomeState(), onOpenPerson = {}, onCall = {}, onExit = {})
     }.also { assertTexts("我的家人", "孙子的生日", "打电话") }
 
+    /** 长辈首页「今天要吃的药」演示：08:00 已过置灰、12:00 高亮、20:00 正常。 */
+    private fun elderHomeMedsState() = elderHomeState().copy(
+        medPlan = listOf(
+            io.github.xiaohaoz1.jiarenxia.ui.elder.ElderMedPlan(
+                480, "二甲双胍 1 片"),
+            io.github.xiaohaoz1.jiarenxia.ui.elder.ElderMedPlan(
+                720, "阿司匹林 1 片、布洛芬 1 粒"),
+            io.github.xiaohaoz1.jiarenxia.ui.elder.ElderMedPlan(
+                1200, "维生素C 1 片（疗程待确认）")
+        )
+    )
+
+    // 现在 12:10 → 阈值 11:40 → 12:00 行（中间）高亮
+    private val elderMedsNow = java.time.LocalDateTime.of(2026, 11, 11, 12, 10)
+
+    @Test
+    fun elderHomeMeds() = shotLarge(
+        "elder_home_meds",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeMedsState(), onOpenPerson = {}, onCall = {},
+            onExit = {}, now = elderMedsNow)
+    }.also {
+        assertTexts("今天要吃的药", "08:00", "二甲双胍 1 片",
+            "12:00", "阿司匹林 1 片、布洛芬 1 粒",
+            "20:00", "维生素C 1 片（疗程待确认）")
+    }
+
+    @Test
+    fun elderHomeMedsJiashu() = shotLarge("elder_home_meds_jiashu") {
+        io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
+            state = elderHomeMedsState(), onOpenPerson = {}, onCall = {},
+            onExit = {}, now = elderMedsNow)
+    }.also {
+        assertTexts("今天要吃的药", "08:00", "12:00", "20:00")
+    }
+
     @Test
     fun elderHomeEmpty() = shotLarge("elder_home_empty") {
         io.github.xiaohaoz1.jiarenxia.ui.elder.ElderHomeContent(
@@ -4423,15 +4461,23 @@ class ScreenShotsTest {
     )
 
     @androidx.compose.runtime.Composable
-    private fun medCardContent(meds: List<
-        io.github.xiaohaoz1.jiarenxia.core.model.Medication>) =
-        Column(Modifier.padding(16.dp)) {
-            io.github.xiaohaoz1.jiarenxia.ui.person.MedicationCard(
-                medications = meds, today = Demo.today,
-                courseRefillEnabled = true,
-                onSetCourseRefill = {}, onOpenEdit = {}, onOpenDoctor = {}
-            )
-        }
+    private fun medCardContent(
+        meds: List<io.github.xiaohaoz1.jiarenxia.core.model.Medication>,
+        onTimeEnabled: Boolean = false,
+        onTimeSwitchEnabled: Boolean = true,
+        onTimeHint: io.github.xiaohaoz1.jiarenxia.ui.person.MedOnTimeHint =
+            io.github.xiaohaoz1.jiarenxia.ui.person.MedOnTimeHint.NONE
+    ) = Column(Modifier.padding(16.dp)) {
+        io.github.xiaohaoz1.jiarenxia.ui.person.MedicationCard(
+            medications = meds, today = Demo.today,
+            courseRefillEnabled = true,
+            onSetCourseRefill = {}, onOpenEdit = {}, onOpenDoctor = {},
+            onTimeEnabled = onTimeEnabled,
+            onTimeSwitchEnabled = onTimeSwitchEnabled,
+            onTimeHint = onTimeHint,
+            onSetOnTime = {}
+        )
+    }
 
     @Test
     fun medCard() {
@@ -4444,6 +4490,50 @@ class ScreenShotsTest {
                 "蒙脱石散", "需要时吃",
                 "以前吃过（2）", "记一种药", "给医生看",
                 "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardOnTime() {
+        // 按时吃开 + 缺精确闹钟权限 → 「提醒可能延迟」提示
+        shot("med_card_on_time") {
+            medCardContent(
+                demoMeds(), onTimeEnabled = true,
+                onTimeHint = io.github.xiaohaoz1.jiarenxia.ui.person
+                    .MedOnTimeHint.EXACT_ALARM_MISSING
+            )
+        }.also {
+            assertTexts("按时吃提醒", "部分手机需要在系统设置里允许家人侠自启动",
+                "提醒可能延迟", "允许准时提醒", "疗程到期与续药提醒")
+        }
+    }
+
+    @Test
+    fun medCardNotifOff() {
+        // 通知不可用 → 「通知未开启，提醒不会响」（优先于精确闹钟提示）
+        shot("med_card_notif_off") {
+            medCardContent(
+                demoMeds(), onTimeEnabled = true,
+                onTimeHint = io.github.xiaohaoz1.jiarenxia.ui.person
+                    .MedOnTimeHint.NOTIFICATIONS_OFF
+            )
+        }.also {
+            assertTexts("按时吃提醒", "通知未开启，提醒不会响", "去开启")
+            assertNoTexts("提醒可能延迟")
+        }
+    }
+
+    @Test
+    fun medCardOnTimeDisabled() {
+        // 「提醒」里的用药提醒或按时吃提醒已关闭 → 开关行置灰 + 替换副标题
+        shot("med_card_on_time_disabled") {
+            medCardContent(
+                demoMeds(), onTimeEnabled = true, onTimeSwitchEnabled = false
+            )
+        }.also {
+            assertTexts("按时吃提醒",
+                "「提醒」里的用药提醒或按时吃提醒已关闭")
+            assertNoTexts("部分手机需要在系统设置里允许家人侠自启动")
         }
     }
 
@@ -4486,6 +4576,7 @@ class ScreenShotsTest {
     }
 
     @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
     fun medEditShortPending() {
         // 短期疗程 + 疗程待确认：天数禁用 + warning 文案；时刻卡出现
         shot("med_edit_short_pending") {
@@ -4512,6 +4603,7 @@ class ScreenShotsTest {
     }
 
     @Test
+    @Config(qualifiers = "w412dp-h2400dp-xxhdpi")
     fun medEditLong() {
         // 长期吃：下次拿药日 + 时刻 chips + 饭后
         shot("med_edit_long") {
@@ -4629,6 +4721,21 @@ class ScreenShotsTest {
         }.also {
             assertTexts("生日与纪念日", "家庭事项", "联系家人", "上坟提醒",
                 "用药提醒", "疗程到期与续药", "20:30")
+        }
+    }
+
+    @Test
+    fun reminderSettingsMedOnTime() {
+        // 提醒设置页：用药提醒组内「按时吃提醒」子行
+        shot("reminder_settings_med_on_time") {
+            io.github.xiaohaoz1.jiarenxia.ui.reminder.ReminderSettingsContent(
+                state = io.github.xiaohaoz1.jiarenxia.ui.reminder
+                    .ReminderSettingsUi(medMinute = 20 * 60 + 30),
+                onBack = {}
+            )
+        }.also {
+            assertTexts("用药提醒", "疗程到期与续药", "20:30",
+                "按时吃提醒", "到点提醒吃药，默认只提醒“我”的药")
         }
     }
 

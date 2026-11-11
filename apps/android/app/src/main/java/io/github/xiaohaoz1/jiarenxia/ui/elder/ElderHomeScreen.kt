@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.domain.elder.ElderHome
+import io.github.xiaohaoz1.jiarenxia.domain.med.MedOnTime
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.JrxCard
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PageHeader
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.PersonAvatar
@@ -60,8 +61,9 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SectionHeader
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 import java.time.LocalDate
+import java.time.LocalDateTime
 
-/** 长辈模式首页（只读）：页头 + 最近的日子 + 家人名单 + 长按退出。 */
+/** 长辈模式首页（只读）：页头 + 今天要吃的药 + 最近的日子 + 家人名单 + 长按退出。 */
 @Composable
 fun ElderHomeScreen(
     onOpenPerson: (String) -> Unit,
@@ -90,12 +92,15 @@ fun ElderHomeContent(
     onOpenPerson: (String) -> Unit,
     onCall: (String) -> Unit,
     onExit: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** 「今天要吃的药」高亮判定用的当前时间（截图可注入固定值）。 */
+    now: LocalDateTime = LocalDateTime.now()
 ) {
     val jiashu = LocalJrxStyle.current == JrxStyle.JIASHU
     // 与家事页一致的水平边距：「经典」卡片外边距 16dp，「家书」行内容 24dp
     val sidePad = if (jiashu) 24.dp else 16.dp
     val today = LocalDate.now()
+    val nowMinute = now.hour * 60 + now.minute
     Surface(
         modifier = modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
@@ -125,6 +130,34 @@ fun ElderHomeContent(
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 「今天要吃的药」：有带时刻的药才显示；不看提醒开关，计划照样列出
+            if (state.medPlan.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        "今天要吃的药",
+                        modifier = Modifier.padding(horizontal = sidePad))
+                }
+                item {
+                    val hi = MedOnTime.highlightIndex(
+                        state.medPlan.map { it.minute }, nowMinute)
+                    ElderCard(
+                        jiashu,
+                        Modifier.padding(
+                            horizontal = sidePad,
+                            vertical = if (jiashu) 0.dp else 6.dp)
+                    ) {
+                        state.medPlan.forEachIndexed { i, row ->
+                            if (i > 0) ElderHairline()
+                            ElderMedLine(
+                                row = row,
+                                highlighted = i == hi,
+                                dimmed = hi == -1 || i < hi
                             )
                         }
                     }
@@ -229,6 +262,51 @@ internal fun ElderCard(
 @Composable
 internal fun ElderHairline() {
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+/** 「今天要吃的药」一行：左大字时刻 + 右药名列表；当前时段行高亮。 */
+@Composable
+private fun ElderMedLine(
+    row: ElderMedPlan,
+    highlighted: Boolean,
+    dimmed: Boolean
+) {
+    val timeColor = when {
+        highlighted -> MaterialTheme.colorScheme.onPrimaryContainer
+        dimmed -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val textColor = when {
+        highlighted -> MaterialTheme.colorScheme.onPrimaryContainer
+        dimmed -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .then(
+                if (highlighted) Modifier
+                    .padding(vertical = 4.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                else Modifier.padding(vertical = 10.dp)
+            ),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            "%02d:%02d".format(row.minute / 60, row.minute % 60),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Normal,
+            color = timeColor
+        )
+        Spacer(Modifier.width(16.dp))
+        Text(
+            row.text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = textColor,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 /** “最近的日子”一行：左 96dp 日期列 + 标题/副标题 +（生日今天）打电话。 */

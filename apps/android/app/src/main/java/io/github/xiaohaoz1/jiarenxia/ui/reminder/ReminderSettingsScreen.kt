@@ -63,6 +63,8 @@ data class ReminderSettingsUi(
     val contactEnabled: Boolean = true,
     val tombEnabled: Boolean = true,
     val medEnabled: Boolean = true,
+    /** 「按时吃提醒」子开关（用药提醒组内）。 */
+    val medOnTimeEnabled: Boolean = true,
     val birthdayMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val taskMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
     val contactMinute: Int = ReminderTiming.DEFAULT_MINUTE_OF_DAY,
@@ -109,6 +111,7 @@ class ReminderSettingsViewModel @Inject constructor(
         .combine(settings.tombReminderMinuteOfDay) { st, tm -> st.copy(tombMinute = tm) }
         .combine(settings.medRemindersEnabled) { st, me -> st.copy(medEnabled = me) }
         .combine(settings.medReminderMinuteOfDay) { st, mm -> st.copy(medMinute = mm) }
+        .combine(settings.medOnTimeEnabled) { st, v -> st.copy(medOnTimeEnabled = v) }
         .combine(
             combine(settings.tombDays, observeOverview()) { days, ov ->
                 days to TombCalendar.mourners(ov).size
@@ -169,6 +172,10 @@ class ReminderSettingsViewModel @Inject constructor(
     fun setMedMinute(m: Int) {
         viewModelScope.launch { settings.setMedReminderMinuteOfDay(m) }
     }
+
+    fun setMedOnTimeEnabled(on: Boolean) {
+        viewModelScope.launch { settings.setMedOnTimeEnabled(on) }
+    }
 }
 
 @Composable
@@ -197,6 +204,10 @@ fun ReminderSettingsScreen(
             viewModel.setMedEnabled(on)
             if (on) requester.request()
         },
+        onMedOnTimeEnabled = { on ->
+            viewModel.setMedOnTimeEnabled(on)
+            if (on) requester.request()
+        },
         onBirthdayMinute = viewModel::setBirthdayMinute,
         onTaskMinute = viewModel::setTaskMinute,
         onContactMinute = viewModel::setContactMinute,
@@ -216,6 +227,7 @@ fun ReminderSettingsContent(
     onContactEnabled: (Boolean) -> Unit = {},
     onTombEnabled: (Boolean) -> Unit = {},
     onMedEnabled: (Boolean) -> Unit = {},
+    onMedOnTimeEnabled: (Boolean) -> Unit = {},
     onBirthdayMinute: (Int) -> Unit = {},
     onTaskMinute: (Int) -> Unit = {},
     onContactMinute: (Int) -> Unit = {},
@@ -287,6 +299,14 @@ fun ReminderSettingsContent(
                         timeTarget = ReminderTimeTarget.MED
                     }
                 }
+            )
+            RowDivider()
+            SettingsSwitchRow(
+                title = "按时吃提醒",
+                subtitle = "到点提醒吃药，默认只提醒“我”的药",
+                checked = state.medOnTimeEnabled,
+                onCheckedChange = onMedOnTimeEnabled,
+                enabled = state.medEnabled
             )
         }
         SettingsHint("五类各管各的：关掉一类不影响其他四类。逾期的事项只置顶标红，不再反复发通知。")

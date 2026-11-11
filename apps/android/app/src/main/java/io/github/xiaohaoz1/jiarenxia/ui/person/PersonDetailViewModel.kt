@@ -62,6 +62,8 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
         io.github.xiaohaoz1.jiarenxia.core.model.Medication>
     val medPrefs get() = values[12] as List<
         io.github.xiaohaoz1.jiarenxia.core.model.MedicationPersonPrefs>
+    val medRemindersOn get() = values[13] as Boolean
+    val medOnTimeOn get() = values[14] as Boolean
 }
 
 data class PersonDetailUiState(
@@ -101,6 +103,10 @@ data class PersonDetailUiState(
         emptyList(),
     /** 「疗程到期与续药提醒」按人开关（无记录按默认开）。 */
     val medCourseRefillEnabled: Boolean = true,
+    /** 「按时吃提醒」该人开关的生效值（显式值优先；无记录“我”开他人关）。 */
+    val medOnTimeEffective: Boolean = false,
+    /** 用药总开关 && 「按时吃提醒」子开关都开时，按人开关才可改。 */
+    val medOnTimeSwitchOn: Boolean = true,
     /** 待产包按模板建好后的待跳转清单 id（页面消费后清空）。 */
     val pendingChecklistId: String? = null,
     /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
@@ -167,7 +173,9 @@ class PersonDetailViewModel @Inject constructor(
     private val celebrationRepository: io.github.xiaohaoz1.jiarenxia.data
         .BabyCelebrationRepository,
     private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
-        .MedicationRepository
+        .MedicationRepository,
+    private val settings: io.github.xiaohaoz1.jiarenxia.data.settings
+        .SettingsRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -193,7 +201,9 @@ class PersonDetailViewModel @Inject constructor(
                 ),
                 celebrationRepository.observeOverrides(personId),
                 medicationRepository.observeForPerson(personId),
-                medicationRepository.observePrefs()
+                medicationRepository.observePrefs(),
+                settings.medRemindersEnabled,
+                settings.medOnTimeEnabled
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -262,6 +272,12 @@ class PersonDetailViewModel @Inject constructor(
                             medCourseRefillEnabled = comb.medPrefs
                                 .firstOrNull { it.personId == personId }
                                 ?.courseRefillEnabled ?: true,
+                            medOnTimeEffective = comb.medPrefs
+                                .firstOrNull { it.personId == personId }
+                                ?.onTimeEnabled
+                                ?: (detail?.person?.isSelf == true),
+                            medOnTimeSwitchOn =
+                                comb.medRemindersOn && comb.medOnTimeOn,
                             canRecordPregnancy = run {
                                 val p = detail?.person ?: return@run false
                                 if (p.gender != io.github.xiaohaoz1.jiarenxia
@@ -324,6 +340,13 @@ class PersonDetailViewModel @Inject constructor(
     fun setMedCourseRefillEnabled(enabled: Boolean) {
         viewModelScope.launch {
             medicationRepository.setCourseRefillEnabled(personId, enabled)
+        }
+    }
+
+    /** 「按时吃提醒」按人开关（用药卡；写显式值）。 */
+    fun setMedOnTimeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            medicationRepository.setOnTimeEnabled(personId, enabled)
         }
     }
 

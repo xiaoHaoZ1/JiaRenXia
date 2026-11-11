@@ -154,6 +154,21 @@ fun PersonDetailScreen(
     // 打完电话回来的“联系上了吗”提示（10 分钟窗口）
     PostCallPromptEffect(viewModel.appEvents, viewModel::logCallContact)
     val context = LocalContext.current
+    // 「按时吃提醒」系统状态提示：每次回到前台重算（授权/通知设置返回后生效）
+    var medHint by androidx.compose.runtime.remember {
+        androidx.compose.runtime.mutableStateOf(medOnTimeHint(context))
+    }
+    val medHintLifecycleOwner =
+        androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.DisposableEffect(medHintLifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                medHint = medOnTimeHint(context)
+            }
+        }
+        medHintLifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { medHintLifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     LaunchedEffect(st.error) { st.error?.let { snackbar.showSnackbar(it); viewModel.onErrorShown() } }
     LaunchedEffect(st.notice) { st.notice?.let { snackbar.showSnackbar(it); viewModel.onNoticeShown() } }
@@ -185,6 +200,8 @@ fun PersonDetailScreen(
         onOpenMedEdit = onOpenMedEdit,
         onOpenMedDoctor = onOpenMedDoctor,
         onSetMedCourseRefill = viewModel::setMedCourseRefillEnabled,
+        onSetMedOnTime = viewModel::setMedOnTimeEnabled,
+        medOnTimeHint = medHint,
         onSetCelebration = viewModel::setCelebration,
         onEnsureBirthBag = viewModel::openBirthBag,
         observePregnancyTasks = viewModel::tasksForPregnancy,
@@ -259,6 +276,10 @@ fun PersonDetailContent(
     onOpenMedEdit: (String?) -> Unit = {},
     onOpenMedDoctor: () -> Unit = {},
     onSetMedCourseRefill: (Boolean) -> Unit = {},
+    /** 「按时吃提醒」按人开关。 */
+    onSetMedOnTime: (Boolean) -> Unit = {},
+    /** 「按时吃提醒」系统状态提示（截图可注入；默认无提示）。 */
+    medOnTimeHint: MedOnTimeHint = MedOnTimeHint.NONE,
     /** 满月/百天庆祝日期另设（null = 按出生日算）。 */
     onSetCelebration: (
         io.github.xiaohaoz1.jiarenxia.core.model.BabyCelebrationKind,
@@ -900,7 +921,11 @@ fun PersonDetailContent(
                         courseRefillEnabled = st.medCourseRefillEnabled,
                         onSetCourseRefill = onSetMedCourseRefill,
                         onOpenEdit = onOpenMedEdit,
-                        onOpenDoctor = onOpenMedDoctor
+                        onOpenDoctor = onOpenMedDoctor,
+                        onTimeEnabled = st.medOnTimeEffective,
+                        onTimeSwitchEnabled = st.medOnTimeSwitchOn,
+                        onTimeHint = medOnTimeHint,
+                        onSetOnTime = onSetMedOnTime
                     )
                     Spacer(Modifier.height(12.dp))
                 }

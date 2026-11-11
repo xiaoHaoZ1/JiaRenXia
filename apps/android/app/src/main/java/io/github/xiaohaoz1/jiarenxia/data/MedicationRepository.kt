@@ -61,6 +61,8 @@ interface MedicationRepository {
     fun observePrefs(): Flow<List<MedicationPersonPrefs>>
     /** 「疗程到期与续药提醒」开关；personId 无行时补默认行。 */
     suspend fun setCourseRefillEnabled(personId: String, enabled: Boolean): FamilyResult<Unit>
+    /** 「按时吃提醒」按人开关（写显式值；personId 无行时补默认行）。 */
+    suspend fun setOnTimeEnabled(personId: String, enabled: Boolean): FamilyResult<Unit>
 }
 
 @Singleton
@@ -234,6 +236,21 @@ class MedicationRepositoryImpl @Inject constructor(
                 personId = personId,
                 courseRefillEnabled = enabled,
                 onTimeEnabled = old?.onTimeEnabled
+            )
+        )
+        FamilyResult.Success(Unit)
+    }
+
+    override suspend fun setOnTimeEnabled(
+        personId: String,
+        enabled: Boolean
+    ): FamilyResult<Unit> = db.withTransaction {
+        val old = prefsDao.get(personId)
+        prefsDao.upsert(
+            MedicationPersonPrefsEntity(
+                personId = personId,
+                courseRefillEnabled = old?.courseRefillEnabled ?: true,
+                onTimeEnabled = enabled
             )
         )
         FamilyResult.Success(Unit)

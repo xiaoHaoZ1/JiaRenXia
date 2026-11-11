@@ -224,6 +224,30 @@ class MedicationRepositoryTest : RepoTestBase() {
     }
 
     @Test
+    fun 按时吃开关_null默认他人关() = runTest {
+        val me = createSelf()
+        val mom = repo.createRelative(
+            PersonDraft(name = "妈妈", gender = Gender.FEMALE),
+            me, io.github.xiaohaoz1.jiarenxia.core.model.RelationRole.MOTHER
+        ).ok()
+        // 无 prefs 行 → onTimeEnabled 为 null（默认由调用方按“我开他人关”处理）
+        assertTrue(meds.observePrefs().first().none { it.personId == mom })
+        meds.setOnTimeEnabled(mom, true).ok()
+        val prefs = meds.observePrefs().first().first { it.personId == mom }
+        assertEquals(true, prefs.onTimeEnabled)
+        // 只写 onTimeEnabled 时保留 courseRefillEnabled 默认值
+        assertEquals(true, prefs.courseRefillEnabled)
+        // 显式关回 → onTimeEnabled=false（区别于 null 默认）
+        meds.setOnTimeEnabled(mom, false).ok()
+        assertEquals(false, meds.observePrefs().first()
+            .first { it.personId == mom }.onTimeEnabled)
+        // 我也可以显式设置
+        meds.setOnTimeEnabled(me, false).ok()
+        assertEquals(false, meds.observePrefs().first()
+            .first { it.personId == me }.onTimeEnabled)
+    }
+
+    @Test
     fun observeForPerson只回该人() = runTest {
         val me = createSelf()
         val other = repo.createRelative(

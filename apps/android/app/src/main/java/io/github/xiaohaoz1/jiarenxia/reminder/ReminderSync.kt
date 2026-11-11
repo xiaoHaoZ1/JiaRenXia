@@ -32,6 +32,7 @@ class ReminderSync @Inject constructor(
     private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
         .MedicationRepository,
     private val settings: SettingsRepository,
+    private val medAlarmScheduler: MedAlarmScheduler,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     private var started = false
@@ -41,6 +42,7 @@ class ReminderSync @Inject constructor(
         started = true
         scope.launch {
             scheduler.reconcile()
+            medAlarmScheduler.rescheduleAll()
         }
         scope.launch {
             // 数据侧：生日、纪念日/忌日、家庭事项、联系计划与联系记录、回家看看计划
@@ -86,7 +88,8 @@ class ReminderSync @Inject constructor(
                 settings.tombIncludedPersonIds,
                 settings.homeVisitHolidayNudge,
                 settings.medRemindersEnabled,
-                settings.medReminderMinuteOfDay
+                settings.medReminderMinuteOfDay,
+                settings.medOnTimeEnabled
             ) { v ->
                 SettingsWatch(
                     v[0] as Boolean, v[1] as Boolean, v[2] as Boolean,
@@ -98,13 +101,18 @@ class ReminderSync @Inject constructor(
                     (v[10] as Set<*>).filterIsInstance<String>().toSet(),
                     (v[11] as Set<*>).filterIsInstance<String>().toSet(),
                     v[12] as Boolean,
-                    v[13] as Boolean, v[14] as Int
+                    v[13] as Boolean, v[14] as Int, v[15] as Boolean
                 )
             }
             combine(dataWatch, settingsWatch) { d, s -> ReminderWatch(d, s) }
                 .distinctUntilChanged()
                 .debounce(500)
-                .collectLatest { scheduler.reconcile() }
+                .collectLatest {
+                    scheduler.reconcile()
+                    // 「按时吃」闹钟：用药数据/每人开关/三个用药设置变化、
+                    // 备份恢复与清空数据（数据流触发）都经这里全量重排
+                    medAlarmScheduler.rescheduleAll()
+                }
         }
     }
 
@@ -137,7 +145,8 @@ class ReminderSync @Inject constructor(
         val tombIncludedIds: Set<String>,
         val homeVisitHolidayNudge: Boolean,
         val medRemindersEnabled: Boolean,
-        val medMinute: Int
+        val medMinute: Int,
+        val medOnTimeEnabled: Boolean
     )
 
     private data class ReminderWatch(val data: DataWatch, val settings: SettingsWatch)

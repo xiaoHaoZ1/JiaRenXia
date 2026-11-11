@@ -108,6 +108,10 @@ class BackupManagerTest : RepoTestBase() {
         override suspend fun setMedReminderMinuteOfDay(minute: Int) {
             medReminderMinuteOfDay.value = minute
         }
+        override val medOnTimeEnabled = kotlinx.coroutines.flow.MutableStateFlow(true)
+        override suspend fun setMedOnTimeEnabled(enabled: Boolean) {
+            medOnTimeEnabled.value = enabled
+        }
         override val tombRemindersEnabled = kotlinx.coroutines.flow.MutableStateFlow(true)
         override suspend fun setTombRemindersEnabled(enabled: Boolean) {
             tombRemindersEnabled.value = enabled
@@ -2030,11 +2034,12 @@ class BackupManagerTest : RepoTestBase() {
         db.medicationPersonPrefsDao().upsertAll(listOf(
             io.github.xiaohaoz1.jiarenxia.data.db.MedicationPersonPrefsEntity(
                 personId = me, courseRefillEnabled = false,
-                onTimeEnabled = null)
+                onTimeEnabled = false)
         ))
         // 用药提醒设置随备份
         fakeSettings.setMedRemindersEnabled(false)
         fakeSettings.setMedReminderMinuteOfDay(600)
+        fakeSettings.setMedOnTimeEnabled(false)
 
         val out = ByteArrayOutputStream()
         backup.export(out, pw)
@@ -2046,6 +2051,7 @@ class BackupManagerTest : RepoTestBase() {
         assertEquals(1, plan.medicationPrefs.size)
         assertEquals(false, plan.settings?.medRemindersEnabled)
         assertEquals(600, plan.settings?.medReminderMinuteOfDay)
+        assertEquals(false, plan.settings?.medOnTimeEnabled)
 
         backup.restore(plan)
         val meds = db.medicationDao().getAll().sortedBy { it.id }
@@ -2062,9 +2068,11 @@ class BackupManagerTest : RepoTestBase() {
         val prefs = db.medicationPersonPrefsDao().getAll().single()
         assertEquals(me, prefs.personId)
         assertEquals(false, prefs.courseRefillEnabled)
+        assertEquals(false, prefs.onTimeEnabled)
         // 设置落库
         assertEquals(false, fakeSettings.medRemindersEnabled.first())
         assertEquals(600, fakeSettings.medReminderMinuteOfDay.first())
+        assertEquals(false, fakeSettings.medOnTimeEnabled.first())
     }
 
     @Test

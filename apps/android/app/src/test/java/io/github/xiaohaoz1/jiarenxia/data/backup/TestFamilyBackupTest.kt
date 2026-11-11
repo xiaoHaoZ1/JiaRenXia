@@ -70,6 +70,10 @@ class TestFamilyBackupTest : RepoTestBase() {
         override suspend fun setMedReminderMinuteOfDay(minute: Int) {
             medReminderMinuteOfDay.value = minute
         }
+        override val medOnTimeEnabled = kotlinx.coroutines.flow.MutableStateFlow(true)
+        override suspend fun setMedOnTimeEnabled(enabled: Boolean) {
+            medOnTimeEnabled.value = enabled
+        }
         override val tombRemindersEnabled = MutableStateFlow(true)
         override suspend fun setTombRemindersEnabled(enabled: Boolean) {
             tombRemindersEnabled.value = enabled
