@@ -64,6 +64,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -1910,7 +1912,11 @@ class ScreenShotsTest {
     @Test
     @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
     fun mineWithNav() = navShot("mine_with_nav", "mine") {
-        MineContent(self = Demo.demoOverview().self.person)
+        // 隐藏守护侠推荐卡：本截图只验底栏，「守护」断言防的是守护标签复活
+        MineContent(
+            self = Demo.demoOverview().self.person,
+            guardianPromoDismissed = true
+        )
     }.also { assertTexts("家庭", "家事", "我的", "功能介绍与管理"); assertNoTexts("守护") }
 
     @Test
@@ -3047,10 +3053,11 @@ class ScreenShotsTest {
     /** 长辈模式开启确认框截图：AlertDialog 弹层无法被截图，渲染同款卡片内容。 */
     private fun elderConfirmShot(
         name: String,
-        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+        style: io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle,
+        large: Boolean = true
     ) {
         // 同 customTitleDialog 的做法：遮罩 + 圆角卡片 + 标题/正文/按钮行
-        shotLarge(name, style = style) {
+        val card: @Composable () -> Unit = {
             Box(
                 modifier = Modifier.fillMaxSize()
                     .background(Color(0x66000000)),
@@ -3081,10 +3088,11 @@ class ScreenShotsTest {
                     }
                 }
             }
-        }.also {
-            assertTexts("开启长辈模式？", "只保留看家人", "退出长辈模式",
-                "取消", "开启")
         }
+        if (large) shotLarge(name, style = style, content = card)
+        else shot(name, style = style, content = card)
+        assertTexts("开启长辈模式？", "只保留看家人", "退出长辈模式",
+            "取消", "开启")
     }
 
     @Test
@@ -4904,6 +4912,259 @@ class ScreenShotsTest {
         composeRule.waitForIdle()
         capture("pregnancy_card_menu")
         assertTexts("问一问", "改预产期", "结束这条孕期记录", "删除这条记录")
+    }
+
+    // ---------- 第 7 批：守护侠推荐 + 打电话要问的事 ----------
+
+    private fun shotCallQuestion(
+        id: String, text: String, keep: Boolean = false
+    ) = io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity(
+        id = id, personId = "mom", text = text, keep = keep,
+        createdAt = 1, updatedAt = 1)
+
+    @Composable
+    private fun callQuestionsCardContent(
+        questions: List<io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity>
+    ) = Column(Modifier.padding(16.dp)) {
+        io.github.xiaohaoz1.jiarenxia.ui.person.CallQuestionsCard(
+            questions = questions,
+            onAdd = { _, _ -> }, onUpdate = { _, _, _ -> }, onDelete = {})
+    }
+
+    /** 「我的」页守护侠推荐卡（经典）。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun mineGuardianPromo() = shot(
+        "mine_guardian_promo",
+        style = io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.CLASSIC
+    ) {
+        MineContent(self = Demo.demoOverview().self.person)
+    }.also {
+        assertTexts("给爸妈的手机装上「守护侠」", "去看看", "不再显示")
+    }
+
+    /** 「我的」页守护侠推荐卡（家书）。 */
+    @Test
+    @Config(qualifiers = "w412dp-h1500dp-xxhdpi")
+    fun mineGuardianPromoJiashu() = shot("mine_guardian_promo_jiashu") {
+        MineContent(self = Demo.demoOverview().self.person)
+    }.also {
+        assertTexts("给爸妈的手机装上「守护侠」", "去看看", "不再显示")
+    }
+
+    /** 「不再显示」后推荐卡整卡隐藏（本机设置，不进备份）。 */
+    @Test
+    fun mineGuardianPromoDismissed() = shot("mine_guardian_promo_dismissed") {
+        MineContent(
+            self = Demo.demoOverview().self.person,
+            guardianPromoDismissed = true
+        )
+    }.also {
+        assertNoTexts("给爸妈的手机装上「守护侠」")
+    }
+
+    /** 「帮助与关于」常驻守护侠入口行。 */
+    @Test
+    fun aboutGuardianRow() = shot("about_guardian_row") {
+        io.github.xiaohaoz1.jiarenxia.ui.mine.AboutContent(
+            onBack = {}, onPrivacy = {}, onIntro = {}
+        )
+    }.also {
+        assertTexts("守护侠", "装在独居长辈手机上的守护应用")
+    }
+
+    /** 长辈模式确认框末尾的守护侠推荐段。 */
+    @Test
+    fun elderConfirmGuardian() {
+        elderConfirmShot(
+            "elder_confirm_guardian",
+            io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle.JIASHU,
+            large = false
+        )
+        assertTexts("建议在这台手机上同时安装「守护侠」")
+    }
+
+    /** 人物页「打电话要问的事」卡：2 条，其中 1 条「每次都问」。 */
+    @Test
+    fun callQuestionsCard() = shot("call_questions_card") {
+        callQuestionsCardContent(listOf(
+            shotCallQuestion("q1", "有没有按时吃药"),
+            shotCallQuestion("q2", "血压量了吗", keep = true)
+        ))
+    }.also {
+        assertTexts("打电话要问的事", "有没有按时吃药", "血压量了吗",
+            "每次都问", "添加")
+        assertDescs("要问的事操作：有没有按时吃药", "要问的事操作：血压量了吗")
+    }
+
+    /** 「打电话要问的事」卡空态。 */
+    @Test
+    fun callQuestionsCardEmpty() = shot("call_questions_card_empty") {
+        callQuestionsCardContent(emptyList())
+    }.also {
+        assertTexts("打电话要问的事",
+            "想在电话里问的事记在这里，从家人侠拨号前会提醒你。", "添加")
+    }
+
+    /**
+     * 对话框截图：AlertDialog 弹层无法被截图（同 elderConfirmShot 做法），
+     * 渲染同款卡片：遮罩 + 圆角卡片 + 标题/正文/按钮行。
+     */
+    private fun dialogCardShot(
+        name: String,
+        large: Boolean = false,
+        title: @Composable () -> Unit,
+        body: @Composable () -> Unit,
+        actions: @Composable () -> Unit
+    ) {
+        val card: @Composable () -> Unit = {
+            Box(
+                modifier = Modifier.fillMaxSize()
+                    .background(Color(0x66000000)),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    tonalElevation = 6.dp,
+                    modifier = Modifier.padding(28.dp).fillMaxWidth()
+                ) {
+                    Column(Modifier.padding(24.dp)) {
+                        title()
+                        Spacer(Modifier.height(16.dp))
+                        body()
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) { actions() }
+                    }
+                }
+            }
+        }
+        if (large) shotLarge(name, content = card)
+        else shot(name, content = card)
+    }
+
+    /** 「添加要问的事」对话框初始态（空输入、保存禁用）。 */
+    @Test
+    fun callQuestionDialog() {
+        dialogCardShot(
+            "call_question_dialog",
+            title = {
+                io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle(
+                    "添加要问的事")
+            },
+            body = {
+                Column {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = "",
+                        onValueChange = {},
+                        label = { Text("要问什么") },
+                        placeholder = { Text("比如：有没有按时吃药") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        androidx.compose.material3.Checkbox(
+                            checked = false, onCheckedChange = {})
+                        Text("每次打电话都问")
+                    }
+                }
+            },
+            actions = {
+                TextButton(onClick = {}) { Text("取消") }
+                TextButton(enabled = false, onClick = {}) { Text("保存") }
+            }
+        )
+        // placeholder 不进语义树，不参与断言（截图里可见）
+        assertTexts("添加要问的事", "要问什么",
+            "每次打电话都问", "取消", "保存")
+    }
+
+    /** 拨号前「打给…之前」夹具：3 条要问的事（含 1 条每次都问，不加标注）。 */
+    private val shotPreCallQuestions = listOf(
+        shotCallQuestion("q1", "有没有按时吃药"),
+        shotCallQuestion("q2", "血压量了吗", keep = true),
+        shotCallQuestion("q3", "上次说的复查去了吗")
+    )
+
+    private fun precallDialogShot(large: Boolean) {
+        dialogCardShot(
+            "precall_dialog",
+            large = large,
+            title = {
+                io.github.xiaohaoz1.jiarenxia.ui.designsystem.DialogTitle(
+                    "打给妈妈之前")
+            },
+            body = {
+                io.github.xiaohaoz1.jiarenxia.ui.common.PreCallQuestionsBody(
+                    shotPreCallQuestions)
+            },
+            actions = {
+                TextButton(onClick = {}) { Text("取消") }
+                TextButton(onClick = {}) { Text("去拨号") }
+            }
+        )
+        assertTexts("打给妈妈之前", "记得问：", "· 有没有按时吃药",
+            "· 血压量了吗", "· 上次说的复查去了吗", "取消", "去拨号")
+    }
+
+    @Test
+    fun precallDialog() = precallDialogShot(large = false)
+
+    @Test
+    fun precallDialogLg() = precallDialogShot(large = true)
+
+    /** 「联系上了吗」+ 「问过的就划掉」勾选区（只问一次条目默认全勾）。 */
+    @Test
+    fun postcallDialogQuestions() {
+        dialogCardShot(
+            "postcall_dialog_questions",
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("联系上了吗？", modifier = Modifier.weight(1f))
+                    androidx.compose.material3.IconButton(onClick = {}) {
+                        androidx.compose.material3.Icon(
+                            Icons.Rounded.Close,
+                            contentDescription = "关闭")
+                    }
+                }
+            },
+            body = {
+                Column {
+                    Text("刚才给妈妈打了电话。" +
+                        "联系上了记一笔，没联系上提醒还会留着。")
+                    Text(
+                        "问过的就划掉：",
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                    listOf("有没有按时吃药", "上次说的复查去了吗")
+                        .forEach { q ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                androidx.compose.material3.Checkbox(
+                                    checked = true, onCheckedChange = {})
+                                Text(q, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                }
+            },
+            actions = {
+                TextButton(onClick = {}) { Text("没联系上") }
+                TextButton(onClick = {}) { Text("联系上了") }
+            }
+        )
+        assertTexts("联系上了吗？", "刚才给妈妈打了电话。",
+            "问过的就划掉：", "有没有按时吃药", "上次说的复查去了吗",
+            "没联系上", "联系上了")
+        assertDescs("关闭")
     }
 
 }

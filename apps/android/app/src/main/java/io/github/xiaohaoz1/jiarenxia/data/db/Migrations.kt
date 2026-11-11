@@ -508,3 +508,14 @@ val MIGRATION_22_23 = object : Migration(22, 23) {
         db.execSQL("CREATE TABLE IF NOT EXISTS `medication_person_prefs` (`person_id` TEXT NOT NULL, `course_refill_enabled` INTEGER NOT NULL DEFAULT 1, `on_time_enabled` INTEGER, PRIMARY KEY(`person_id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
     }
 }
+
+/**
+ * v23 → v24：「打电话要问的事」（FAMILY_AFFAIRS 26 第 7 批）——
+ * call_questions（person_id 级联，keep = 每次都问）。
+ */
+val MIGRATION_23_24 = object : Migration(23, 24) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `call_questions` (`id` TEXT NOT NULL, `person_id` TEXT NOT NULL, `text` TEXT NOT NULL, `keep` INTEGER NOT NULL DEFAULT 0, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_call_questions_person_id` ON `call_questions` (`person_id`)")
+    }
+}

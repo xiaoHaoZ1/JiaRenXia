@@ -64,6 +64,9 @@ private data class PersonDetailCombine(val values: Array<out Any?>) {
         io.github.xiaohaoz1.jiarenxia.core.model.MedicationPersonPrefs>
     val medRemindersOn get() = values[13] as Boolean
     val medOnTimeOn get() = values[14] as Boolean
+    @Suppress("UNCHECKED_CAST")
+    val callQuestions get() = values[15] as List<
+        io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity>
 }
 
 data class PersonDetailUiState(
@@ -107,6 +110,9 @@ data class PersonDetailUiState(
     val medOnTimeEffective: Boolean = false,
     /** 用药总开关 && 「按时吃提醒」子开关都开时，按人开关才可改。 */
     val medOnTimeSwitchOn: Boolean = true,
+    /** 「打电话要问的事」（在世、非“我”的人物；按创建时间升序）。 */
+    val callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .CallQuestionEntity> = emptyList(),
     /** 待产包按模板建好后的待跳转清单 id（页面消费后清空）。 */
     val pendingChecklistId: String? = null,
     /** 女性在世且（是“我”或“我”的配偶）且无 ACTIVE 孕期 → 「重要日期」卡“添加预产期”入口。 */
@@ -178,7 +184,9 @@ class PersonDetailViewModel @Inject constructor(
     private val medicationRepository: io.github.xiaohaoz1.jiarenxia.data
         .MedicationRepository,
     private val settings: io.github.xiaohaoz1.jiarenxia.data.settings
-        .SettingsRepository
+        .SettingsRepository,
+    private val callQuestionRepository: io.github.xiaohaoz1.jiarenxia.data
+        .CallQuestionRepository
 ) : ViewModel() {
 
     private val personId: String = checkNotNull(savedStateHandle["personId"])
@@ -206,7 +214,8 @@ class PersonDetailViewModel @Inject constructor(
                 medicationRepository.observeForPerson(personId),
                 medicationRepository.observePrefs(),
                 settings.medRemindersEnabled,
-                settings.medOnTimeEnabled
+                settings.medOnTimeEnabled,
+                callQuestionRepository.observeForPerson(personId)
             ) { values -> PersonDetailCombine(values) }
                 .collect { comb ->
                     val detail = comb.detail
@@ -281,6 +290,7 @@ class PersonDetailViewModel @Inject constructor(
                                 ?: (detail?.person?.isSelf == true),
                             medOnTimeSwitchOn =
                                 comb.medRemindersOn && comb.medOnTimeOn,
+                            callQuestions = comb.callQuestions,
                             canRecordPregnancy = run {
                                 val p = detail?.person ?: return@run false
                                 if (p.gender != io.github.xiaohaoz1.jiarenxia
@@ -592,21 +602,68 @@ class PersonDetailViewModel @Inject constructor(
         }
     }
 
-    /** 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。 */
-    fun onDialMade(person: io.github.xiaohaoz1.jiarenxia.core.model.Person,
-        label: String) {
-        appEvents.pendingContactPrompt =
-            io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
-                person.id, label, System.currentTimeMillis())
+    /** 「打电话要问的事」新增（卡片内对话框；校验失败走 error）。 */
+    fun addCallQuestion(text: String, keep: Boolean) {
+        viewModelScope.launch {
+            val r = callQuestionRepository.add(personId, text, keep)
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
     }
 
-    /** “联系上了”：按拨号时刻记一条电话类型的联系。 */
-    fun logCallContact(prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt) {
+    /** 「打电话要问的事」改文字与/或 keep（null 表示不改该项）。 */
+    fun updateCallQuestion(id: String, text: String?, keep: Boolean?) {
+        viewModelScope.launch {
+            val r = callQuestionRepository.update(id, text, keep)
+            if (r is FamilyResult.Failure) {
+                _ui.update { it.copy(error = r.error.message) }
+            }
+        }
+    }
+
+    /** 「打电话要问的事」删除（不二次确认，snackbar「已删除」）。 */
+    fun deleteCallQuestion(id: String) {
+        viewModelScope.launch {
+            callQuestionRepository.delete(id)
+            _ui.update { it.copy(notice = "已删除") }
+        }
+    }
+
+    /** 拨号前现取该人要问的事（不等 UI 状态流刷新）。 */
+    suspend fun callQuestionsFor(pid: String) =
+        callQuestionRepository.getForPerson(pid)
+
+    /**
+     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。
+     * [oneTimeQuestions] 为这次拨号前弹过的「只问一次」条目，
+     * “联系上了”时按勾选删除（只在内存里，不持久化）。
+     */
+    fun onDialMade(person: io.github.xiaohaoz1.jiarenxia.core.model.Person,
+        label: String,
+        oneTimeQuestions: List<io.github.xiaohaoz1.jiarenxia.domain.call
+            .CallQuestionPrompt> = emptyList()) {
+        appEvents.pendingContactPrompt =
+            io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
+                person.id, label, System.currentTimeMillis(), oneTimeQuestions)
+    }
+
+    /**
+     * “联系上了”：按拨号时刻记一条电话类型的联系；
+     * 勾选的「只问一次」要问的事一并删除（“每次都问”永不在列）。
+     */
+    fun logCallContact(
+        prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt,
+        checkedQuestionIds: Set<String> = emptySet()
+    ) {
         viewModelScope.launch {
             contactRepository.logContact(
                 personId,
                 io.github.xiaohaoz1.jiarenxia.core.model.ContactMethod.CALL,
                 null, prompt.atMillis)
+            val ids = io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestions
+                .deletionIds(prompt.oneTimeQuestions, checkedQuestionIds)
+            if (ids.isNotEmpty()) callQuestionRepository.deleteIds(ids)
         }
     }
 

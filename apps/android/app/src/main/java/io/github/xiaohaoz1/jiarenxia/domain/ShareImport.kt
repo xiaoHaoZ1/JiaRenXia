@@ -154,6 +154,7 @@ object ShareImport {
         babyCelebrations = emptyList(),
         medications = emptyList(),
         medicationPrefs = emptyList(),
+        callQuestions = emptyList(),
         settings = null,
         summary = plan.summary.copy(tasks = 0)
     )

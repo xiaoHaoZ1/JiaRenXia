@@ -718,6 +718,33 @@ data class MedicationPersonPrefsEntity(
     @ColumnInfo(name = "on_time_enabled") val onTimeEnabled: Boolean?
 )
 
+/**
+ * call_questions：「打电话要问的事」（FAMILY_AFFAIRS 26 第 7 批，v24）。
+ * person_id 级联；keep = 每次打电话都问（否则只问一次，联系上后可划掉）。
+ * 每人至多 10 条、文字 1–40 字，由仓库校验。
+ */
+@Entity(
+    tableName = "call_questions",
+    indices = [Index("person_id")],
+    foreignKeys = [
+        ForeignKey(
+            entity = PersonEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["person_id"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class CallQuestionEntity(
+    @PrimaryKey val id: String,
+    @ColumnInfo(name = "person_id") val personId: String,
+    val text: String,
+    /** 1 = 每次都问；0 = 只问一次（联系上后可在“联系上了吗”里划掉删除）。 */
+    val keep: Boolean,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
+)
+
 /** 清单 + 其条目（一致快照查询用）。 */
 data class ChecklistWithItems(
     @Embedded val checklist: ChecklistEntity,

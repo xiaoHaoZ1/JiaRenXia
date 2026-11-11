@@ -113,5 +113,9 @@ class FakeSettingsRepository : SettingsRepository {
     override suspend fun setUpdateKnownNotes(notes: String) { updateKnownNotes.value = notes }
     override val updateSkippedCode = MutableStateFlow(0)
     override suspend fun setUpdateSkippedCode(code: Int) { updateSkippedCode.value = code }
+    override val guardianPromoDismissed = MutableStateFlow(false)
+    override suspend fun setGuardianPromoDismissed(dismissed: Boolean) {
+        guardianPromoDismissed.value = dismissed
+    }
     override suspend fun clear() {}
 }

@@ -59,7 +59,7 @@ class BackupManager @Inject constructor(
                 contactLogs, contactPlans, personFacts, homeVisits,
                 pregnancies, pregnancyBabies, checklists, checklistItems,
                 babyCelebrations, medications, medicationTimes,
-                medicationPrefs) = persons
+                medicationPrefs, callQuestions) = persons
             val avatarMap = persons2.mapNotNull { p ->
                 p.avatarPath?.let { rel ->
                     val f = File(context.filesDir, rel)
@@ -91,6 +91,7 @@ class BackupManager @Inject constructor(
                     m to medicationTimes.filter { it.medicationId == m.id }
                 },
                 medicationPrefs = medicationPrefs,
+                callQuestions = callQuestions,
                 settings = BackupSettings(
                     themeMode = settings.themeMode.first(),
                     remindersEnabled = settings.remindersEnabled.first(),
@@ -240,7 +241,8 @@ class BackupManager @Inject constructor(
         babyCelebrations = db.babyCelebrationDao().getAll(),
         medications = db.medicationDao().getAll(),
         medicationTimes = db.medicationTimeDao().getAll(),
-        medicationPrefs = db.medicationPersonPrefsDao().getAll()
+        medicationPrefs = db.medicationPersonPrefsDao().getAll(),
+        callQuestions = db.callQuestionDao().getAll()
     )
 
     // ---------- 检查 ----------
@@ -477,6 +479,10 @@ class BackupManager @Inject constructor(
             }
             if (plan.medicationPrefs.isNotEmpty()) {
                 db.medicationPersonPrefsDao().upsertAll(plan.medicationPrefs)
+            }
+            // 「打电话要问的事」（私密：共享/碰一碰/合并不携带）
+            if (plan.callQuestions.isNotEmpty()) {
+                db.callQuestionDao().upsertAll(plan.callQuestions)
             }
         }
         plan.tasks.forEach { (task, offsets) ->
@@ -744,6 +750,8 @@ class BackupManager @Inject constructor(
         val medicationTimes: List<io.github.xiaohaoz1.jiarenxia.data.db
             .MedicationTimeEntity>,
         val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
-            .MedicationPersonPrefsEntity>
+            .MedicationPersonPrefsEntity>,
+        val callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .CallQuestionEntity>
     )
 }

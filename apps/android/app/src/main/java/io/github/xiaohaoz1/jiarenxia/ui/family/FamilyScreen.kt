@@ -47,6 +47,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,6 +99,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxColors
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
 import java.time.LocalDate
+import kotlinx.coroutines.launch
 
 /** 在世且生日在 0..days 天内时返回天数（双生日取最近的一次），否则 null。 */
 private fun daysUntil(
@@ -123,7 +128,13 @@ fun FamilyScreen(
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    // 打完电话回来的“联系上了吗”提示（10 分钟窗口）
+    val scope = rememberCoroutineScope()
+    // 拨号前「打给…之前」待确认（该人有要问的事时先弹框）
+    var preCall by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.ui.common
+            .PreCallRequest?>(null)
+    }
+    // 打完电话回来的“联系上了吗”提示（10 分钟窗口；含要问的事划掉区）
     io.github.xiaohaoz1.jiarenxia.ui.common.PostCallPromptEffect(
         viewModel.appEvents, viewModel::logCallContact)
 
@@ -143,14 +154,31 @@ fun FamilyScreen(
             }
         },
         onPersonDial = { person, label, number ->
-            viewModel.onDialMade(person, label)
-            try {
-                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + number)))
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, "未找到拨号应用", Toast.LENGTH_SHORT).show()
+            scope.launch {
+                val req = io.github.xiaohaoz1.jiarenxia.ui.common
+                    .preCallRequest(
+                        questionsFor = viewModel::callQuestionsFor,
+                        personId = person.id, label = label
+                    ) { once ->
+                        viewModel.onDialMade(person, label, once)
+                        try {
+                            context.startActivity(Intent(Intent.ACTION_DIAL,
+                                Uri.parse("tel:" + number)))
+                        } catch (e: ActivityNotFoundException) {
+                            Toast.makeText(context, "未找到拨号应用",
+                                Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                if (req != null) preCall = req
             }
         }
     )
+
+    // 拨号前「打给…之前」：有要问的事时先确认再拨
+    preCall?.let { req ->
+        io.github.xiaohaoz1.jiarenxia.ui.common.PreCallQuestionsDialog(
+            request = req, onDismiss = { preCall = null })
+    }
 }
 
 /**

@@ -29,10 +29,13 @@ import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,6 +44,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.xiaohaoz1.jiarenxia.core.model.Person
+import io.github.xiaohaoz1.jiarenxia.ui.common.openGuardianPage
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.ui.backup.BackupExportDialogs
 import io.github.xiaohaoz1.jiarenxia.ui.backup.BackupExportStep
@@ -68,6 +73,7 @@ import io.github.xiaohaoz1.jiarenxia.ui.designsystem.SealMark
 import io.github.xiaohaoz1.jiarenxia.ui.designsystem.jrxActionShape
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
 import io.github.xiaohaoz1.jiarenxia.ui.theme.LocalJrxStyle
+import kotlinx.coroutines.launch
 
 /**
  * 「我的」页（2026-10-09 改版）。
@@ -124,6 +130,11 @@ fun MineScreen(
         }
     }
 
+    // 「守护侠」链接：ACTION_VIEW 交给浏览器；没有能处理的应用时 snackbar 提示
+    val snack = remember { SnackbarHostState() }
+    val snackScope = rememberCoroutineScope()
+
+    Box(Modifier.fillMaxSize()) {
     MineContent(
         self = st.self,
         lastBackupAt = st.lastBackupAt,
@@ -138,6 +149,15 @@ fun MineScreen(
         onAbout = onAbout,
         demoName = viewModel.demoDisplayName,
         onDemoResetRequest = { showDemoReset = true },
+        guardianPromoDismissed = st.guardianPromoDismissed,
+        onOpenGuardian = {
+            if (!openGuardianPage(context)) {
+                snackScope.launch {
+                    snack.showSnackbar("没有可以打开链接的应用")
+                }
+            }
+        },
+        onGuardianPromoDismiss = viewModel::onGuardianPromoDismiss,
         updateSubtitle = when {
             updateChecking -> "正在检查…"
             updateKnownNew != null -> "发现新版本 $updateKnownNew"
@@ -149,6 +169,11 @@ fun MineScreen(
             if (updateEnabled) updateVm.checkNow() else showUpdateConsent = true
         }
     )
+    SnackbarHost(
+        snack,
+        Modifier.align(Alignment.BottomCenter).padding(16.dp)
+    )
+    }
 
     BackupExportDialogs(
         step = backupStep,
@@ -204,6 +229,10 @@ fun MineContent(
     /** 演示版「我」的展示名；非 null 时在四个二级入口后加「重置演示数据」行。 */
     demoName: String? = null,
     onDemoResetRequest: () -> Unit = {},
+    /** 「守护侠」推荐卡：「不再显示」已点过则整卡不渲染（默认显示）。 */
+    guardianPromoDismissed: Boolean = false,
+    onOpenGuardian: () -> Unit = {},
+    onGuardianPromoDismiss: () -> Unit = {},
     /** 「检查更新」行动态副标题（正在检查/发现新版/提示语）。 */
     updateSubtitle: String = "联网检查是否有新版本",
     /** 已知远端有更新：「检查更新」行挂「新版」角标。 */
@@ -259,6 +288,17 @@ fun MineContent(
                         )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 「守护侠」推荐卡：个人资料之后、备份块之前；
+                    // 「不再显示」后 guardianPromoDismissed 置位、整卡不渲染
+                    if (!guardianPromoDismissed) {
+                        GuardianPromoCard(
+                            onOpen = onOpenGuardian,
+                            onDismiss = onGuardianPromoDismiss,
+                            modifier = Modifier.padding(vertical = 12.dp)
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
 
                     // 备份块：主按钮只有一种——墨青实心小方角
                     Column(Modifier.fillMaxWidth().padding(vertical = 16.dp)) {
@@ -396,6 +436,15 @@ fun MineContent(
                     }
                 }
 
+                // 「守护侠」推荐卡：个人资料之后、备份卡之前
+                if (!guardianPromoDismissed) {
+                    Spacer(Modifier.height(10.dp))
+                    GuardianPromoCard(
+                        onOpen = onOpenGuardian,
+                        onDismiss = onGuardianPromoDismiss
+                    )
+                }
+
                 // 备份状态：资料只在本机，这是最该被看见的一条
                 Spacer(Modifier.height(10.dp))
                 JrxCard(Modifier.fillMaxWidth()) {
@@ -489,6 +538,42 @@ fun MineContent(
                 Spacer(Modifier.height(20.dp))
             }
             }
+        }
+    }
+}
+
+/**
+ * 「我的」页「守护侠」推荐卡（FAMILY_AFFAIRS 26 第 7 批）：
+ * primaryContainer 底色的醒目卡；「去看看」打开官网单品页，
+ * 「不再显示」写本机设置后整卡消失（不进备份）。
+ */
+@Composable
+private fun GuardianPromoCard(
+    onOpen: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    JrxCard(
+        modifier = modifier.fillMaxWidth(),
+        containerColor = MaterialTheme.colorScheme.primaryContainer
+    ) {
+        Text(
+            "给爸妈的手机装上「守护侠」",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "锁屏后太久没人用，先大声响铃请 TA 确认；还是没人应答，" +
+                "就给紧急联系人群发短信，再按顺序打过去。家人侠的姐妹应用，免费。",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        Spacer(Modifier.height(10.dp))
+        Row {
+            FilledTonalButton(onClick = onOpen) { Text("去看看") }
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = onDismiss) { Text("不再显示") }
         }
     }
 }

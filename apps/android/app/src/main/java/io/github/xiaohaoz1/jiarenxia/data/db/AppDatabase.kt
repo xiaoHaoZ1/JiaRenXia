@@ -25,6 +25,7 @@ import androidx.room.RoomDatabase
  * v20 +pregnancies / pregnancy_babies（孕期记录，FAMILY_AFFAIRS 26）；
  *   family_tasks +pregnancy_id / archived（产检事项与归档）。
  * v21 +checklists / checklist_items（待产包等清单，FAMILY_AFFAIRS 26）。
+ * v24 +call_questions（「打电话要问的事」，FAMILY_AFFAIRS 26 第 7 批）。
  */
 @Database(
     entities = [
@@ -53,9 +54,10 @@ import androidx.room.RoomDatabase
         BabyCelebrationEntity::class,
         MedicationEntity::class,
         MedicationTimeEntity::class,
-        MedicationPersonPrefsEntity::class
+        MedicationPersonPrefsEntity::class,
+        CallQuestionEntity::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -83,6 +85,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun medicationDao(): MedicationDao
     abstract fun medicationTimeDao(): MedicationTimeDao
     abstract fun medicationPersonPrefsDao(): MedicationPersonPrefsDao
+    abstract fun callQuestionDao(): CallQuestionDao
 }
 
 /**
@@ -113,6 +116,8 @@ internal suspend fun AppDatabase.clearTables() {
     contactLogDao().deleteAll()
     contactPlanDao().deleteAll()
     personFactDao().deleteAll()
+    // 要问的事：persons 之前清（person_id 级联是兜底）
+    callQuestionDao().deleteAll()
     familyTaskOffsetDao().deleteAll()
     familyTaskDao().deleteAll()
     reminderOffsetDao().deleteAll()

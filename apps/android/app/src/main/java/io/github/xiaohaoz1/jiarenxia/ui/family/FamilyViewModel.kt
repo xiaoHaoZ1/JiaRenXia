@@ -39,6 +39,8 @@ class FamilyViewModel @Inject constructor(
         .ContactRepository,
     private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
         .PregnancyRepository,
+    private val callQuestionRepository: io.github.xiaohaoz1.jiarenxia.data
+        .CallQuestionRepository,
     private val engine: io.github.xiaohaoz1.jiarenxia.core.kinship
         .KinshipEngine) : ViewModel() {
 
@@ -80,21 +82,40 @@ class FamilyViewModel @Inject constructor(
                 pregnancyByPerson = pregnancies.associateBy { it.personId })
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FamilyUiState())
 
-    /** 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。 */
+    /** 拨号前现取该人要问的事（不等 UI 状态流刷新）。 */
+    suspend fun callQuestionsFor(personId: String) =
+        callQuestionRepository.getForPerson(personId)
+
+    /**
+     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。
+     * [oneTimeQuestions] 为这次拨号前弹过的「只问一次」条目，
+     * “联系上了”时按勾选删除（只在内存里，不持久化）。
+     */
     fun onDialMade(person: io.github.xiaohaoz1.jiarenxia.core.model.Person,
-        label: String) {
+        label: String,
+        oneTimeQuestions: List<io.github.xiaohaoz1.jiarenxia.domain.call
+            .CallQuestionPrompt> = emptyList()) {
         appEvents.pendingContactPrompt =
             io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
-                person.id, label, System.currentTimeMillis())
+                person.id, label, System.currentTimeMillis(), oneTimeQuestions)
     }
 
-    /** “联系上了”：按拨号时刻记一条电话类型的联系。 */
-    fun logCallContact(prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt) {
+    /**
+     * “联系上了”：按拨号时刻记一条电话类型的联系；
+     * 勾选的「只问一次」要问的事一并删除（“每次都问”永不在列）。
+     */
+    fun logCallContact(
+        prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt,
+        checkedQuestionIds: Set<String> = emptySet()
+    ) {
         viewModelScope.launch {
             contactRepository.logContact(
                 prompt.personId,
                 io.github.xiaohaoz1.jiarenxia.core.model.ContactMethod.CALL,
                 null, prompt.atMillis)
+            val ids = io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestions
+                .deletionIds(prompt.oneTimeQuestions, checkedQuestionIds)
+            if (ids.isNotEmpty()) callQuestionRepository.deleteIds(ids)
         }
     }
 }

@@ -226,6 +226,11 @@ interface SettingsRepository {
     val updateSkippedCode: Flow<Int> get() = kotlinx.coroutines.flow.flowOf(0)
     suspend fun setUpdateSkippedCode(code: Int) {}
 
+    /** “我的”页「守护侠」推荐卡是否已被“不再显示”（本机设置，不进备份）。 */
+    val guardianPromoDismissed: Flow<Boolean>
+        get() = kotlinx.coroutines.flow.flowOf(false)
+    suspend fun setGuardianPromoDismissed(dismissed: Boolean) {}
+
     suspend fun clear()
 }
 
@@ -289,6 +294,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private val keyUpdateKnownNotes = stringPreferencesKey("update_known_notes")
     private val keyUpdateSkippedCode = intPreferencesKey("update_skipped_code")
     private val keyReminderGuideSeen = booleanPreferencesKey("reminder_guide_seen")
+    private val keyGuardianPromoDismissed =
+        booleanPreferencesKey("guardian_promo_dismissed")
 
     override val remindersEnabled: Flow<Boolean> =
         dataStore.data.map { it[keyRemindersEnabled] ?: true }
@@ -603,6 +610,14 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setUpdateSkippedCode(code: Int) {
         dataStore.edit { it[keyUpdateSkippedCode] = code }
+    }
+
+    override val guardianPromoDismissed: Flow<Boolean> =
+        dataStore.data.map { it[keyGuardianPromoDismissed] ?: false }
+            .distinctUntilChanged()
+
+    override suspend fun setGuardianPromoDismissed(dismissed: Boolean) {
+        dataStore.edit { it[keyGuardianPromoDismissed] = dismissed }
     }
 
     override suspend fun clear() {

@@ -22,6 +22,7 @@ import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_19_20
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_20_21
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_21_22
 import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_22_23
+import io.github.xiaohaoz1.jiarenxia.data.db.MIGRATION_23_24
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -174,7 +175,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -195,7 +196,7 @@ class MigrationTest {
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
                 MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9,
-                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23
+                MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24
             )
             .allowMainThreadQueries()
             .build()
@@ -334,7 +335,7 @@ class MigrationTest {
         createV6Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -369,7 +370,7 @@ class MigrationTest {
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
             .addMigrations(
                 MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5,
-                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23
+                MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24
             )
             .allowMainThreadQueries()
             .build()
@@ -432,7 +433,7 @@ class MigrationTest {
         createV7Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -498,7 +499,7 @@ class MigrationTest {
 
         // Room 以 v9 打开：执行 MIGRATION_8_9 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -570,7 +571,7 @@ class MigrationTest {
 
         // Room 以 v10 打开：执行 MIGRATION_9_10 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -629,7 +630,7 @@ class MigrationTest {
 
         // Room 以 v11 打开：执行 MIGRATION_10_11 并对全部表做 schema 校验
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -829,7 +830,7 @@ class MigrationTest {
         createV12Database(context, dbFile)
 
         val db = Room.databaseBuilder(context, AppDatabase::class.java, dbFile.absolutePath)
-            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23)
+            .addMigrations(MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15, MIGRATION_15_16, MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21, MIGRATION_21_22, MIGRATION_22_23, MIGRATION_23_24)
             .allowMainThreadQueries()
             .build()
 
@@ -1379,6 +1380,64 @@ class MigrationTest {
             .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
         // p1 的药保留
         migrated.query("SELECT COUNT(*) FROM `medications` WHERE `id`='m1'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
+        migrated.close()
+        dbFile.delete()
+    }
+
+    /** v23 → v24：call_questions 表（person_id 级联，keep = 每次都问）。 */
+    @Test
+    fun `v23到v24新增要问的事表`() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val dbFile = File(context.getDatabasePath("x").parentFile, "migration-2324.db")
+        dbFile.delete()
+        // v19 形态起步，onUpgrade 依次跑 19→20→21→22→23→24
+        FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(19) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `persons` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `gender` TEXT NOT NULL, `avatar_path` TEXT, `note` TEXT, `living_status` TEXT NOT NULL, `is_self` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, `sibling_rank` INTEGER, PRIMARY KEY(`id`))")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p1','妈妈','FEMALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("INSERT INTO `persons` VALUES ('p2','爸爸','MALE',NULL,NULL,'ALIVE',0,1,1,NULL)")
+                        db.execSQL("CREATE TABLE IF NOT EXISTS `family_tasks` (`id` TEXT NOT NULL, `person_id` TEXT, `kind` TEXT NOT NULL, `title` TEXT NOT NULL, `anchor_epoch_day` INTEGER NOT NULL, `repeat` TEXT NOT NULL, `period_index` INTEGER NOT NULL, `last_done_epoch_day` INTEGER, `done` INTEGER NOT NULL, `amount_fen` INTEGER, `note` TEXT, `enabled` INTEGER NOT NULL, `remind_minutes` INTEGER, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`person_id`) REFERENCES `persons`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )")
+                    }
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {}
+                }).build()
+        ).writableDatabase.close()
+
+        val migrated = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(24) {
+                    override fun onConfigure(db: SupportSQLiteDatabase) {
+                        db.setForeignKeyConstraintsEnabled(true)
+                    }
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, old: Int, new: Int) {
+                        MIGRATION_19_20.migrate(db)
+                        MIGRATION_20_21.migrate(db)
+                        MIGRATION_21_22.migrate(db)
+                        MIGRATION_22_23.migrate(db)
+                        MIGRATION_23_24.migrate(db)
+                    }
+                }).build()
+        ).writableDatabase
+
+        // 表可写：keep 默认 0
+        migrated.execSQL("INSERT INTO `call_questions` (`id`,`person_id`,`text`,`keep`,`created_at`,`updated_at`) VALUES ('q1','p1','有没有按时吃药',1,1,1)")
+        migrated.execSQL("INSERT INTO `call_questions` (`id`,`person_id`,`text`,`created_at`,`updated_at`) VALUES ('q2','p2','体检做了吗',1,1)")
+        migrated.query(
+            "SELECT `keep` FROM `call_questions` WHERE `id`='q2'"
+        ).use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        // 级联：删人物带走其要问的事
+        migrated.execSQL("DELETE FROM `persons` WHERE `id`='p1'")
+        migrated.query("SELECT COUNT(*) FROM `call_questions` WHERE `id`='q1'")
+            .use { c -> assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0)) }
+        migrated.query("SELECT COUNT(*) FROM `call_questions` WHERE `id`='q2'")
             .use { c -> assertTrue(c.moveToFirst()); assertEquals(1, c.getInt(0)) }
         migrated.close()
         dbFile.delete()

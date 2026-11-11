@@ -157,9 +157,15 @@ fun PersonDetailScreen(
 ) {
     val st by viewModel.ui.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    // 打完电话回来的“联系上了吗”提示（10 分钟窗口）
+    // 打完电话回来的“联系上了吗”提示（10 分钟窗口；含要问的事划掉区）
     PostCallPromptEffect(viewModel.appEvents, viewModel::logCallContact)
     val context = LocalContext.current
+    // 拨号前「打给…之前」待确认（该人有要问的事时先弹框）
+    var preCall by remember {
+        mutableStateOf<io.github.xiaohaoz1.jiarenxia.ui.common
+            .PreCallRequest?>(null)
+    }
+    val scope = rememberCoroutineScope()
     // 「按时吃提醒」系统状态提示：每次回到前台重算（授权/通知设置返回后生效）
     var medHint by androidx.compose.runtime.remember {
         androidx.compose.runtime.mutableStateOf(medOnTimeHint(context))
@@ -215,18 +221,41 @@ fun PersonDetailScreen(
         onUpdatePregnancyDates = viewModel::updatePregnancyDates,
         onEndPregnancy = viewModel::endPregnancy,
         onDeletePregnancy = viewModel::deletePregnancy,
+        onAddCallQuestion = viewModel::addCallQuestion,
+        onUpdateCallQuestion = viewModel::updateCallQuestion,
+        onDeleteCallQuestion = viewModel::deleteCallQuestion,
         onDial = { number ->
-            st.detail?.person?.let { p ->
+            val p = st.detail?.person
+            if (p == null) {
+                try {
+                    context.startActivity(Intent(Intent.ACTION_DIAL,
+                        Uri.parse("tel:" + number)))
+                } catch (e: ActivityNotFoundException) {
+                    Toast.makeText(context, "未找到拨号应用",
+                        Toast.LENGTH_SHORT).show()
+                }
+            } else {
                 // “联系上了吗”提示用的称呼：称谓优先，本人与无称谓回退姓名
                 val o = st.overview
                 val label = if (o == null || p.isSelf) p.name
                     else o.displayTitle.ifEmpty { p.name }
-                viewModel.onDialMade(p, label)
-            }
-            try {
-                context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + number)))
-            } catch (e: ActivityNotFoundException) {
-                Toast.makeText(context, "未找到拨号应用", Toast.LENGTH_SHORT).show()
+                scope.launch {
+                    val req = io.github.xiaohaoz1.jiarenxia.ui.common
+                        .preCallRequest(
+                            questionsFor = viewModel::callQuestionsFor,
+                            personId = p.id, label = label
+                        ) { once ->
+                            viewModel.onDialMade(p, label, once)
+                            try {
+                                context.startActivity(Intent(Intent.ACTION_DIAL,
+                                    Uri.parse("tel:" + number)))
+                            } catch (e: ActivityNotFoundException) {
+                                Toast.makeText(context, "未找到拨号应用",
+                                    Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    if (req != null) preCall = req
+                }
             }
         },
         onSetReminder = viewModel::setBirthdayReminder,
@@ -251,6 +280,12 @@ fun PersonDetailScreen(
         onSetSiblingOrder = viewModel::setSiblingOrder,
         onRemoveRelation = viewModel::removeRelationship
     )
+
+    // 拨号前「打给…之前」：有要问的事时先确认再拨
+    preCall?.let { req ->
+        io.github.xiaohaoz1.jiarenxia.ui.common.PreCallQuestionsDialog(
+            request = req, onDismiss = { preCall = null })
+    }
 }
 
 /**
@@ -301,6 +336,10 @@ fun PersonDetailContent(
         { _, _, _ -> },
     onEndPregnancy: (String) -> Unit = {},
     onDeletePregnancy: (String) -> Unit = {},
+    /** 「打电话要问的事」卡片回调（默认空实现，截图夹具不受影响）。 */
+    onAddCallQuestion: (String, Boolean) -> Unit = { _, _ -> },
+    onUpdateCallQuestion: (String, String?, Boolean?) -> Unit = { _, _, _ -> },
+    onDeleteCallQuestion: (String) -> Unit = {},
     onDial: (String) -> Unit,
     /** 生日提醒开关：第一个参数为历法槽位（阳历/农历）。 */
     onSetReminder: (
@@ -1027,6 +1066,19 @@ fun PersonDetailContent(
                 }
                 // 人情/保障摘要卡已随模块退出移除（A6）
                 Spacer(Modifier.height(12.dp))
+
+                // 「打电话要问的事」卡片：「联系」卡之前（同一 eligibility 门控）
+                if (io.github.xiaohaoz1.jiarenxia.domain.ContactSchedule
+                        .eligible(person)
+                ) {
+                    CallQuestionsCard(
+                        questions = st.callQuestions,
+                        onAdd = onAddCallQuestion,
+                        onUpdate = onUpdateCallQuestion,
+                        onDelete = onDeleteCallQuestion
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
 
                 // 联系卡片：最近联系 + 记一次 + 周期 + 最近 5 条（V0.9 联系提醒）；
                 // “我”与已故家人不显示（ContactSchedule.eligible）

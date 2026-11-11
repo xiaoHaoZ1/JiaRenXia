@@ -67,4 +67,7 @@ sealed class FamilyError(val message: String) {
     data object InvalidMedRefillDate : FamilyError("下次拿药日不正确")
     data object MedicationNotFound : FamilyError("用药记录不存在")
     data object MedPersonDeceased : FamilyError("已故的家人不能记录用药")
+    data object CallQuestionTextInvalid : FamilyError("要问的事需要 1–40 个字")
+    data object CallQuestionLimitReached : FamilyError("每人最多记 10 条要问的事")
+    data object CallQuestionNotFound : FamilyError("这条要问的事不存在")
 }

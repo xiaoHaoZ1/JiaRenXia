@@ -482,3 +482,29 @@ interface MedicationPersonPrefsDao {
     @Query("SELECT * FROM medication_person_prefs") suspend fun getAll(): List<MedicationPersonPrefsEntity>
     @Query("DELETE FROM medication_person_prefs") suspend fun deleteAll()
 }
+
+/** call_questions DAO：「打电话要问的事」（v24，每人至多 10 条由仓库保证）。 */
+@Dao
+interface CallQuestionDao {
+    @Insert suspend fun insert(entity: CallQuestionEntity)
+    @Upsert suspend fun upsert(entity: CallQuestionEntity)
+    @Upsert suspend fun upsertAll(entities: List<CallQuestionEntity>)
+    @Query("SELECT * FROM call_questions WHERE id = :id")
+    suspend fun get(id: String): CallQuestionEntity?
+    @Query("SELECT * FROM call_questions WHERE person_id = :personId ORDER BY created_at, id")
+    fun observeForPerson(personId: String): Flow<List<CallQuestionEntity>>
+    @Query("SELECT * FROM call_questions WHERE person_id = :personId ORDER BY created_at, id")
+    suspend fun getForPerson(personId: String): List<CallQuestionEntity>
+    @Query("SELECT COUNT(*) FROM call_questions WHERE person_id = :personId")
+    suspend fun countForPerson(personId: String): Int
+    @Query("SELECT * FROM call_questions ORDER BY created_at, id")
+    fun observeAll(): Flow<List<CallQuestionEntity>>
+    @Query("SELECT * FROM call_questions") suspend fun getAll(): List<CallQuestionEntity>
+    @Query("UPDATE call_questions SET text = :text, keep = :keep, updated_at = :now WHERE id = :id")
+    suspend fun update(id: String, text: String, keep: Boolean, now: Long): Int
+    @Query("UPDATE call_questions SET keep = :keep, updated_at = :now WHERE id = :id")
+    suspend fun updateKeep(id: String, keep: Boolean, now: Long): Int
+    @Query("DELETE FROM call_questions WHERE id = :id") suspend fun delete(id: String)
+    @Query("DELETE FROM call_questions WHERE id IN (:ids)") suspend fun deleteIds(ids: List<String>)
+    @Query("DELETE FROM call_questions") suspend fun deleteAll()
+}

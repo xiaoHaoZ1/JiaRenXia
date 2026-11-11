@@ -150,6 +150,12 @@ data class RestorePlan(
     /** 用药按人开关（可选键；personId 不在备份人物中的丢弃）。 */
     val medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
         .MedicationPersonPrefsEntity> = emptyList(),
+    /**
+     * 「打电话要问的事」（可选键，不升 schemaVersion；旧备份缺失为空）。
+     * personId 不在备份人物中的丢弃；文字越界 fail。
+     */
+    val callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+        .CallQuestionEntity> = emptyList(),
     val settings: BackupSettings?,
     /** 头像文件名 → 字节。 */
     val avatars: Map<String, ByteArray>,
@@ -215,6 +221,9 @@ object BackupJson {
         /** 用药按人开关（可选键；分享/碰一碰不传）。 */
         medicationPrefs: List<io.github.xiaohaoz1.jiarenxia.data.db
             .MedicationPersonPrefsEntity> = emptyList(),
+        /** 「打电话要问的事」（可选键；分享/碰一碰不传）。 */
+        callQuestions: List<io.github.xiaohaoz1.jiarenxia.data.db
+            .CallQuestionEntity> = emptyList(),
         settings: BackupSettings?,
         avatars: Map<String, ByteArray>,
         createdAt: Long,
@@ -465,6 +474,18 @@ object BackupJson {
                         put("personId", p.personId)
                         put("courseRefillEnabled", p.courseRefillEnabled)
                         p.onTimeEnabled?.let { put("onTimeEnabled", it) }
+                    })
+                }
+            })
+        }
+        // 「打电话要问的事」（可选键）：非空才写——分享/碰一碰文件不携带
+        if (callQuestions.isNotEmpty()) {
+            json.put("callQuestions", JSONArray().apply {
+                callQuestions.forEach { q ->
+                    put(JSONObject().apply {
+                        put("id", q.id); put("personId", q.personId)
+                        put("text", q.text); put("keep", q.keep)
+                        put("createdAt", q.createdAt); put("updatedAt", q.updatedAt)
                     })
                 }
             })
@@ -1127,6 +1148,34 @@ object BackupJson {
             }
         } ?: emptyList()
 
+        // 「打电话要问的事」（可选键，不升 schemaVersion）：id 唯一、
+        // personId 不在备份人物中的丢弃（不 fail）、文字越界 fail、
+        // 每人至多 10 条（超出即 fail，与仓库口径一致）。
+        val callQuestions = root.optJSONArray("callQuestions")?.let { arr ->
+            (0 until arr.length()).mapNotNull { i ->
+                val o = arr.getJSONObject(i)
+                val pid = o.getString("personId")
+                if (pid !in personIds) return@mapNotNull null
+                val text = o.getString("text")
+                if (text.trim().isEmpty() || text.length >
+                    io.github.xiaohaoz1.jiarenxia.data.CallQuestionRepository
+                        .MAX_TEXT) fail("callQuestion text")
+                io.github.xiaohaoz1.jiarenxia.data.db.CallQuestionEntity(
+                    id = o.getString("id"),
+                    personId = pid,
+                    text = text,
+                    keep = o.optBoolean("keep", false),
+                    createdAt = o.getLong("createdAt"),
+                    updatedAt = o.getLong("updatedAt")
+                )
+            }
+        } ?: emptyList()
+        uniqueIds(callQuestions.map { it.id }, "callQuestions")
+        callQuestions.groupBy { it.personId }.forEach { (_, list) ->
+            if (list.size > io.github.xiaohaoz1.jiarenxia.data
+                    .CallQuestionRepository.MAX_PER_PERSON) fail("callQuestion limit")
+        }
+
         // 头像文件名校验 + 收集
         val avatarFiles = persons.mapNotNull { p ->
             p.avatarPath?.removePrefix("avatars/")
@@ -1218,6 +1267,7 @@ object BackupJson {
             babyCelebrations = babyCelebrations,
             medications = medications,
             medicationPrefs = medicationPrefs,
+            callQuestions = callQuestions,
             settings = settings,
             avatars = avatars,
             purpose = root.optString("purpose", "backup"),
