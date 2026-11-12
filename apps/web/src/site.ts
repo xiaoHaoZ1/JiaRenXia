@@ -12,21 +12,21 @@ export const SITE = {
   /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
   guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
-  apkVersion: "2.4.4",
+  apkVersion: "2.4.5",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */
-  apkVersionCode: 62,
+  apkVersionCode: 63,
   /** 本版更新说明（App 更新弹窗与下载页都可能展示；发布时与安装包同步更新）。 */
-  apkNotes: "新增「孕期」：记下预产期就能看孕几周几天和下次产检，孕 36 周提醒备齐待产包；宝宝出生后一步加进家谱、报喜，列出出生后要办的事，提醒满月和百天。新增「用药」：记下每种药怎么吃、吃多久，疗程到期和长期药拿药会提醒，到点提醒按时吃药，看病时打开「给医生看」。打电话前提醒要问的事；「问一问」把情况整理成一段话发给医生或家人。「我的」页新增守护侠推荐。",
+  apkNotes: "桌面插件「家事时间线」顶部新增一张卡片：今天是你来到这世界的第几天，离下一个整千天还有多久（需在自己的资料里填好出生年月日，农历也可以）。同时包含 2.4.4 新功能：「孕期」记下预产期就能看孕几周几天和下次产检，孕 36 周提醒备齐待产包；宝宝出生后一步加进家谱、报喜，列出出生后要办的事，提醒满月和百天。「用药」记下每种药怎么吃、吃多久，疗程到期和长期药拿药会提醒，到点提醒按时吃药，看病时打开「给医生看」。打电话前提醒要问的事；「问一问」把情况整理成一段话发给医生或家人。「我的」页新增守护侠推荐。",
   /** APK 文件大小与 SHA-256（供下载页核对；发布时与安装包同步更新）。 */
   apkSizeBytes: 3_977_919,
-  apkSha256: "847a6ff5d16e64273e94883c606a7cf77d923342f2297082bdc96664802e8e6b",
+  apkSha256: "f94c92909abd08200331e4bb15490bb714acb1df3e213af5865246e5ab3a0157",
   /** APK 下载地址：下载服务 dl.jiarenxia.com（Worker jrx-dl + R2 jrx-download），
    * 按版本命名；按 ?src=（web/update/legacy/direct）分日期计数到 D1。 */
-  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.4.4.apk`,
+  apkDownloadUrl: `${DOWNLOAD_BASE}/jiarenxia-2.4.5.apk`,
   /** 备用下载：同一个正式包上传到公开仓库 GitHub Release（tag v<版本>，文件名同 R2），
    * 国内部分线路比 dl 快。留空则下载页不显示备用链接；须与 apkVersion 一致，
    * 不一致时 prerender 直接让构建失败。 */
-  apkGithubUrl: "https://github.com/xiaoHaoZ1/JiaRenXia/releases/download/v2.4.4/jiarenxia-2.4.4.apk",
+  apkGithubUrl: "https://github.com/xiaoHaoZ1/JiaRenXia/releases/download/v2.4.5/jiarenxia-2.4.5.apk",
 };
 
 /** 家人侠测试版：debug 构建（applicationId com.jiarenxia.app.debug、debug 签名，
@@ -36,12 +36,12 @@ export const SITE = {
  * 并同步这里的版本/大小/校验值。version 留空表示暂无测试版。 */
 export const APK_BETA = {
   /** 安装包的 versionName，含 -debug 后缀 */
-  version: "2.4.4-debug",
+  version: "2.4.5-debug",
   /** 与安装包一致的 versionCode；更新清单 channels.beta 用 */
-  versionCode: 62,
-  sizeBytes: 26_263_582,
-  sha256: "0b3c516ebf9c658189c5da2ab5489d89b51ba790ba19657d58f5dbae84f1b9e8",
-  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.4.4.apk`,
+  versionCode: 63,
+  sizeBytes: 26_263_586,
+  sha256: "c7c5116053aaa5867f24e02b46f1fc3bcb6cece4adb6c5eef04af0417e90c7b1",
+  file: `${DOWNLOAD_BASE}/jiarenxia-beta-2.4.5.apk`,
 };
 
 /** 家人侠演示版：demo 构建（applicationId com.jiarenxia.app.demo、debug 签名，
@@ -51,20 +51,20 @@ export const APK_BETA = {
  * 两台手机各装一个即可演示「碰一碰结为夫妻」。version 留空表示暂无演示版。 */
 export const APK_DEMO = {
   /** 安装包的 versionName，含 -demo 后缀 */
-  version: "2.4.4-demo",
+  version: "2.4.5-demo",
   /** 与安装包一致的 versionCode；更新清单 channels.demo 用 */
-  versionCode: 62,
+  versionCode: 63,
   groom: {
     label: "朱棣",
     sizeBytes: 26_050_341,
-    sha256: "d4d4b67f3cd671674860ec8f8d037f907c601cdcc99f13c6d81c85b1a5f05815",
-    file: `${DOWNLOAD_BASE}/jiarenxia-demo-zhudi-2.4.4.apk`,
+    sha256: "e793d1bcd3d5f892b62f91d544e9057ddce58091dbd7ccb722fc262e9fa5973b",
+    file: `${DOWNLOAD_BASE}/jiarenxia-demo-zhudi-2.4.5.apk`,
   },
   bride: {
     label: "徐皇后",
-    sizeBytes: 26_470_840,
-    sha256: "a9f76e6425b37be5f2c56c021e3bc30348f91b7627978a59ec6328208132c39e",
-    file: `${DOWNLOAD_BASE}/jiarenxia-demo-xu-2.4.4.apk`,
+    sizeBytes: 26_470_928,
+    sha256: "24be92ccdfaf7dca8440425fd7fa94d788168236a777804e87c37c739b062c6b",
+    file: `${DOWNLOAD_BASE}/jiarenxia-demo-xu-2.4.5.apk`,
   },
 };
 
