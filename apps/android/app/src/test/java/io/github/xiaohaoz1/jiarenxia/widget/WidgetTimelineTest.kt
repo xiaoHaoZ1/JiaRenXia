@@ -24,6 +24,7 @@ import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarDate
 import java.time.LocalDate
 import java.time.ZoneId
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -168,6 +169,26 @@ class WidgetTimelineTest {
         ) as WidgetState.Ready
         assertEquals(1, st.items.size)
         assertEquals("双历同日", st.items[0].note)
+    }
+
+    @Test
+    fun selfBirthdayOnly_readyWithLifeLine_noTimelineRows() {
+        val me = person("me", "我", self = true)
+        val st = WidgetTimeline.assemble(
+            birthdays = listOf(
+                BirthdayEntry(
+                    me, BirthdayValue(PartialDate(2000, 1, 1)),
+                    reminderEnabled = false
+                )
+            ),
+            dates = emptyList(), tasks = emptyList(),
+            plans = emptyList(), logs = emptyList(),
+            overview = null, today = today, lunar = passthroughLunar
+        ) as WidgetState.Ready
+        assertTrue(st.items.isEmpty())
+        assertNull(st.couple)
+        assertEquals("我来到这世界第 9785 天", st.life?.title)
+        assertEquals("26 岁 · 离第 10000 天还有 215 天", st.life?.note)
     }
 
     @Test

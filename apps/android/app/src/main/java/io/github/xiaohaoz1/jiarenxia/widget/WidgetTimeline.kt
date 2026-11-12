@@ -11,6 +11,7 @@ import io.github.xiaohaoz1.jiarenxia.data.DateEntry
 import io.github.xiaohaoz1.jiarenxia.domain.AffairTimeline
 import io.github.xiaohaoz1.jiarenxia.domain.ContactSchedule
 import io.github.xiaohaoz1.jiarenxia.domain.FamilyOverview
+import io.github.xiaohaoz1.jiarenxia.domain.LifeDays
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar
@@ -46,7 +47,12 @@ sealed interface WidgetState {
     data object Empty : WidgetState
     /** 读取异常兜底。 */
     data object Error : WidgetState
-    data class Ready(val items: List<WidgetItem>, val couple: CoupleLine? = null) : WidgetState
+    data class Ready(
+        val items: List<WidgetItem>,
+        val couple: CoupleLine? = null,
+        /** “我来到这世界第 N 天”；“我”没有确定出生日时为 null。 */
+        val life: LifeDays.LifeLine? = null,
+    ) : WidgetState
 }
 
 /**
@@ -173,8 +179,9 @@ object WidgetTimeline {
         }
 
         val couple = CoupleCounter.counter(dates, overview, today, lunar)
-        if (items.isEmpty() && couple == null) return WidgetState.Empty
+        val life = LifeDays.line(birthdays, today, lunar)
+        if (items.isEmpty() && couple == null && life == null) return WidgetState.Empty
         items.sortWith(compareBy({ it.daysUntil }, { it.kind.ordinal }, { it.title }))
-        return WidgetState.Ready(items.take(MAX_ROWS), couple)
+        return WidgetState.Ready(items.take(MAX_ROWS), couple, life)
     }
 }

@@ -19,6 +19,7 @@ import androidx.glance.testing.unit.hasTextEqualTo
 import androidx.test.core.app.ApplicationProvider
 import com.github.takahirom.roborazzi.captureRoboImage
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
+import io.github.xiaohaoz1.jiarenxia.domain.LifeDays
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import java.io.File
 import java.time.LocalDate
@@ -76,6 +77,21 @@ class JrxWidgetRenderTest {
     fun forcedDarkOnLightSystem() = verifyAndCapture(
         "ready_forced_dark", readyState(), WidgetThemeMode.DARK)
 
+    /** 只有“我来到这世界第 N 天”焦点卡、没有家事行：剩余空间画空态占位。 */
+    @Test
+    @Config(qualifiers = "w360dp-h800dp-notnight-xxhdpi")
+    fun lifeOnlyLight() = verifyAndCapture(
+        "life_only_light",
+        WidgetState.Ready(
+            items = emptyList(),
+            life = LifeDays.LifeLine(
+                personId = "me",
+                title = "我来到这世界第 9796 天",
+                note = "26 岁 · 离第 10000 天还有 204 天",
+            ),
+        ),
+    )
+
     /** 调色板断言：强制模式下 day/night 两档解出同一个颜色。 */
     @Test
     @Config(qualifiers = "w360dp-h800dp-notnight-xxhdpi")
@@ -111,23 +127,34 @@ class JrxWidgetRenderTest {
             onNode(hasTextEqualTo("家事时间线")).assertHasText("家事时间线")
             when (state) {
                 is WidgetState.Ready -> {
-                    onAllNodes(hasTextEqualTo("逾期")).assertCountEquals(1)
-                    // 一个组头 + 两个今日事项的实底胶囊。
-                    onAllNodes(hasTextEqualTo("今天")).assertCountEquals(3)
-                    onAllNodes(hasTextEqualTo("明天")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("后天")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("恋")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("生")).assertCountEquals(2)
-                    onAllNodes(hasTextEqualTo("念")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("忌")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("联")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("事")).assertCountEquals(2)
-                    onAllNodes(hasTextEqualTo("逾期2天")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("10月27日")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("10月28日")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("7天后")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("11月2日")).assertCountEquals(1)
-                    onAllNodes(hasTextEqualTo("11月15日")).assertCountEquals(2)
+                    onAllNodes(hasTextEqualTo("我来到这世界第 9796 天"))
+                        .assertCountEquals(1)
+                    if (state.items.isEmpty()) {
+                        onNode(hasTextEqualTo("近期没有家事安排"))
+                            .assertHasText("近期没有家事安排")
+                        onNode(hasTextEqualTo("点按查看家事页"))
+                            .assertHasText("点按查看家事页")
+                    } else {
+                        onAllNodes(hasTextEqualTo("逾期")).assertCountEquals(1)
+                        // 一个组头 + 两个今日事项的实底胶囊。
+                        onAllNodes(hasTextEqualTo("今天")).assertCountEquals(3)
+                        onAllNodes(hasTextEqualTo("明天")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("后天")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("恋")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("生")).assertCountEquals(2)
+                        onAllNodes(hasTextEqualTo("念")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("忌")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("联")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("事")).assertCountEquals(2)
+                        onAllNodes(hasTextEqualTo("逾期2天")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("10月27日")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("10月28日")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("7天后")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("11月2日")).assertCountEquals(1)
+                        onAllNodes(hasTextEqualTo("11月15日")).assertCountEquals(2)
+                        // “我”小印 + “更换驾驶证”的副文案“我”。
+                        onAllNodes(hasTextEqualTo("我")).assertCountEquals(2)
+                    }
                 }
                 WidgetState.Locked ->
                     onNode(hasTextEqualTo("解锁手机后显示家事")).assertHasText("解锁手机后显示家事")
@@ -139,7 +166,7 @@ class JrxWidgetRenderTest {
             }
         }
         captureRemoteViews(name, state, WIDGET_HEIGHT_DP, themeMode)
-        if (state is WidgetState.Ready) {
+        if (state is WidgetState.Ready && state.items.isNotEmpty()) {
             captureRemoteViews("${name}_tall", state, WIDGET_TALL_HEIGHT_DP, themeMode)
         }
     }
@@ -201,6 +228,11 @@ class JrxWidgetRenderTest {
         private const val WIDGET_TALL_HEIGHT_DP = 530
 
         private fun readyState(): WidgetState.Ready = WidgetState.Ready(
+            life = LifeDays.LifeLine(
+                personId = "me",
+                title = "我来到这世界第 9796 天",
+                note = "26 岁 · 离第 10000 天还有 204 天",
+            ),
             couple = CoupleLine(
                 partnerId = "partner",
                 title = "我和老婆相恋 3650 天",

@@ -36,6 +36,7 @@ import io.github.xiaohaoz1.jiarenxia.MainActivity
 import io.github.xiaohaoz1.jiarenxia.R
 import io.github.xiaohaoz1.jiarenxia.data.settings.WidgetThemeMode
 import io.github.xiaohaoz1.jiarenxia.ui.theme.JrxStyle
+import io.github.xiaohaoz1.jiarenxia.domain.LifeDays.LifeLine
 import io.github.xiaohaoz1.jiarenxia.domain.anniversary.CoupleCounter.CoupleLine
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
@@ -45,6 +46,7 @@ import kotlinx.coroutines.withContext
 /**
  * 「家事时间线」桌面插件（默认可滚动列表，4x3 起、纵向可调）：
  * 今天到未来 30 天的生日 / 纪念日 / 忌日 / 家事 / 联系提醒，与家事页同口径。
+ * 顶部焦点卡依次为“我来到这世界第 N 天”和“我和另一半”。
  * 头部点击打开家事页；行点击深链进人物详情或事项编辑。
  * 数据刷新：写库后由 [WidgetRefresh] 即时刷新，系统 30 分钟周期兜底。
  */
@@ -216,6 +218,12 @@ private fun itemIntent(context: Context, item: WidgetItem): Intent {
     }
 }
 
+/** 焦点卡点击：进入指定人物的详情页。 */
+private fun personIntent(context: Context, personId: String): Intent =
+    Intent(context, MainActivity::class.java)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        .putExtra(MainActivity.EXTRA_PERSON_ID, personId)
+
 @Composable
 internal fun JrxWidgetContent(
     context: Context,
@@ -236,7 +244,8 @@ internal fun JrxWidgetContent(
         Header(context, today, colors)
         when (state) {
             is WidgetState.Ready -> ReadyContent(
-                context, state.items, state.couple, today, colors, staticTimelineForTest)
+                context, state.items, state.couple, state.life,
+                today, colors, staticTimelineForTest)
             else -> Placeholder(context, state, colors)
         }
     }
@@ -273,32 +282,52 @@ private fun ReadyContent(
     context: Context,
     items: List<WidgetItem>,
     couple: CoupleLine?,
+    life: LifeLine?,
     today: LocalDate,
     colors: WidgetColors,
     staticTimelineForTest: Boolean,
 ) {
     Column(GlanceModifier.fillMaxSize()) {
-        if (couple != null) {
-            CoupleCard(context, couple, colors)
+        if (life != null) {
+            FocusCard(
+                personIntent(context, life.personId), "我",
+                life.title, life.note,
+                colors.secondaryContainer, colors.onSecondaryContainer,
+                colors.secondary, colors,
+            )
             Spacer(GlanceModifier.height(6.dp))
         }
-        val groups = timelineGroups(items, today)
-        if (staticTimelineForTest) {
-            // Robolectric 不会给 Glance 远程列表绑定 adapter，截图时静态展开同一套行 UI。
-            Column(GlanceModifier.fillMaxSize()) {
-                groups.forEach { group ->
-                    GroupHeader(group.label, colors)
-                    group.items.forEach { item -> ItemRow(context, item, today, colors) }
-                }
-            }
+        if (couple != null) {
+            FocusCard(
+                personIntent(context, couple.partnerId), "恋",
+                couple.title, couple.note,
+                colors.primaryContainer, colors.onPrimaryContainer,
+                colors.onPrimaryContainerMuted, colors,
+            )
+            Spacer(GlanceModifier.height(6.dp))
+        }
+        if (items.isEmpty()) {
+            // 只有焦点卡、没有家事行时，剩余空间仍画空态占位（点击进家事页）。
+            Placeholder(context, WidgetState.Empty, colors)
         } else {
-            LazyColumn(GlanceModifier.fillMaxSize()) {
-                groups.forEach { group ->
-                    item(itemId = stableItemId("h:${group.label}")) {
+            val groups = timelineGroups(items, today)
+            if (staticTimelineForTest) {
+                // Robolectric 不会给 Glance 远程列表绑定 adapter，截图时静态展开同一套行 UI。
+                Column(GlanceModifier.fillMaxSize()) {
+                    groups.forEach { group ->
                         GroupHeader(group.label, colors)
+                        group.items.forEach { item -> ItemRow(context, item, today, colors) }
                     }
-                    items(group.items, itemId = { stableItemId(it.key) }) { item ->
-                        ItemRow(context, item, today, colors)
+                }
+            } else {
+                LazyColumn(GlanceModifier.fillMaxSize()) {
+                    groups.forEach { group ->
+                        item(itemId = stableItemId("h:${group.label}")) {
+                            GroupHeader(group.label, colors)
+                        }
+                        items(group.items, itemId = { stableItemId(it.key) }) { item ->
+                            ItemRow(context, item, today, colors)
+                        }
                     }
                 }
             }
@@ -306,16 +335,22 @@ private fun ReadyContent(
     }
 }
 
-/** “我和另一半”焦点卡，点击进入对方详情。 */
+/** 顶部焦点卡（“我来到这世界第 N 天”/“我和另一半”），点击进入对应人物详情。 */
 @Composable
-private fun CoupleCard(context: Context, couple: CoupleLine, colors: WidgetColors) {
-    val intent = Intent(context, MainActivity::class.java)
-        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        .putExtra(MainActivity.EXTRA_PERSON_ID, couple.partnerId)
+private fun FocusCard(
+    intent: Intent,
+    badge: String,
+    title: String,
+    note: String?,
+    container: GlanceColorProvider,
+    content: GlanceColorProvider,
+    contentMuted: GlanceColorProvider,
+    colors: WidgetColors,
+) {
     Row(
         GlanceModifier.fillMaxWidth()
             .clickable(actionStartActivity(intent))
-            .background(colors.primaryContainer)
+            .background(container)
             .cornerRadius(16.dp)
             .padding(10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -328,11 +363,11 @@ private fun CoupleCard(context: Context, couple: CoupleLine, colors: WidgetColor
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                "恋",
+                badge,
                 style = TextStyle(
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = colors.onPrimaryContainer,
+                    color = content,
                 ),
                 maxLines = 1,
             )
@@ -340,20 +375,20 @@ private fun CoupleCard(context: Context, couple: CoupleLine, colors: WidgetColor
         Spacer(GlanceModifier.width(8.dp))
         Column(GlanceModifier.defaultWeight()) {
             Text(
-                couple.title,
+                title,
                 style = TextStyle(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = colors.onPrimaryContainer,
+                    color = content,
                 ),
                 maxLines = 1,
             )
-            if (couple.note != null) {
+            if (note != null) {
                 Text(
-                    couple.note,
+                    note,
                     style = TextStyle(
                         fontSize = 11.sp,
-                        color = colors.onPrimaryContainerMuted,
+                        color = contentMuted,
                     ),
                     maxLines = 1,
                 )
