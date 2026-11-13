@@ -136,7 +136,7 @@ fun FamilyScreen(
     }
     // 打完电话回来的“联系上了吗”提示（10 分钟窗口；含要问的事划掉区）
     io.github.xiaohaoz1.jiarenxia.ui.common.PostCallPromptEffect(
-        viewModel.appEvents, viewModel::logCallContact)
+        viewModel.postCall, viewModel::logCallContact)
 
     FamilyContent(
         st = st,

@@ -158,7 +158,7 @@ fun PersonDetailScreen(
     val st by viewModel.ui.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     // 打完电话回来的“联系上了吗”提示（10 分钟窗口；含要问的事划掉区）
-    PostCallPromptEffect(viewModel.appEvents, viewModel::logCallContact)
+    PostCallPromptEffect(viewModel.postCall, viewModel::logCallContact)
     val context = LocalContext.current
     // 拨号前「打给…之前」待确认（该人有要问的事时先弹框）
     var preCall by remember {

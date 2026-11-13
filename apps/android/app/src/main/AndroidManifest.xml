@@ -121,6 +121,12 @@
             </intent-filter>
         </receiver>
 
+        <!-- 「打完电话记一笔」通知动作（联系上了/没联系上/划掉）：
+             显式 PendingIntent 触发，不需要导出 -->
+        <receiver
+            android:name=".reminder.PostCallReceiver"
+            android:exported="false" />
+
         <!-- GlanceRemoteViewsService 由 glance 库清单自带（BIND_REMOTEVIEWS 保护），
              未解锁时插件只画占位、不触碰该服务，无需重复声明 -->
 

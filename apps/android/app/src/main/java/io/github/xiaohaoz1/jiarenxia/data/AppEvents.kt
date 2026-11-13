@@ -24,9 +24,6 @@ class AppEvents @Inject constructor() {
 
     /** 待导入的家人共享（从恢复流程识别到 purpose=share 时塞入）。 */
     var pendingSharePlan: io.github.xiaohaoz1.jiarenxia.data.backup.RestorePlan? = null
-
-    /** 拨打家人电话后待提示的“联系上了吗”（10 分钟窗口，联系提醒）。 */
-    var pendingContactPrompt: ContactPrompt? = null
 }
 
 /** “刚才联系上了吗”提示的负载。 */

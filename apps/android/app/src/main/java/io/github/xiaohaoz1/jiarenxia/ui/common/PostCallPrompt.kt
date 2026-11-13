@@ -14,7 +14,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -24,48 +24,51 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import io.github.xiaohaoz1.jiarenxia.data.AppEvents
+import androidx.lifecycle.repeatOnLifecycle
 import io.github.xiaohaoz1.jiarenxia.data.ContactPrompt
 import io.github.xiaohaoz1.jiarenxia.domain.ContactSchedule
 import io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestionPrompt
+import io.github.xiaohaoz1.jiarenxia.reminder.PostCallNotifier
 
 /**
- * “打完电话提示记录”（联系提醒）：页面恢复前台时，若 10 分钟窗口内
+ * “打完电话提示记录”（联系提醒）：页面在前台时，若 10 分钟窗口内
  * 从 App 拨过家人电话，弹 [PostCallPromptDialog] 问“联系上了吗”——
  * 联系上了按拨号时刻记一条电话联系，并删除勾选的「只问一次」要问的事；
  * 没联系上不记也不删，提醒继续留着。
- * 拨号侧由 ViewModel.onDialMade 写入 pending；提示一次后清除。
+ * 拨号侧由 ViewModel.onDialMade → PostCallNotifier.dialMade 写入待提示；
+ * 通知点开的待提示带 force，不受 10 分钟窗口限制。
+ * 待提示只在当前 RESUMED 页消费一次（通知本身仍保留，由答复收掉）。
  *
  * @param onLog 「联系上了」：回调 prompt 与勾选中的只问一次条目 id
  *              （没联系上/关闭时不回调，什么都不删）。
  */
 @Composable
 fun PostCallPromptEffect(
-    appEvents: AppEvents,
+    notifier: PostCallNotifier,
     onLog: (ContactPrompt, Set<String>) -> Unit
 ) {
     var prompt by remember { mutableStateOf<ContactPrompt?>(null) }
     val owner = LocalLifecycleOwner.current
-    DisposableEffect(owner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
-            val pending = appEvents.pendingContactPrompt ?: return@LifecycleEventObserver
-            appEvents.pendingContactPrompt = null
-            if (!ContactSchedule.promptVisible(
-                    pending.atMillis, System.currentTimeMillis())
-            ) return@LifecycleEventObserver
-            prompt = pending
+    // 只在 RESUMED 期间收集：多页共存时只有可见页弹；
+    // 每次回到前台重新收集也能拿到滞留的待提示（等效原 ON_RESUME 读取）
+    LaunchedEffect(owner) {
+        owner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            notifier.pending.collect { p ->
+                if (p == null || prompt != null) return@collect
+                if (!p.force && !ContactSchedule.promptVisible(
+                        p.prompt.atMillis, System.currentTimeMillis())
+                ) return@collect
+                notifier.consumeForDisplay()
+                prompt = p.prompt
+            }
         }
-        owner.lifecycle.addObserver(observer)
-        onDispose { owner.lifecycle.removeObserver(observer) }
     }
     prompt?.let { p ->
         PostCallPromptDialog(
             label = p.label,
             oneTimeQuestions = p.oneTimeQuestions,
             onConnected = { checked -> onLog(p, checked); prompt = null },
-            onDismiss = { prompt = null }
+            onDismiss = { notifier.answered(); prompt = null }
         )
     }
 }

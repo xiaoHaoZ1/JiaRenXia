@@ -34,7 +34,7 @@ class FamilyViewModel @Inject constructor(
     observeOverview: ObserveFamilyOverview,
     repository: FamilyRepository,
     val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
-    val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
+    val postCall: io.github.xiaohaoz1.jiarenxia.reminder.PostCallNotifier,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data
         .ContactRepository,
     private val pregnancyRepository: io.github.xiaohaoz1.jiarenxia.data
@@ -87,7 +87,7 @@ class FamilyViewModel @Inject constructor(
         callQuestionRepository.getForPerson(personId)
 
     /**
-     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。
+     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）并发通知。
      * [oneTimeQuestions] 为这次拨号前弹过的「只问一次」条目，
      * “联系上了”时按勾选删除（只在内存里，不持久化）。
      */
@@ -95,9 +95,9 @@ class FamilyViewModel @Inject constructor(
         label: String,
         oneTimeQuestions: List<io.github.xiaohaoz1.jiarenxia.domain.call
             .CallQuestionPrompt> = emptyList()) {
-        appEvents.pendingContactPrompt =
+        postCall.dialMade(
             io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
-                person.id, label, System.currentTimeMillis(), oneTimeQuestions)
+                person.id, label, System.currentTimeMillis(), oneTimeQuestions))
     }
 
     /**
@@ -108,14 +108,6 @@ class FamilyViewModel @Inject constructor(
         prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt,
         checkedQuestionIds: Set<String> = emptySet()
     ) {
-        viewModelScope.launch {
-            contactRepository.logContact(
-                prompt.personId,
-                io.github.xiaohaoz1.jiarenxia.core.model.ContactMethod.CALL,
-                null, prompt.atMillis)
-            val ids = io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestions
-                .deletionIds(prompt.oneTimeQuestions, checkedQuestionIds)
-            if (ids.isNotEmpty()) callQuestionRepository.deleteIds(ids)
-        }
+        viewModelScope.launch { postCall.logConnected(prompt, checkedQuestionIds) }
     }
 }

@@ -84,7 +84,7 @@ class ReminderViewModel @Inject constructor(
     private val settings: SettingsRepository,
     private val observeOverview: ObserveFamilyOverview,
     private val lunar: io.github.xiaohaoz1.jiarenxia.domain.lunar.LunarCalendar,
-    val appEvents: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
+    val postCall: io.github.xiaohaoz1.jiarenxia.reminder.PostCallNotifier,
     private val contactRepository: io.github.xiaohaoz1.jiarenxia.data
         .ContactRepository,
     private val homeVisitRepository: io.github.xiaohaoz1.jiarenxia.data
@@ -304,7 +304,7 @@ class ReminderViewModel @Inject constructor(
         callQuestionRepository.getForPerson(personId)
 
     /**
-     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）。
+     * 拨给家人：记下待提示（10 分钟内回 App 弹“联系上了吗”）并发通知。
      * [oneTimeQuestions] 为这次拨号前弹过的「只问一次」条目，
      * “联系上了”时按勾选删除（只在内存里，不持久化）。
      */
@@ -312,9 +312,9 @@ class ReminderViewModel @Inject constructor(
         label: String,
         oneTimeQuestions: List<io.github.xiaohaoz1.jiarenxia.domain.call
             .CallQuestionPrompt> = emptyList()) {
-        appEvents.pendingContactPrompt =
+        postCall.dialMade(
             io.github.xiaohaoz1.jiarenxia.data.ContactPrompt(
-                person.id, label, System.currentTimeMillis(), oneTimeQuestions)
+                person.id, label, System.currentTimeMillis(), oneTimeQuestions))
     }
 
     /**
@@ -325,15 +325,7 @@ class ReminderViewModel @Inject constructor(
         prompt: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt,
         checkedQuestionIds: Set<String> = emptySet()
     ) {
-        viewModelScope.launch {
-            contactRepository.logContact(
-                prompt.personId,
-                io.github.xiaohaoz1.jiarenxia.core.model.ContactMethod.CALL,
-                null, prompt.atMillis)
-            val ids = io.github.xiaohaoz1.jiarenxia.domain.call.CallQuestions
-                .deletionIds(prompt.oneTimeQuestions, checkedQuestionIds)
-            if (ids.isNotEmpty()) callQuestionRepository.deleteIds(ids)
-        }
+        viewModelScope.launch { postCall.logConnected(prompt, checkedQuestionIds) }
     }
 
     /** 时间线“记一次”：自选方式与备注。 */

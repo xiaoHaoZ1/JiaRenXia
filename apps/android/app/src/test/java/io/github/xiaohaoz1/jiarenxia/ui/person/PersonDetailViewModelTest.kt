@@ -14,7 +14,6 @@ import io.github.xiaohaoz1.jiarenxia.core.model.Pregnancy
 import io.github.xiaohaoz1.jiarenxia.core.model.PregnancyStatus
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationRole
 import io.github.xiaohaoz1.jiarenxia.core.model.RelationshipType
-import io.github.xiaohaoz1.jiarenxia.data.AppEvents
 import io.github.xiaohaoz1.jiarenxia.data.PersonDetail
 import io.github.xiaohaoz1.jiarenxia.data.FakeContactRepository
 import io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepositoryImpl
@@ -74,7 +73,15 @@ class PersonDetailViewModelTest : RepoTestBase() {
             SavedStateHandle(mapOf("personId" to personId)),
             repo,
             FakeContactRepository(),
-            AppEvents(),
+            io.github.xiaohaoz1.jiarenxia.reminder.PostCallNotifier(
+                androidx.test.core.app.ApplicationProvider
+                    .getApplicationContext(),
+                FakeContactRepository(),
+                io.github.xiaohaoz1.jiarenxia.data.CallQuestionRepositoryImpl(
+                    db,
+                    object : IdGenerator { override fun newId() = "q-" + (++seq) },
+                    object : TimeSource { override fun now() = now })
+            ),
             tasks,
             KinshipEngine(),
             ObserveFamilyOverview(repo, KinshipEngine()),

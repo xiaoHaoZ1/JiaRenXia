@@ -163,7 +163,11 @@ fun AppNavHost(
     /** 文本分享（SEND text/plain → EXTRA_TEXT）；正常页面时消费，预填事项编辑页。 */
     pendingShareText: StateFlow<String?> =
         kotlinx.coroutines.flow.MutableStateFlow(null),
-    onShareTextPendingConsumed: () -> Unit = {}
+    onShareTextPendingConsumed: () -> Unit = {},
+    /** 「打完电话记一笔」通知点开：落到该人详情页后恢复“联系上了吗”待提示。 */
+    pendingPostCall: StateFlow<io.github.xiaohaoz1.jiarenxia.data.ContactPrompt?> =
+        kotlinx.coroutines.flow.MutableStateFlow(null),
+    onPostCallPendingConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -177,12 +181,14 @@ fun AppNavHost(
             }
         }
     }
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = currentEntry?.destination?.route
     val pending by pendingPersonId.collectAsStateWithLifecycle()
     val pendingTask by pendingTaskId.collectAsStateWithLifecycle()
     val pendingTabReq by pendingTab.collectAsStateWithLifecycle()
     val pendingShare by pendingShareUri.collectAsStateWithLifecycle()
     val pendingText by pendingShareText.collectAsStateWithLifecycle()
+    val pendingPostCallReq by pendingPostCall.collectAsStateWithLifecycle()
     val appNavViewModel: AppNavViewModel = hiltViewModel()
     /** 详情页 → 底部标签切换请求（“查看全部”去家事页）。 */
     val tabRequests = remember { kotlinx.coroutines.flow.MutableStateFlow<String?>(null) }
@@ -233,6 +239,27 @@ fun AppNavHost(
             navController.navigate(Routes.taskEdit(taskId = id)) { launchSingleTop = true }
         }
         onTaskPendingConsumed()
+    }
+
+    // 「打完电话记一笔」通知点开：深链先经 pendingPersonId 导航，
+    // 这里等路由真正落到该人详情页才 rearm——强制待提示只会被那页
+    // 拿到（若提早发射，途中其它页会先消费）；人物已删则直接丢弃
+    LaunchedEffect(pendingPostCallReq, currentEntry) {
+        val p = pendingPostCallReq ?: return@LaunchedEffect
+        val entry = currentEntry ?: return@LaunchedEffect
+        val route = entry.destination.route ?: return@LaunchedEffect
+        if (route == Routes.LAUNCH || route == Routes.WELCOME ||
+            route == Routes.INTRO ||
+            route.startsWith("onboarding")) return@LaunchedEffect
+        if (!appNavViewModel.personExists(p.personId)) {
+            onPostCallPendingConsumed()
+            return@LaunchedEffect
+        }
+        if (route != Routes.PERSON ||
+            entry.arguments?.getString("personId") != p.personId
+        ) return@LaunchedEffect
+        onPostCallPendingConsumed()
+        appNavViewModel.rearmPostCall(p)
     }
 
     // 插件「打开家事页」深链：不在 main 上时先弹回 main，再由 tabRequests 切标签；
@@ -786,10 +813,15 @@ fun AppNavHost(
 class AppNavViewModel @javax.inject.Inject constructor(
     private val repository: FamilyRepository,
     private val taskRepository: io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository,
-    val events: io.github.xiaohaoz1.jiarenxia.data.AppEvents
+    val events: io.github.xiaohaoz1.jiarenxia.data.AppEvents,
+    private val postCall: io.github.xiaohaoz1.jiarenxia.reminder.PostCallNotifier
 ) : ViewModel() {
     suspend fun personExists(id: String): Boolean =
         repository.observePersonDetail(id).first() != null
+
+    /** 「打完电话记一笔」通知点开：把待提示恢复为强制态（含「只问一次」重建）。 */
+    suspend fun rearmPostCall(p: io.github.xiaohaoz1.jiarenxia.data.ContactPrompt) =
+        postCall.rearm(p)
 
     suspend fun taskExists(id: String): Boolean = taskRepository.getTask(id) != null
 

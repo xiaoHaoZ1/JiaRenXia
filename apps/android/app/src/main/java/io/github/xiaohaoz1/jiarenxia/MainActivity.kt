@@ -16,6 +16,7 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import dagger.hilt.android.AndroidEntryPoint
+import io.github.xiaohaoz1.jiarenxia.data.ContactPrompt
 import io.github.xiaohaoz1.jiarenxia.data.settings.SettingsRepository
 import io.github.xiaohaoz1.jiarenxia.data.settings.ThemeMode
 import io.github.xiaohaoz1.jiarenxia.navigation.AppNavHost
@@ -56,6 +57,9 @@ class MainActivity : ComponentActivity() {
     /** 待消费的事项通知深链目标（事项编辑页）。 */
     private val pendingTaskId = MutableStateFlow<String?>(null)
 
+    /** 待消费的「打完电话记一笔」通知深链（该人详情 + 强制弹“联系上了吗”）。 */
+    private val pendingPostCall = MutableStateFlow<ContactPrompt?>(null)
+
     /** 待消费的底部标签切换请求（桌面插件头部点按 → 家事页）。 */
     private val pendingTab = MutableStateFlow<String?>(null)
 
@@ -80,6 +84,7 @@ class MainActivity : ComponentActivity() {
         pendingPersonId.value = intent.getStringExtra(EXTRA_PERSON_ID)
         pendingTaskId.value = intent.getStringExtra(EXTRA_TASK_ID)
         pendingTab.value = intent.getStringExtra(EXTRA_TAB)
+        pendingPostCall.value = postCallPromptOf(intent)
         resolveShareIntent(intent)
         lifecycleScope.launch { settings.themeMode.collect { themeMode.value = it } }
         lifecycleScope.launch { settings.themeStyle.collect { themeStyle.value = it } }
@@ -129,6 +134,10 @@ class MainActivity : ComponentActivity() {
                         pendingShareText = pendingShareText,
                         onShareTextPendingConsumed = {
                             pendingShareText.value = null
+                        },
+                        pendingPostCall = pendingPostCall,
+                        onPostCallPendingConsumed = {
+                            pendingPostCall.value = null
                         }
                     )
                 }
@@ -149,7 +158,19 @@ class MainActivity : ComponentActivity() {
         intent.getStringExtra(EXTRA_PERSON_ID)?.let { pendingPersonId.value = it }
         intent.getStringExtra(EXTRA_TASK_ID)?.let { pendingTaskId.value = it }
         intent.getStringExtra(EXTRA_TAB)?.let { pendingTab.value = it }
+        postCallPromptOf(intent)?.let { pendingPostCall.value = it }
         resolveShareIntent(intent)
+    }
+
+    /** 「打完电话记一笔」通知正文：personId + 拨号时刻 + 称呼 → 待恢复的 ContactPrompt。 */
+    private fun postCallPromptOf(i: Intent): ContactPrompt? {
+        val at = i.getLongExtra(EXTRA_POSTCALL_AT, 0L)
+        if (at <= 0L) return null
+        val pid = i.getStringExtra(EXTRA_PERSON_ID) ?: return null
+        return ContactPrompt(
+            personId = pid,
+            label = i.getStringExtra(EXTRA_POSTCALL_LABEL) ?: "",
+            atMillis = at)
     }
 
     /**
@@ -194,5 +215,8 @@ class MainActivity : ComponentActivity() {
         /** 桌面插件打开指定底部标签（值为 MainShell 的 tab route）。 */
         const val EXTRA_TAB = "openTab"
         const val TAB_REMINDER = "reminder"
+        /** 「打完电话记一笔」通知：拨号时刻（毫秒）与拨号时的称呼。 */
+        const val EXTRA_POSTCALL_AT = "postcallAt"
+        const val EXTRA_POSTCALL_LABEL = "postcallLabel"
     }
 }
