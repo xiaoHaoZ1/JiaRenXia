@@ -56,12 +56,15 @@ import java.io.File
 import java.time.LocalDate
 
 /**
- * README 与适老化截图（opt-in）：仅在 `-PreadmeShots=true` 时生成文件。
+ * README 与适老化截图（opt-in）：仅在 `-PreadmeShots=true` / `-PwebShots=true` 时生成文件。
  *
  * - 七张 README 截图：手机尺寸（412×915dp），缩小到 540px 宽写入 docs/images/。
- * - 公开截图统一使用英文合成姓名、健在人物，避免重名与状态标记造成误解。
+ * - 官网截图（web* 用例）：同样 540px 宽，写 apps/web/src/assets/shots/ 的
+ *   home/detail/affairs/graph.png——中文合成姓名、全员健在、家书界面
+ *   （2026-11-23 用户决定；README 仍用英文名版本）。
+ * - 公开截图统一使用合成姓名、健在人物，避免重名与状态标记造成误解。
  * - 大字号走查：fontScale 1.3 / 1.5 各一遍，写到临时目录供人工检查。
- * 普通测试运行全部跳过（不触碰 docs/images）。
+ * 普通测试运行全部跳过（不触碰 docs/images 与网站截图）。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -75,6 +78,12 @@ class ReadmeShotsTest {
         Assume.assumeTrue(
             "README/大字号截图仅在 -PreadmeShots=true 时生成",
             System.getProperty("jrx.readmeShots") == "true"
+        )
+
+    private fun assumeWeb() =
+        Assume.assumeTrue(
+            "官网截图仅在 -PwebShots=true 时生成",
+            System.getProperty("jrx.webShots") == "true"
         )
 
     private fun render(dark: Boolean, route: String? = null, content: @Composable () -> Unit) {
@@ -113,31 +122,80 @@ class ReadmeShotsTest {
         println("wrote ${out.absolutePath} ${out.length() / 1024}KB")
     }
 
+    // ---------- README / 官网截图共用渲染主体 ----------
+    // publicSample=true → 英文名（README 口径）；aliveChinese=true → 中文名（官网口径）
+
+    private fun shotHome(publicSample: Boolean, aliveChinese: Boolean, out: File) {
+        render(dark = false, route = "family") {
+            FamilyContent(
+                Demo.familyState(publicSample = publicSample, aliveChinese = aliveChinese),
+                Demo.lunar, {}, {}, {}, {}, {}
+            )
+        }
+        save(out, 540)
+    }
+
+    private fun shotDetail(publicSample: Boolean, aliveChinese: Boolean, out: File) {
+        render(dark = false) {
+            PersonDetailContent(
+                lunar = Demo.lunar,
+                st = Demo.detailOf(
+                    "uncle", publicSample = publicSample, aliveChinese = aliveChinese
+                ),
+                today = Demo.today,
+                snackbar = SnackbarHostState(),
+                onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
+                onDial = {}, onSetReminder = { _, _ -> }, onSetReminderOffsets = { _, _ -> },
+                onSetCustomTitle = {}, onDeletePerson = {},
+                onSetSiblingOrder = { _, _, _ -> }, onRemoveRelation = {}
+            )
+        }
+        save(out, 540)
+    }
+
+    private fun shotGraph(publicSample: Boolean, aliveChinese: Boolean, out: File) {
+        render(dark = false) {
+            val ov = Demo.demoOverview(publicSample = publicSample, aliveChinese = aliveChinese)
+            val gens = KinshipEngine().generations(ov.graph, ov.self.person.id)
+            val visible = GraphFamilyScope.visibleIds(ov, GraphBranch.ALL)
+            GraphContent(
+                model = GraphLayout.build(
+                    ov, gens, visibleIds = visible, sizer = GraphTextMeasure.sizer),
+                byId = ov.byId, selfId = ov.self.person.id,
+                onBack = {}, onOpenPerson = {},
+                branch = GraphBranch.ALL,
+                availableBranches = GraphFamilyScope.available(ov),
+                familyTabs = GraphFamilyScope.tabs,
+                scopeAnchorId = ov.self.person.id,
+                connectedTotal = visible.size
+            )
+        }
+        composeRule.onNodeWithText("本支总览").performClick()
+        composeRule.waitForIdle()
+        save(out, 540)
+    }
+
+    private fun shotAffairs(publicSample: Boolean, aliveChinese: Boolean, out: File) {
+        render(dark = false, route = "reminder") {
+            AffairsDemo(publicSample = publicSample, aliveChinese = aliveChinese)
+        }
+        save(out, 540)
+    }
+
     // ---------- README 截图 ----------
 
     @Test
     fun readmeHome() {
         assume()
-        render(dark = false, route = "family") {
-            FamilyContent(Demo.familyState(publicSample = true), Demo.lunar, {}, {}, {}, {}, {})
-        }
-        save(File("../../../docs/images/screenshot_home.png"), 540)
+        shotHome(publicSample = true, aliveChinese = false,
+            File("../../../docs/images/screenshot_home.png"))
     }
 
     @Test
     fun readmeDetail() {
         assume()
-        render(dark = false) {
-            PersonDetailContent(
-                lunar = Demo.lunar,
-                st = Demo.detailOf("uncle", publicSample = true), today = Demo.today,
-                snackbar = SnackbarHostState(),
-                onBack = {}, onEdit = {}, onRelate = {}, onOpenPerson = {},
-                onDial = {}, onSetReminder = { _, _ -> }, onSetReminderOffsets = { _, _ -> }, onSetCustomTitle = {}, onDeletePerson = {},
-                onSetSiblingOrder = { _, _, _ -> }, onRemoveRelation = {}
-            )
-        }
-        save(File("../../../docs/images/screenshot_detail.png"), 540)
+        shotDetail(publicSample = true, aliveChinese = false,
+            File("../../../docs/images/screenshot_detail.png"))
     }
 
     @Test
@@ -159,25 +217,8 @@ class ReadmeShotsTest {
     @Test
     fun readmeGraph() {
         assume()
-        render(dark = false) {
-            val ov = Demo.demoOverview(publicSample = true)
-            val gens = KinshipEngine().generations(ov.graph, ov.self.person.id)
-            val visible = GraphFamilyScope.visibleIds(ov, GraphBranch.ALL)
-            GraphContent(
-                model = GraphLayout.build(
-                    ov, gens, visibleIds = visible, sizer = GraphTextMeasure.sizer),
-                byId = ov.byId, selfId = ov.self.person.id,
-                onBack = {}, onOpenPerson = {},
-                branch = GraphBranch.ALL,
-                availableBranches = GraphFamilyScope.available(ov),
-                familyTabs = GraphFamilyScope.tabs,
-                scopeAnchorId = ov.self.person.id,
-                connectedTotal = visible.size
-            )
-        }
-        composeRule.onNodeWithText("本支总览").performClick()
-        composeRule.waitForIdle()
-        save(File("../../../docs/images/screenshot_graph.png"), 540)
+        shotGraph(publicSample = true, aliveChinese = false,
+            File("../../../docs/images/screenshot_graph.png"))
     }
 
     @Test
@@ -193,10 +234,8 @@ class ReadmeShotsTest {
     @Test
     fun readmeAffairs() {
         assume()
-        render(dark = false, route = "reminder") {
-            AffairsDemo()
-        }
-        save(File("../../../docs/images/screenshot_affairs.png"), 540)
+        shotAffairs(publicSample = true, aliveChinese = false,
+            File("../../../docs/images/screenshot_affairs.png"))
     }
 
     @Test
@@ -206,6 +245,36 @@ class ReadmeShotsTest {
             FamilyContent(Demo.familyState(publicSample = true), Demo.lunar, {}, {}, {}, {}, {})
         }
         save(File("../../../docs/images/screenshot_home_dark.png"), 540)
+    }
+
+    // ---------- 官网截图（-PwebShots=true，中文合成名、全员健在） ----------
+
+    @Test
+    fun webHome() {
+        assumeWeb()
+        shotHome(publicSample = false, aliveChinese = true,
+            File("../../web/src/assets/shots/home.png"))
+    }
+
+    @Test
+    fun webDetail() {
+        assumeWeb()
+        shotDetail(publicSample = false, aliveChinese = true,
+            File("../../web/src/assets/shots/detail.png"))
+    }
+
+    @Test
+    fun webAffairs() {
+        assumeWeb()
+        shotAffairs(publicSample = false, aliveChinese = true,
+            File("../../web/src/assets/shots/affairs.png"))
+    }
+
+    @Test
+    fun webGraph() {
+        assumeWeb()
+        shotGraph(publicSample = false, aliveChinese = true,
+            File("../../web/src/assets/shots/graph.png"))
     }
 
     // ---------- 大字号走查（fontScale 1.3 / 1.5） ----------
@@ -226,22 +295,25 @@ class ReadmeShotsTest {
         raw(File(dir, "$prefix$name.png"))
     }
 
-    /** 家事页：真实页头（标题 + 副标题 + 铃铛/更多行，无分段）+ 提醒内容。 */
+    /** 家事页：真实页头（标题 + 副标题 + 铃铛/更多行，无分段）+ 提醒内容。
+     * 默认 publicSample=true（README/走查图英文名口径）；官网截图传 aliveChinese=true。 */
     @Composable
-    private fun AffairsDemo() {
+    private fun AffairsDemo(publicSample: Boolean = true, aliveChinese: Boolean = false) {
         Column {
             io.github.xiaohaoz1.jiarenxia.ui.reminder.AffairsHeader(
                 subtitle = io.github.xiaohaoz1.jiarenxia.ui.reminder.reminderSubtitle(
-                    reminderDemoState()
+                    reminderDemoState(publicSample, aliveChinese)
                 ),
                 onExport = {}
             )
-            ReminderDemo()
+            ReminderDemo(publicSample, aliveChinese)
         }
     }
 
-    private fun reminderDemoState(): ReminderUiState {
-        val ov = Demo.demoOverview(publicSample = true)
+    private fun reminderDemoState(
+        publicSample: Boolean = true, aliveChinese: Boolean = false
+    ): ReminderUiState {
+        val ov = Demo.demoOverview(publicSample = publicSample, aliveChinese = aliveChinese)
         val mom = ov.byId.getValue("mom")
         val gmd = ov.byId.getValue("gmd")
         val mil = ov.byId.getValue("mil")
@@ -284,9 +356,9 @@ class ReadmeShotsTest {
     }
 
     @Composable
-    private fun ReminderDemo() {
+    private fun ReminderDemo(publicSample: Boolean = true, aliveChinese: Boolean = false) {
         ReminderContent(
-            st = reminderDemoState(),
+            st = reminderDemoState(publicSample, aliveChinese),
             notifEnabled = true,
             onOpenPerson = {}, onDial = {}, onNotifSettings = {}
         )

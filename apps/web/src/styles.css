@@ -64,6 +64,8 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
   max-width: var(--container);
   margin: 0 auto;
   padding: 0 clamp(16px, 4vw, 32px);
+  /* 装饰性光晕等可越出容器但不许撑宽页面（body 的 clip 传不进文档滚动区，这里兜底） */
+  overflow-x: clip;
 }
 
 /* ---------- 页头 ---------- */
@@ -406,6 +408,79 @@ textarea { min-height: 7em; }
 .admin-nav a.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
 .pager { display: flex; gap: 0.6em; align-items: center; margin: 0.8em 0; }
+
+/* ---------- 下载页（2026-11 改版） ---------- */
+/* 主卡：≥720px 左内容右二维码两列，<720px 单列且二维码隐藏（手机扫不了自己屏幕） */
+.dl-main-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.2em;
+}
+.dl-main-qr { display: none; text-align: center; }
+.dl-main-qr img {
+  width: 132px;
+  height: 132px;
+  border-radius: 12px;
+  background: #fff;
+}
+.dl-main-qr .muted { display: block; margin-top: 0.4em; font-size: 0.9em; }
+.dl-actions { display: flex; gap: 0.6em; flex-wrap: wrap; align-items: center; margin: 0.8em 0 0.4em; }
+@media (min-width: 720px) {
+  .dl-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.6em;
+  }
+  .dl-main-qr { display: block; }
+}
+/* 「其他版本与校验值」折叠区：内部小节沿用卡片标题层级 */
+.dl-more { margin-top: 0.4em; }
+.dl-more > summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.7em 0;
+}
+.dl-more h3 { margin-top: 1em; }
+.dl-more ul.plain { margin: 0.2em 0 0.8em; }
+.dl-more .btn-big { margin-top: 0.2em; }
+
+/* ---------- QQ 群求助块（下载页/帮助页共用） ---------- */
+.qq-group {
+  display: flex;
+  gap: 1.2em;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.6em 0;
+}
+.qq-group-main {
+  display: flex;
+  gap: 0.6em;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.qq-group-num { font-weight: 600; }
+.qq-group-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3em;
+  margin-left: auto;
+}
+.qq-group-qr img {
+  width: 120px;
+  height: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.qq-group-qr .muted { font-size: 0.85em; }
+@media (max-width: 719px) {
+  /* 窄屏藏二维码：手机扫不了自己屏幕，群号与按钮保留 */
+  .qq-group-qr { display: none; }
+}
+
+/* 微信内下载提示条（ui.tsx WeChatBanner） */
+.wx-banner { border-style: solid; }
 
 ul.plain { list-style: none; padding: 0; }
 ul.plain li { padding: 0.3em 0; }

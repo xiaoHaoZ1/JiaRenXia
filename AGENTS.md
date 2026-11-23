@@ -43,6 +43,7 @@ cmd.exe /c "cd /d <产品根目录>\apps\android && gradlew.bat :app:testDebugUn
 - Lint 报告：`apps/android/app/build/reports/lint-results-debug.html`，要求 0 error。
 - README 截图（写入产品根目录的 `docs/images/`，测试中路径为相对模块目录的 `../../../docs/images/`）与大字号走查图（f13_/f15_ 写入临时目录）为 opt-in：
   `gradlew.bat :app:testDebugUnitTest --tests "*ReadmeShotsTest*" -PreadmeShots=true`；普通测试运行自动跳过。
+  官网截图（`apps/web/src/assets/shots/` 的 home/detail/affairs/graph：中文合成名、全员健在、家书界面）同为 opt-in：`gradlew.bat :app:testDebugUnitTest --tests *ReadmeShotsTest.web* -PwebShots=true`，直接覆盖网站截图。
   注意：`docs/images/` 的 README 截图自 2026-10-23 起为 vivo 真机实拍版（见下），跑该测试会用 Roborazzi 版覆盖同名文件。
 - 测试家庭备份 `apps/android/testdata/jrx_test_family.jrxb`（合成数据，密码 `test1234`，55 人/54 关系）由
   `TestFamilyBackupTest` 生成：`gradlew.bat :app:testDebugUnitTest --tests *TestFamilyBackupTest* -PtestFamily=true`。

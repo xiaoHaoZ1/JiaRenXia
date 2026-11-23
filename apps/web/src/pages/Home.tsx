@@ -196,15 +196,19 @@ function ReleaseStatus() {
 }
 
 function Hero() {
-  const t = T[useLang()];
+  const lang = useLang();
+  const t = T[lang];
   const to = useTo();
+  // 中文标题每行不折行（nowrap）；英文整句按普通文本流换行
+  const lineCls = (accent: boolean) =>
+    `h1-line${accent ? " accent" : ""}${lang === "zh" ? " nowrap" : ""}`;
   return (
     <section className="home-hero">
       <div className="hero-copy">
         <span className="kicker"><Icon name="heart" size={16} />{t.kicker}</span>
         <h1>
-          {t.h1a}
-          <span className="accent">{t.h1b}</span>
+          <span className={lineCls(false)}>{t.h1a}</span>
+          <span className={lineCls(true)}>{t.h1b}</span>
         </h1>
         <p className="hero-lead"><Phrases text={t.lead} /></p>
         <div className="hero-actions">

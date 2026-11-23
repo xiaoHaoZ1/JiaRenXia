@@ -126,6 +126,13 @@ android {
                 providers.gradleProperty("readmeShots").orElse("false").get()
             )
         }
+        // 官网截图：-PwebShots=true 才写 apps/web/src/assets/shots
+        unitTests.all {
+            it.systemProperty(
+                "jrx.webShots",
+                providers.gradleProperty("webShots").orElse("false").get()
+            )
+        }
         // 测试家庭备份：-PtestFamily=true 才生成 testdata/jrx_test_family.jrxb
         unitTests.all {
             it.systemProperty(
