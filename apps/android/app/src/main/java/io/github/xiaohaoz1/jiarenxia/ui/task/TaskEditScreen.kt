@@ -77,6 +77,10 @@ data class TaskEditCallbacks(
     val onNote: (String) -> Unit = {},
     val onEnabled: (Boolean) -> Unit = {},
     val onSave: () -> Unit = {},
+    /** 「标记已办」：已有且未办完的事项在底栏展示。 */
+    val onMarkDone: () -> Unit = {},
+    val onConfirmMarkDone: () -> Unit = {},
+    val onDismissDoneConfirm: () -> Unit = {},
     val onDelete: () -> Unit = {},
     val onDismissError: () -> Unit = {}
 )
@@ -103,6 +107,9 @@ fun TaskEditScreen(
             onNote = viewModel::setNote,
             onEnabled = viewModel::setEnabled,
             onSave = viewModel::save,
+            onMarkDone = viewModel::markDone,
+            onConfirmMarkDone = viewModel::confirmMarkDone,
+            onDismissDoneConfirm = viewModel::dismissDoneConfirm,
             onDelete = viewModel::delete,
             onDismissError = viewModel::dismissError
         ),
@@ -166,6 +173,9 @@ fun TaskEditContent(
                 onPrimary = cb.onSave,
                 primaryEnabled = missing == null,
                 busy = st.saving,
+                leadingText = if (st.canMarkDone) "标记已办" else null,
+                onLeading = if (st.canMarkDone) cb.onMarkDone else null,
+                leadingEnabled = missing == null,
                 missingText = missing?.first,
                 onMissingClick = missing?.let { (_, req) ->
                     { scope.launch { req.bringIntoView() } }
@@ -404,7 +414,39 @@ fun TaskEditContent(
             }
         )
     }
+    st.doneConfirm?.let {
+        TaskDoneConfirmDialog(it, cb.onConfirmMarkDone, cb.onDismissDoneConfirm)
+    }
 }
+
+/** 重复事项「标记已办」确认框。 */
+@Composable
+internal fun TaskDoneConfirmDialog(
+    confirm: DoneConfirm,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("标记这一期已办？") },
+        text = {
+            Text(
+                "这一期（" + cnDate(confirm.current) + "）记为已办，下次是 " +
+                    cnDate(confirm.next) + "。"
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("标记已办") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+/** 中文日期：2026年10月15日（月日不补零）。 */
+private fun cnDate(d: LocalDate): String =
+    d.year.toString() + "年" + d.monthValue + "月" + d.dayOfMonth + "日"
 
 /** 编辑页通用行：标题 + 当前值 + 下拉箭头，整行可点。[enabled] 为 false 时锁定（无箭头、不可点）。 */
 @Composable

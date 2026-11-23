@@ -1801,12 +1801,16 @@ class ScreenShotsTest {
         assertDescs("关闭")
     }
 
-    @Test
-    fun taskEdit() = shot("task_edit") {
-        // 新建居民医保缴费：预填标题/日期/偏移
+    /** 事项编辑截图共用内容：妈妈的居民医保缴费（新建/已有/大字号同一状态）。 */
+    @Composable
+    private fun taskEditShot(
+        taskId: String? = null,
+        lastDoneDate: LocalDate? = null,
+        done: Boolean = false
+    ) {
         io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditContent(
             st = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditUiState(
-                taskId = null,
+                taskId = taskId,
                 kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.MEDICAL_INSURANCE,
                 personId = "mom",
                 title = "妈妈的居民医保缴费",
@@ -1814,6 +1818,8 @@ class ScreenShotsTest {
                 repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.YEARLY,
                 offsets = setOf(7, 0),
                 amountText = "380",
+                lastDoneDate = lastDoneDate,
+                done = done,
                 persons = listOf(
                     io.github.xiaohaoz1.jiarenxia.ui.task.TaskPersonOption(
                         "mom", "王秀兰", "王秀兰（妈妈）")
@@ -1821,6 +1827,57 @@ class ScreenShotsTest {
             ),
             cb = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditCallbacks(),
             onDone = {}
+        )
+    }
+
+    @Test
+    fun taskEdit() = shot("task_edit") {
+        // 新建居民医保缴费：预填标题/日期/偏移
+        taskEditShot()
+    }.also { assertNoTexts("标记已办") }
+
+    @Test
+    fun taskEditExisting() = shot("task_edit_existing") {
+        // 已有未办完事项：底栏「保存」左侧出现「标记已办」
+        taskEditShot(taskId = "t1", lastDoneDate = LocalDate.of(2025, 10, 12))
+    }.also { assertTexts("编辑事项", "标记已办", "保存", "上次办理") }
+
+    @Test
+    fun taskEditExistingLarge() = shotLarge("task_edit_existing", scale = 1.6f) {
+        taskEditShot(taskId = "t1", lastDoneDate = LocalDate.of(2025, 10, 12))
+    }
+
+    @Test
+    fun taskEditDone() = shot("task_edit_done") {
+        // 已办完的不重复事项：不显示「标记已办」
+        io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditContent(
+            st = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditUiState(
+                taskId = "t2",
+                kind = io.github.xiaohaoz1.jiarenxia.core.model.TaskKind.ID_EXPIRY,
+                title = "爸爸的驾驶证到期",
+                repeat = io.github.xiaohaoz1.jiarenxia.core.model.TaskRepeat.NONE,
+                done = true,
+                lastDoneDate = LocalDate.of(2026, 9, 1)
+            ),
+            cb = io.github.xiaohaoz1.jiarenxia.ui.task.TaskEditCallbacks(),
+            onDone = {}
+        )
+    }.also { assertNoTexts("标记已办") }
+
+    @Test
+    fun taskDoneConfirm() = shot("task_done_confirm") {
+        // 重复事项「标记已办」确认框：本期与下一期日期
+        io.github.xiaohaoz1.jiarenxia.ui.task.TaskDoneConfirmDialog(
+            io.github.xiaohaoz1.jiarenxia.ui.task.DoneConfirm(
+                LocalDate.of(2026, 10, 15), LocalDate.of(2027, 10, 15)
+            ),
+            {}, {}
+        )
+    }.also {
+        assertTexts(
+            "标记这一期已办？",
+            "这一期（2026年10月15日）记为已办，下次是 2027年10月15日。",
+            "标记已办", "取消"
         )
     }
 

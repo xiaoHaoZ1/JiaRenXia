@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +37,10 @@ fun FormActionBar(
     modifier: Modifier = Modifier,
     primaryEnabled: Boolean = true,
     busy: Boolean = false,
+    /** 与主按钮并列的描边按钮（排在主按钮左侧、两者等宽），如事项「标记已办」。 */
+    leadingText: String? = null,
+    onLeading: (() -> Unit)? = null,
+    leadingEnabled: Boolean = true,
     /** 次级文字按钮（如“保存并继续添加”）；大字号下经 FlowRow 另起一行。 */
     secondaryText: String? = null,
     onSecondary: (() -> Unit)? = null,
@@ -75,11 +80,20 @@ fun FormActionBar(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                if (leadingText != null && onLeading != null) {
+                    OutlinedButton(
+                        onClick = onLeading,
+                        enabled = leadingEnabled && !busy,
+                        shape = jrxActionShape(MaterialTheme.shapes.medium),
+                        modifier = Modifier.weight(1f)
+                    ) { Text(leadingText) }
+                }
                 Button(
                     onClick = onPrimary,
                     enabled = primaryEnabled && !busy,
                     shape = jrxActionShape(MaterialTheme.shapes.medium),
-                    modifier = if (secondaryText != null) Modifier.weight(1f)
+                    modifier = if (leadingText != null || secondaryText != null)
+                        Modifier.weight(1f)
                     else Modifier.fillMaxWidth()
                 ) {
                     if (busy) {

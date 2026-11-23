@@ -14,6 +14,7 @@ import io.github.xiaohaoz1.jiarenxia.data.FamilyResult
 import io.github.xiaohaoz1.jiarenxia.data.FamilyTaskRepository
 import io.github.xiaohaoz1.jiarenxia.data.TaskDraft
 import io.github.xiaohaoz1.jiarenxia.domain.ObserveFamilyOverview
+import io.github.xiaohaoz1.jiarenxia.reminder.TaskSchedule
 import io.github.xiaohaoz1.jiarenxia.reminder.TaskTemplates
 import java.time.LocalDate
 import javax.inject.Inject
@@ -26,6 +27,9 @@ import kotlinx.coroutines.launch
 /** 事项编辑页可选人物：全家（null）+ 本人（我的…）+ 其他家人（称谓/姓名）。 */
 /** 关联人条目（统一走 PersonPickItem：姓名（称谓））。 */
 typealias TaskPersonOption = io.github.xiaohaoz1.jiarenxia.domain.PersonPickItem
+
+/** 重复事项「标记已办」确认框：这一期日期与办完后的下一期日期。 */
+data class DoneConfirm(val current: LocalDate, val next: LocalDate)
 
 data class TaskEditUiState(
     val taskId: String? = null,
@@ -46,6 +50,12 @@ data class TaskEditUiState(
     val note: String = "",
     val enabled: Boolean = true,
     val lastDoneDate: LocalDate? = null,
+    /** 已办到第几期（载入时取库中值；保存保留旧值，表单不编辑）。 */
+    val periodIndex: Int = 0,
+    /** 不重复事项是否已办完；重复事项办完靠推进期数，done 恒为 false。 */
+    val done: Boolean = false,
+    /** 重复事项「标记已办」确认框状态；非空时弹确认。 */
+    val doneConfirm: DoneConfirm? = null,
     val persons: List<TaskPersonOption> = emptyList(),
     /** 保存进行中：阻止重复提交（按钮禁用之外的 ViewModel 层保护）。 */
     val saving: Boolean = false,
@@ -54,6 +64,8 @@ data class TaskEditUiState(
     val deleted: Boolean = false
 ) {
     val templateHint: String get() = TaskTemplates.of(kind).hint
+    /** 「标记已办」入口：仅已有且未办完的事项显示。 */
+    val canMarkDone: Boolean get() = taskId != null && !done
     /** 关联人物当前展示名（供选择行显示）。 */
     /** 当前关联人显示名（picker 条目 label）。 */
     fun personLabel(): String =
@@ -101,6 +113,8 @@ class TaskEditViewModel @Inject constructor(
                     note = existing.note ?: "",
                     enabled = existing.enabled,
                     lastDoneDate = existing.lastDoneDate,
+                    periodIndex = existing.periodIndex,
+                    done = existing.done,
                     persons = options
                 )
             } else {
@@ -213,18 +227,73 @@ class TaskEditViewModel @Inject constructor(
         val st = _ui.value
         // 保存成功即终态：导航完成前再次调用不允许把新建记录写两遍
         if (st.saving || st.saved) return
-        val amountFen = when (val r = MoneyText.parse(st.amountText)) {
-            MoneyText.Result.Empty -> null
-            MoneyText.Result.Invalid -> {
-                _ui.value = st.copy(error = "金额不正确")
-                return
-            }
-            is MoneyText.Result.Fen -> r.value
+        submit(false)
+    }
+
+    /**
+     * 「标记已办」（仅已有且未办完的事项）：与保存同一套输入校验；
+     * 不重复直接保存表单改动后办完；每月/每年先弹确认框说明本期与下一期日期。
+     */
+    fun markDone() {
+        val st = _ui.value
+        if (st.saving || st.saved || !st.canMarkDone) return
+        // 校验失败只写 error：不弹确认框、不写库
+        if (validateInput(st) == null) return
+        if (st.repeat == TaskRepeat.NONE) {
+            submit(true)
+            return
+        }
+        val today = LocalDate.now()
+        // repeat != NONE 时必有下一期；兜底按“至少推进一期”给日期
+        val nextIndex = TaskSchedule.nextPeriodIndex(
+            st.anchorDate, st.repeat, st.periodIndex, today
+        ) ?: (st.periodIndex + 1)
+        _ui.value = st.copy(
+            doneConfirm = DoneConfirm(
+                current = TaskSchedule.dueDate(st.anchorDate, st.repeat, st.periodIndex),
+                next = TaskSchedule.dueDate(st.anchorDate, st.repeat, nextIndex)
+            )
+        )
+    }
+
+    /** 确认「标记已办」：先保存表单改动，再把事项办完。 */
+    fun confirmMarkDone() {
+        _ui.value = _ui.value.copy(doneConfirm = null)
+        submit(true)
+    }
+
+    /** 取消「标记已办」确认框：什么都不写。 */
+    fun dismissDoneConfirm() {
+        _ui.value = _ui.value.copy(doneConfirm = null)
+    }
+
+    /**
+     * 保存/标记已办共用的输入校验：金额非法 → error「金额不正确」，
+     * 提前提醒为空 → error「提醒时间无效」。
+     * @return 金额解析结果（[MoneyText.Result.Empty] 表示未填）；校验失败返回 null（error 已写）。
+     */
+    private fun validateInput(st: TaskEditUiState): MoneyText.Result? {
+        val amount = MoneyText.parse(st.amountText)
+        if (amount == MoneyText.Result.Invalid) {
+            _ui.value = st.copy(error = "金额不正确")
+            return null
         }
         if (st.offsets.isEmpty()) {
             _ui.value = st.copy(error = "提醒时间无效")
-            return
+            return null
         }
+        return amount
+    }
+
+    /**
+     * 写库主体：先校验，失败只更新 error；通过后置 saving 并在协程里保存。
+     * [markDone] 为 true 时保存成功后接 `markDone`，两步都成功才置 saved。
+     */
+    private fun submit(markDone: Boolean) {
+        val st = _ui.value
+        if (st.saving || st.saved) return
+        val amount = validateInput(st) ?: return
+        val amountFen = (amount as? MoneyText.Result.Fen)?.value
         _ui.value = st.copy(saving = true)
         viewModelScope.launch {
             try {
@@ -239,11 +308,25 @@ class TaskEditViewModel @Inject constructor(
                         pregnancyId = st.pregnancyId
                     )
                 )
-                when (res) {
-                    is FamilyResult.Success ->
-                        _ui.value = _ui.value.copy(saved = true, error = null)
-                    is FamilyResult.Failure ->
+                when {
+                    res is FamilyResult.Failure ->
                         _ui.value = _ui.value.copy(error = res.error.message)
+                    !markDone ->
+                        _ui.value = _ui.value.copy(saved = true, error = null)
+                    else -> {
+                        // 「标记已办」：保存成功后再办完，两步都成功才算 saved
+                        val id = st.taskId
+                        if (id == null) {
+                            _ui.value = _ui.value.copy(saved = true, error = null)
+                        } else {
+                            when (val done = taskRepository.markDone(id, LocalDate.now())) {
+                                is FamilyResult.Success ->
+                                    _ui.value = _ui.value.copy(saved = true, error = null)
+                                is FamilyResult.Failure ->
+                                    _ui.value = _ui.value.copy(error = done.error.message)
+                            }
+                        }
+                    }
                 }
             } catch (e: CancellationException) {
                 throw e

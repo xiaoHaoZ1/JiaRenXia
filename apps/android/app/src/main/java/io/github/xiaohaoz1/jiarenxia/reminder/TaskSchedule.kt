@@ -35,10 +35,16 @@ object TaskSchedule {
      * 办完后的下一期数：至少推进一期；若已逾期多期，直接跳到今天之后的最近一期。
      * NONE 返回 null（由调用处置 done = true）。
      */
-    fun nextPeriodIndex(task: FamilyTask, today: LocalDate): Int? {
-        if (task.repeat == TaskRepeat.NONE) return null
-        var next = task.periodIndex + 1
-        while (dueDate(task.anchorDate, task.repeat, next) <= today) next++
+    fun nextPeriodIndex(task: FamilyTask, today: LocalDate): Int? =
+        nextPeriodIndex(task.anchorDate, task.repeat, task.periodIndex, today)
+
+    /** 同上，按首次日期/周期/当前期数推算（编辑页确认框用表单上的值）。 */
+    fun nextPeriodIndex(
+        anchor: LocalDate, repeat: TaskRepeat, periodIndex: Int, today: LocalDate
+    ): Int? {
+        if (repeat == TaskRepeat.NONE) return null
+        var next = periodIndex + 1
+        while (dueDate(anchor, repeat, next) <= today) next++
         return next
     }
 
