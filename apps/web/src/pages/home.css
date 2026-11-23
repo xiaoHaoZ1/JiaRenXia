@@ -104,13 +104,17 @@
   gap: 40px;
   padding-top: clamp(8px, 3vw, 40px);
 }
+/* 标题按容器宽度定字号（cqi）：两行各自成行，中文 nowrap 不折行 */
+.hero-copy { container-type: inline-size; }
 .hero-copy h1 {
-  font-size: clamp(36px, 3.4vw + 14px, 60px);
+  font-size: clamp(26px, calc(100cqi / 9.3), 60px);
   line-height: 1.22;
   letter-spacing: 0.02em;
   margin: 0.5em 0 0.45em;
 }
-.hero-copy h1 .accent { display: block; color: var(--primary); }
+.h1-line { display: block; }
+.h1-line.nowrap { white-space: nowrap; }
+.hero-copy h1 .accent { color: var(--primary); }
 .hero-lead {
   max-width: 29em;
   margin: 0 0 1.8em;
@@ -691,7 +695,9 @@
   .fc-title { left: -8px; top: 14%; }
   .fc-cal { right: -8px; top: 56%; }
   .float-card { display: none; }
-  .hero-visual .phone-hero { display: none; }
+  /* 手机截图压在相框右下角；下方留白给探出部分让位 */
+  .hero-visual { padding-bottom: 72px; }
+  .hero-visual .phone-hero { --phone-w: 112px; right: 0; bottom: -34%; }
   .feature-list li { padding: 14px 16px 14px 14px; }
   .feature-ico { width: 40px; height: 40px; border-radius: 14px; }
 }

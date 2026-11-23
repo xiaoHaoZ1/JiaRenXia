@@ -11,6 +11,10 @@ export const SITE = {
   sourceUrl: "https://github.com/xiaoHaoZ1/JiaRenXia",
   /** 守护侠公开源码仓库（GPL-3.0，2026-10-27 开源）。 */
   guardianSourceUrl: "https://github.com/xiaoHaoZ1/ShouHuXia",
+  /** 用户群：QQ群号、加群链接（二维码卡片截图在 public/qq-group.jpg）与展示用图片。 */
+  qqGroupNumber: "707799492",
+  qqGroupUrl: "https://qm.qq.com/q/Z94pErlPmo",
+  qqGroupQr: "/qq-group.jpg",
   /** 当前可下载的 Android 版本；留空表示尚未发布。 */
   apkVersion: "2.4.5",
   /** 与安装包一致的 versionCode；App 端「联网检查更新」按它判断新旧。 */

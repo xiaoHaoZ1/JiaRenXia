@@ -29,6 +29,7 @@ const T = {
     privacy: "隐私政策",
     terms: "用户协议",
     contact: "联系邮箱：",
+    qqGroupPre: "QQ 群：",
     footerNote:
       "家人侠官方网站。家人侠的家庭资料只存在你自己的手机里。首页家庭照片为 AI 生成的示意图。",
     donateLead:
@@ -50,6 +51,7 @@ const T = {
     privacy: "Privacy policy",
     terms: "Terms of use",
     contact: "Contact: ",
+    qqGroupPre: "QQ group: ",
     footerNote:
       "Official JiaRenXia website. Your family data lives only on your own phone. " +
       "The family photo on the home page is AI-generated.",
@@ -131,6 +133,9 @@ export function PublicLayout({ lang }: { lang: Lang }) {
                 <Link to={to("/privacy")}>{t.privacy}</Link>
                 <Link to={to("/terms")}>{t.terms}</Link>
                 <a href={`mailto:${SITE.contactEmail}`}>{t.contact}{SITE.contactEmail}</a>
+                <a href={SITE.qqGroupUrl} target="_blank" rel="noopener">
+                  {t.qqGroupPre}{SITE.qqGroupNumber}
+                </a>
               </nav>
             </div>
             <p className="footer-note">{t.footerNote}</p>

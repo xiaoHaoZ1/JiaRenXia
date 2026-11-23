@@ -8,6 +8,9 @@ import { SITE_URL } from "../seo";
 import { Icon } from "../icons";
 import type { IconName } from "../icons";
 import { useLang } from "../i18n";
+import {
+  CopyButton, useInWeChat, WeChatBanner, WeChatModal,
+} from "../ui";
 import shouhuxiaIcon from "../assets/shouhuxia-icon.png";
 import "./home.css";
 import "./shouhuxia.css";
@@ -141,38 +144,6 @@ const T = {
   },
 } as const;
 
-/** 复制按钮：点一下复制文本，短暂显示“已复制” */
-function CopyButton({ text, label, copiedLabel }: { text: string; label: string; copiedLabel: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      className="btn"
-      onClick={() => {
-        const done = () => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        };
-        const fallback = () => {
-          // 剪贴板 API 不可用时退回选择复制
-          const ta = document.createElement("textarea");
-          ta.value = text;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          ta.remove();
-          done();
-        };
-        const clip = navigator.clipboard;
-        if (clip) clip.writeText(text).then(done, fallback);
-        else fallback();
-      }}
-    >
-      {copied ? copiedLabel : label}
-    </button>
-  );
-}
-
 /** 首屏：左侧文案，右侧 CSS 画的手机——全屏「我没事」确认页。 */
 function Hero() {
   const t = T[useLang()];
@@ -290,14 +261,17 @@ function Honest() {
   );
 }
 
-/** 下载卡：版本/大小/校验 + 按钮 + 二维码 + 安装步骤。 */
+/** 下载卡：版本/大小/校验 + 按钮 + 二维码 + 安装步骤。微信内显示提示并拦截下载。 */
 function DownloadCard() {
   const t = T[useLang()];
   const en = useLang() === "en";
   const app = SHOUHUXIA;
   const loc = "en" in app && en ? app.en : undefined;
+  const inWeChat = useInWeChat();
+  const [wxOpen, setWxOpen] = useState(false);
   return (
     <section className="shx-dl card" id="dl" aria-labelledby="dl-h">
+      {inWeChat && <WeChatBanner />}
       <span className="kicker">{t.dlKicker}</span>
       <h2 id="dl-h">{t.dlH}</h2>
       <p>{loc?.description ?? app.description}</p>
@@ -316,7 +290,15 @@ function DownloadCard() {
       </ul>
       <div className="ext-dl">
         <div className="row">
-          <a className="btn btn-primary btn-big" href={app.file + "?src=web"} download>
+          <a
+            className="btn btn-primary btn-big"
+            href={app.file + "?src=web"}
+            download
+            rel="nofollow noopener"
+            onClick={inWeChat
+              ? (e) => { e.preventDefault(); setWxOpen(true); }
+              : undefined}
+          >
             {t.downloadApk}
           </a>
           <CopyButton text={`${SITE_URL}${en ? "/en" : ""}/shouhuxia`} label={t.copyLink} copiedLabel={t.copied} />
@@ -333,6 +315,7 @@ function DownloadCard() {
       </ol>
       <p className="muted">{t.shareNote}</p>
       <p className="note">{t.firstUse}</p>
+      {wxOpen && <WeChatModal onClose={() => setWxOpen(false)} />}
     </section>
   );
 }

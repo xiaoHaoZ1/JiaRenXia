@@ -45,8 +45,10 @@ fun p(
 fun rel(s: String, t: String, type: RelationshipType, order: RelativeAgeOrder? = null) =
     Relationship("r-$s-$t-$type", s, t, type, order)
 
-/** 演示家庭：我 杨明 + 三代亲属 + 一位未关联。 */
-fun demoGraph(publicSample: Boolean = false): FamilyGraph {
+/** 演示家庭：我 杨明 + 三代亲属 + 一位未关联。
+ * publicSample：公开宣传图用英文合成姓名；aliveChinese：官网截图用——
+ * 保留中文合成姓名。两者都让全员健在（publicSample 另有英文名映射）。 */
+fun demoGraph(publicSample: Boolean = false, aliveChinese: Boolean = false): FamilyGraph {
     val persons = listOf(
         p("me", "杨明", Gender.MALE, self = true),
         p("dad", "杨建国", Gender.MALE),
@@ -120,8 +122,11 @@ fun demoGraph(publicSample: Boolean = false): FamilyGraph {
         "cousin" to "Leo", "cousin_m" to "Sophie", "sao" to "Anna",
         "jiuzi" to "Ryan"
     )
-    val samplePersons = if (publicSample) persons.map {
-        it.copy(name = publicNames.getValue(it.id), livingStatus = LivingStatus.ALIVE)
+    val samplePersons = if (publicSample || aliveChinese) persons.map {
+        it.copy(
+            name = if (publicSample) publicNames.getValue(it.id) else it.name,
+            livingStatus = LivingStatus.ALIVE
+        )
     } else persons
     return FamilyGraph(samplePersons, rels, solar, birthdayValues.mapValues { listOf(it.value) })
 }
@@ -130,8 +135,8 @@ fun demoGraph(publicSample: Boolean = false): FamilyGraph {
 /** 演示用自定义称呼（DATABASE_SCHEMA 25.2）：杨建春 → “大伯”。 */
 val customTitles: Map<String, String> = mapOf("uncle" to "大伯")
 
-fun demoOverview(publicSample: Boolean = false): FamilyOverview {
-    val graph = demoGraph(publicSample)
+fun demoOverview(publicSample: Boolean = false, aliveChinese: Boolean = false): FamilyOverview {
+    val graph = demoGraph(publicSample, aliveChinese)
     val engine = KinshipEngine()
     val self = graph.persons.first { it.isSelf }
     val results = engine.resolveAll(graph, self.id)
@@ -153,8 +158,8 @@ fun demoOverview(publicSample: Boolean = false): FamilyOverview {
     )
 }
 
-fun familyState(publicSample: Boolean = false) = FamilyUiState(
-    overview = demoOverview(publicSample),
+fun familyState(publicSample: Boolean = false, aliveChinese: Boolean = false) = FamilyUiState(
+    overview = demoOverview(publicSample, aliveChinese),
     defaultNumbers = mapOf(
         "me" to "13800138000",
         "mom" to "13912345678"
@@ -162,8 +167,8 @@ fun familyState(publicSample: Boolean = false) = FamilyUiState(
     today = today
 )
 
-fun detailOf(id: String, publicSample: Boolean = false): PersonDetailUiState {
-    val ov = demoOverview(publicSample)
+fun detailOf(id: String, publicSample: Boolean = false, aliveChinese: Boolean = false): PersonDetailUiState {
+    val ov = demoOverview(publicSample, aliveChinese)
     val o = ov.byId.getValue(id)
     val birthdays = (ov.graph.birthdayValues[id] ?: emptyList()).associate { v ->
         val dateId = "d-$id-" + v.calendar.name
@@ -210,9 +215,9 @@ fun detailOf(id: String, publicSample: Boolean = false): PersonDetailUiState {
  * “我”的详情：领证/结婚两条已填纪念日走 DateRowDetail 面板，
  * 恋爱纪念日留空走 AddDateRow 添加入口，展示新的提醒面板样式。
  */
-fun selfDetail(publicSample: Boolean = false): PersonDetailUiState {
-    val base = detailOf("me", publicSample)
-    val ov = demoOverview(publicSample)
+fun selfDetail(publicSample: Boolean = false, aliveChinese: Boolean = false): PersonDetailUiState {
+    val base = detailOf("me", publicSample, aliveChinese)
+    val ov = demoOverview(publicSample, aliveChinese)
     val me = ov.byId.getValue("me").person
     val wife = ov.byId.getValue("wife").person
     fun entry(t: ImportantDateType, y: Int, m: Int, d: Int) =

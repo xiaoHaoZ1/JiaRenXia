@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { SITE } from "../src/site";
 import { ROOT, shot } from "./helpers";
 
 // 公共页面、导航、支持作者弹窗、直接访问、未知页面。
@@ -197,4 +198,110 @@ test("页脚有源代码链接", async ({ page }) => {
   await page.goto("/");
   const link = page.getByRole("link", { name: "源代码" });
   await expect(link).toHaveAttribute("href", "https://github.com/xiaoHaoZ1/JiaRenXia");
+});
+
+test("下载页结构：安装步骤、QQ 群与折叠区", async ({ page }) => {
+  for (const [path, steps, joinName, moreSummary] of [
+    ["/download", "第一次安装，照着做", "打开 QQ 加群", "其他版本与校验值"],
+    ["/en/download", "First install: follow these steps", "Open QQ to join", "Other builds and checksums"],
+  ] as const) {
+    await page.goto(path);
+    await expect(page.getByRole("heading", { name: steps })).toBeVisible();
+    // QQ 群链接指向解码出的 qm.qq.com 加群地址
+    await expect(
+      page.getByRole("link", { name: joinName, exact: true })
+    ).toHaveAttribute("href", SITE.qqGroupUrl);
+    // 「其他版本与校验值」默认收起
+    const more = page.locator("details.dl-more");
+    await expect(more).toBeVisible();
+    expect(await more.getAttribute("open")).toBeNull();
+    await expect(more.locator("summary")).toHaveText(moreSummary);
+    // 测试版链接在 DOM 里恰好一个
+    await expect(page.locator("a[href*='jiarenxia-beta-']")).toHaveCount(1);
+  }
+});
+
+test("微信内打开：提示条 + 拦截下载弹窗", async ({ browser }) => {
+  const context = await browser.newContext({
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) " +
+      "AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 " +
+      "MicroMessenger/8.0.50(0x18003236) NetType/WIFI Language/zh_CN",
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+    deviceScaleFactor: 2,
+  });
+  // 安全兜底：dl.jiarenxia.com 是下载计数服务，*.apk 是安装包——一律拦截
+  await context.route("**/*", (route) => {
+    const url = route.request().url();
+    if (url.includes("dl.jiarenxia.com") || url.includes(".apk")) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto("/download");
+    const banner = page.locator(".wx-banner");
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText("微信里不能直接下载安装包");
+
+    // 点主下载按钮：弹「请用浏览器打开」，页面地址不变
+    await page.getByRole("link", { name: "下载安装包" }).first().click();
+    const dialog = page.getByRole("dialog", { name: "请用浏览器打开" });
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/download$/);
+    await dialog.getByRole("button", { name: "知道了" }).click();
+    await expect(dialog).toBeHidden();
+
+    // 「其他版本与校验值」里的安装包链接同样被拦
+    await page.locator("details.dl-more > summary").click();
+    await page.getByRole("link", { name: "下载测试版" }).click();
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/download$/);
+    await dialog.getByRole("button", { name: "知道了" }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByRole("link", { name: "备用下载（GitHub）" }).click();
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/download$/);
+    await dialog.getByRole("button", { name: "知道了" }).click();
+    await expect(dialog).toBeHidden();
+
+    // 守护侠页下载卡同样拦截
+    await page.goto("/shouhuxia");
+    await page.locator("#dl a[href*='dl.jiarenxia.com']").click();
+    await expect(dialog).toBeVisible();
+    await expect(page).toHaveURL(/\/shouhuxia$/);
+  } finally {
+    await context.close();
+  }
+});
+
+test("首页大标题两行各自单行不折行", async ({ page }) => {
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.goto("/");
+    const counts = await page
+      .locator(".hero-copy h1 .h1-line")
+      .evaluateAll((els) => els.map((el) => el.getClientRects().length));
+    expect(counts).toEqual([1, 1]);
+  }
+});
+
+test("安装包链接全部带 nofollow", async ({ page }) => {
+  for (const path of ["/download", "/shouhuxia"] as const) {
+    await page.goto(path);
+    const links = page.locator("a[href*='dl.jiarenxia.com']");
+    const n = await links.count();
+    expect(n).toBeGreaterThan(0);
+    for (let i = 0; i < n; i++) {
+      const rel = await links.nth(i).getAttribute("rel");
+      expect(rel, `${path} 第 ${i + 1} 个安装包链接`).toContain("nofollow");
+    }
+  }
 });
